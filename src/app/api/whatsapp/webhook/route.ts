@@ -60,6 +60,22 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Fallback: Try LIKE search for partial match
+        if (!profile) {
+            console.log("Trying partial phone match...");
+            const last9Digits = normalizedPhone.slice(-9);
+            const { data } = await supabase
+                .from("profiles")
+                .select("id, full_name, department_id, whatsapp_phone")
+                .ilike("whatsapp_phone", `%${last9Digits}`)
+                .single();
+
+            if (data) {
+                profile = data;
+                console.log("Found profile with partial match:", data.whatsapp_phone);
+            }
+        }
+
         if (!profile) {
             // User not registered
             console.log("No profile found for any phone variant");
