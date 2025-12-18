@@ -77,13 +77,28 @@ export async function POST(request: NextRequest) {
         }
 
         if (!profile) {
-            // User not registered
+            // User not registered - show debug info
             console.log("No profile found for any phone variant");
+
+            // Debug: Get all phone numbers in database
+            const { data: allPhones } = await supabase
+                .from("profiles")
+                .select("whatsapp_phone, full_name")
+                .not("whatsapp_phone", "is", null)
+                .limit(5);
+
+            const dbPhones = allPhones?.map(p => p.whatsapp_phone).join(", ") || "none";
+            console.log("Database phones:", dbPhones);
+
             await sendWhatsAppMessage({
                 target: normalizedPhone,
-                message: `❌ Nomor WhatsApp Anda (${sender}) belum terdaftar.
+                message: `❌ Nomor (${sender}) tidak ditemukan.
 
-Silakan daftar terlebih dahulu di website IT Helpdesk dan tambahkan nomor WhatsApp di profil Anda.`,
+DEBUG:
+- Normalized: ${normalizedPhone}
+- DB phones: ${dbPhones}
+
+Pastikan format sama persis.`,
             });
             return NextResponse.json({ status: "unregistered" });
         }
