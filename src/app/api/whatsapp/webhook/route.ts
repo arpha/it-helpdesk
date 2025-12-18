@@ -31,18 +31,41 @@ export async function POST(request: NextRequest) {
         // Normalize phone number
         const normalizedPhone = formatPhoneNumber(sender);
 
-        // Find user by WhatsApp phone
-        const { data: profile, error: profileError } = await supabase
-            .from("profiles")
-            .select("id, full_name, department_id")
-            .eq("whatsapp_phone", normalizedPhone)
-            .single();
+        // Debug log
+        console.log("Sender:", sender, "Normalized:", normalizedPhone);
 
-        if (profileError || !profile) {
+        // Try multiple phone formats for matching
+        const phoneVariants = [
+            normalizedPhone,                          // 628xxx
+            normalizedPhone.replace(/^62/, "0"),      // 08xxx  
+            normalizedPhone.replace(/^62/, ""),       // 8xxx
+            sender,                                    // original
+        ];
+
+        console.log("Trying phone variants:", phoneVariants);
+
+        // Find user by WhatsApp phone - try multiple formats
+        let profile = null;
+        for (const phone of phoneVariants) {
+            const { data } = await supabase
+                .from("profiles")
+                .select("id, full_name, department_id")
+                .eq("whatsapp_phone", phone)
+                .single();
+
+            if (data) {
+                profile = data;
+                console.log("Found profile with phone:", phone);
+                break;
+            }
+        }
+
+        if (!profile) {
             // User not registered
+            console.log("No profile found for any phone variant");
             await sendWhatsAppMessage({
                 target: normalizedPhone,
-                message: `❌ Nomor WhatsApp Anda belum terdaftar.
+                message: `❌ Nomor WhatsApp Anda (${sender}) belum terdaftar.
 
 Silakan daftar terlebih dahulu di website IT Helpdesk dan tambahkan nomor WhatsApp di profil Anda.`,
             });
