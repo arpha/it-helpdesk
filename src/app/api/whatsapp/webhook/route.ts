@@ -14,9 +14,14 @@ import {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
+
+        // Debug log - check Vercel Function Logs
+        console.log("Webhook received:", JSON.stringify(body));
+
         const payload = parseFonnteWebhook(body);
 
         if (!payload) {
+            console.log("Invalid payload, returning 400");
             return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
         }
 
