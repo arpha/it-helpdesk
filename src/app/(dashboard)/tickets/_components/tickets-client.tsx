@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDataTable } from "@/hooks/use-data-table";
-import { useTickets, Ticket } from "@/hooks/api/use-tickets";
+import { useTickets, Ticket, useTicketsRealtime } from "@/hooks/api/use-tickets";
 import { useATKItems } from "@/hooks/api/use-atk-items";
 import { useAssets } from "@/hooks/api/use-assets";
 import { useDepartments } from "@/hooks/api/use-departments";
@@ -102,6 +102,9 @@ export function TicketsClient() {
     const [statusFilter, setStatusFilter] = useState("all");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [isPending, startTransition] = useTransition();
+
+    // Enable realtime updates
+    useTicketsRealtime();
 
     const { data: ticketsData, isLoading } = useTickets({
         page,

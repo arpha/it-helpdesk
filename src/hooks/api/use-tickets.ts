@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { useEffect } from "react";
 
 export type Ticket = {
     id: string;
@@ -109,4 +110,32 @@ export function useTicket(id: string) {
         },
         enabled: !!id,
     });
+}
+
+// Realtime subscription hook - auto-refreshes tickets on any change
+export function useTicketsRealtime() {
+    const supabase = createClient();
+    const queryClient = useQueryClient();
+
+    useEffect(() => {
+        const channel = supabase
+            .channel("tickets-realtime")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "tickets",
+                },
+                () => {
+                    // Invalidate all tickets queries to refetch
+                    queryClient.invalidateQueries({ queryKey: ["tickets"] });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [supabase, queryClient]);
 }
