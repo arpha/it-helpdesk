@@ -5,17 +5,85 @@ import {
     sendWhatsAppMessage,
     formatPhoneNumber,
 } from "@/lib/fonnte/client";
-import {
-    parseATKRequest,
-    matchWithCatalog,
-    getHelpMessage,
-} from "@/lib/fonnte/parser";
+
+// In-memory conversation state (use Redis in production for multi-instance)
+const conversationState = new Map<string, {
+    step: string;
+    data: {
+        category?: string;
+        priority?: string;
+        description?: string;
+    };
+    timestamp: number;
+}>();
+
+// Cleanup old conversations (5 minutes timeout)
+function cleanupOldConversations() {
+    const now = Date.now();
+    for (const [phone, state] of conversationState) {
+        if (now - state.timestamp > 5 * 60 * 1000) {
+            conversationState.delete(phone);
+        }
+    }
+}
+
+const CATEGORIES = ["hardware", "software", "data", "network"];
+const PRIORITIES = ["low", "medium", "high", "urgent"];
+
+function getMainMenu(name: string) {
+    return `Halo *${name}*! 👋
+
+Selamat datang di IT Helpdesk.
+
+Ketik angka untuk memilih:
+*1.* 🎫 Buat Ticket Baru
+*2.* 📋 Cek Status Ticket
+*3.* ❓ Bantuan`;
+}
+
+function getCategoryMenu() {
+    return `📂 *Pilih Kategori Masalah:*
+
+*1.* 💻 Hardware (PC, Laptop, Printer, dll)
+*2.* 🖥️ Software (Aplikasi, Error, dll)
+*3.* 💾 Data (Backup, Recovery, dll)
+*4.* 🌐 Network (Internet, WiFi, dll)
+
+Ketik angka 1-4:`;
+}
+
+function getPriorityMenu() {
+    return `⚡ *Pilih Prioritas:*
+
+*1.* 🟢 Low (Bisa ditunda)
+*2.* 🟡 Medium (Perlu segera)
+*3.* 🟠 High (Penting)
+*4.* 🔴 Urgent (Sangat mendesak)
+
+Ketik angka 1-4:`;
+}
+
+function getHelpMessage() {
+    return `❓ *Bantuan IT Helpdesk*
+
+*Cara Buat Ticket:*
+1. Ketik *1* atau *ticket*
+2. Pilih kategori (1-4)
+3. Pilih prioritas (1-4)
+4. Ketik deskripsi masalah
+
+*Commands:*
+• *1* atau *ticket* - Buat ticket baru
+• *2* atau *status* - Cek status ticket
+• *3* atau *help* - Tampilkan bantuan
+• *batal* - Batalkan proses`;
+}
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
+        cleanupOldConversations();
 
-        // Debug log - check Vercel Function Logs
+        const body = await request.json();
         console.log("Webhook received:", JSON.stringify(body));
 
         const payload = parseFonnteWebhook(body);
@@ -28,23 +96,18 @@ export async function POST(request: NextRequest) {
         const { sender, message } = payload;
         const supabase = createAdminClient();
 
-        // Normalize phone number
         const normalizedPhone = formatPhoneNumber(sender);
-
-        // Debug log
         console.log("Sender:", sender, "Normalized:", normalizedPhone);
 
         // Try multiple phone formats for matching
         const phoneVariants = [
-            normalizedPhone,                          // 628xxx
-            normalizedPhone.replace(/^62/, "0"),      // 08xxx  
-            normalizedPhone.replace(/^62/, ""),       // 8xxx
-            sender,                                    // original
+            normalizedPhone,
+            normalizedPhone.replace(/^62/, "0"),
+            normalizedPhone.replace(/^62/, ""),
+            sender,
         ];
 
-        console.log("Trying phone variants:", phoneVariants);
-
-        // Find user by WhatsApp phone - try multiple formats
+        // Find user by WhatsApp phone
         let profile = null;
         for (const phone of phoneVariants) {
             const { data } = await supabase
@@ -55,14 +118,12 @@ export async function POST(request: NextRequest) {
 
             if (data) {
                 profile = data;
-                console.log("Found profile with phone:", phone);
                 break;
             }
         }
 
-        // Fallback: Try LIKE search for partial match
+        // Fallback: partial match
         if (!profile) {
-            console.log("Trying partial phone match...");
             const last9Digits = normalizedPhone.slice(-9);
             const { data } = await supabase
                 .from("profiles")
@@ -70,43 +131,88 @@ export async function POST(request: NextRequest) {
                 .ilike("whatsapp_phone", `%${last9Digits}`)
                 .single();
 
-            if (data) {
-                profile = data;
-                console.log("Found profile with partial match:", data.whatsapp_phone);
-            }
+            if (data) profile = data;
         }
 
         if (!profile) {
-            // User not registered - show debug info
-            console.log("No profile found for any phone variant");
-
-            // Debug: Get all phone numbers in database
-            const { data: allPhones } = await supabase
-                .from("profiles")
-                .select("whatsapp_phone, full_name")
-                .not("whatsapp_phone", "is", null)
-                .limit(5);
-
-            const dbPhones = allPhones?.map(p => p.whatsapp_phone).join(", ") || "none";
-            console.log("Database phones:", dbPhones);
-
             await sendWhatsAppMessage({
                 target: normalizedPhone,
-                message: `❌ Nomor (${sender}) tidak ditemukan.
+                message: `❌ Nomor WhatsApp Anda belum terdaftar.
 
-DEBUG:
-- Normalized: ${normalizedPhone}
-- DB phones: ${dbPhones}
-
-Pastikan format sama persis.`,
+Silakan hubungi Admin IT untuk mendaftarkan nomor Anda.`,
             });
             return NextResponse.json({ status: "unregistered" });
         }
 
         const lowerMessage = message.toLowerCase().trim();
+        const state = conversationState.get(normalizedPhone);
 
-        // Handle /help command
-        if (lowerMessage === "/help" || lowerMessage === "help") {
+        // Handle cancel command
+        if (lowerMessage === "batal" || lowerMessage === "cancel") {
+            conversationState.delete(normalizedPhone);
+            await sendWhatsAppMessage({
+                target: normalizedPhone,
+                message: "❌ Proses dibatalkan.\n\n" + getMainMenu(profile.full_name),
+            });
+            return NextResponse.json({ status: "cancelled" });
+        }
+
+        // Handle conversation state
+        if (state) {
+            return await handleConversation(supabase, normalizedPhone, profile, lowerMessage, state);
+        }
+
+        // Main menu commands
+        if (lowerMessage === "1" || lowerMessage === "ticket" || lowerMessage === "/ticket") {
+            conversationState.set(normalizedPhone, {
+                step: "select_category",
+                data: {},
+                timestamp: Date.now(),
+            });
+            await sendWhatsAppMessage({
+                target: normalizedPhone,
+                message: getCategoryMenu(),
+            });
+            return NextResponse.json({ status: "category_menu" });
+        }
+
+        if (lowerMessage === "2" || lowerMessage === "status" || lowerMessage === "/status") {
+            const { data: tickets } = await supabase
+                .from("tickets")
+                .select("id, title, status, priority, created_at")
+                .eq("created_by", profile.id)
+                .order("created_at", { ascending: false })
+                .limit(5);
+
+            if (tickets && tickets.length > 0) {
+                const statusEmojis: Record<string, string> = {
+                    open: "🟡",
+                    in_progress: "🔵",
+                    resolved: "✅",
+                    closed: "⚫",
+                };
+                const ticketList = tickets
+                    .map(t => {
+                        const emoji = statusEmojis[t.status] || "⏳";
+                        const date = new Date(t.created_at).toLocaleDateString("id-ID");
+                        return `${emoji} *${t.title}*\n   Status: ${t.status} | ${date}`;
+                    })
+                    .join("\n\n");
+
+                await sendWhatsAppMessage({
+                    target: normalizedPhone,
+                    message: `📋 *Ticket Anda (5 Terakhir):*\n\n${ticketList}`,
+                });
+            } else {
+                await sendWhatsAppMessage({
+                    target: normalizedPhone,
+                    message: "📋 Anda belum memiliki ticket.\n\nKetik *1* untuk buat ticket baru.",
+                });
+            }
+            return NextResponse.json({ status: "status_sent" });
+        }
+
+        if (lowerMessage === "3" || lowerMessage === "help" || lowerMessage === "/help") {
             await sendWhatsAppMessage({
                 target: normalizedPhone,
                 message: getHelpMessage(),
@@ -114,161 +220,13 @@ Pastikan format sama persis.`,
             return NextResponse.json({ status: "help_sent" });
         }
 
-        // Handle /daftar command - list available items
-        if (lowerMessage === "/daftar" || lowerMessage === "daftar") {
-            const { data: items } = await supabase
-                .from("atk_items")
-                .select("name, unit, stock_quantity")
-                .order("name");
-
-            if (items && items.length > 0) {
-                const itemList = items
-                    .map((item, i) => `${i + 1}. ${item.name} (${item.unit}) - Stok: ${item.stock_quantity}`)
-                    .join("\n");
-
-                await sendWhatsAppMessage({
-                    target: normalizedPhone,
-                    message: `📦 *Daftar Barang ATK*\n\n${itemList}`,
-                });
-            } else {
-                await sendWhatsAppMessage({
-                    target: normalizedPhone,
-                    message: "Tidak ada barang ATK tersedia.",
-                });
-            }
-            return NextResponse.json({ status: "list_sent" });
-        }
-
-        // Handle /status command
-        if (lowerMessage === "/status" || lowerMessage === "status") {
-            const { data: requests } = await supabase
-                .from("atk_requests")
-                .select("id, status, created_at")
-                .eq("requested_by", profile.id)
-                .order("created_at", { ascending: false })
-                .limit(5);
-
-            if (requests && requests.length > 0) {
-                const statusList = requests
-                    .map(req => {
-                        const statusEmoji = req.status === "approved" ? "✅" :
-                            req.status === "rejected" ? "❌" : "⏳";
-                        const date = new Date(req.created_at).toLocaleDateString("id-ID");
-                        return `${statusEmoji} ${req.id.slice(0, 8)} - ${req.status} (${date})`;
-                    })
-                    .join("\n");
-
-                await sendWhatsAppMessage({
-                    target: normalizedPhone,
-                    message: `📋 *Status Request ATK Anda*\n\n${statusList}`,
-                });
-            } else {
-                await sendWhatsAppMessage({
-                    target: normalizedPhone,
-                    message: "Anda belum memiliki request ATK.",
-                });
-            }
-            return NextResponse.json({ status: "status_sent" });
-        }
-
-        // Handle /atk request
-        if (lowerMessage.startsWith("/atk") || lowerMessage.startsWith("atk")) {
-            const parsed = parseATKRequest(message);
-
-            if (!parsed.isValid) {
-                await sendWhatsAppMessage({
-                    target: normalizedPhone,
-                    message: `❌ Format tidak valid.\n\n${parsed.error}\n\nKetik /help untuk bantuan.`,
-                });
-                return NextResponse.json({ status: "invalid_format" });
-            }
-
-            // Get catalog items
-            const { data: catalogItems } = await supabase
-                .from("atk_items")
-                .select("id, name, unit");
-
-            if (!catalogItems || catalogItems.length === 0) {
-                await sendWhatsAppMessage({
-                    target: normalizedPhone,
-                    message: "❌ Tidak ada barang ATK tersedia.",
-                });
-                return NextResponse.json({ status: "no_items" });
-            }
-
-            // Match parsed items with catalog
-            const matched = matchWithCatalog(parsed.items, catalogItems);
-            const unmatched = matched.filter(m => !m.itemId);
-
-            if (unmatched.length > 0) {
-                const unmatchedNames = unmatched.map(m => m.parsedItem.name).join(", ");
-                await sendWhatsAppMessage({
-                    target: normalizedPhone,
-                    message: `❌ Barang tidak ditemukan: ${unmatchedNames}\n\nKetik /daftar untuk melihat daftar barang yang tersedia.`,
-                });
-                return NextResponse.json({ status: "items_not_found" });
-            }
-
-            // Create ATK request
-            const { data: newRequest, error: requestError } = await supabase
-                .from("atk_requests")
-                .insert({
-                    requested_by: profile.id,
-                    department_id: profile.department_id,
-                    status: "pending",
-                    notes: parsed.purpose,
-                    source: "whatsapp",
-                })
-                .select("id")
-                .single();
-
-            if (requestError || !newRequest) {
-                await sendWhatsAppMessage({
-                    target: normalizedPhone,
-                    message: "❌ Gagal membuat request. Silakan coba lagi.",
-                });
-                return NextResponse.json({ status: "error", error: requestError?.message });
-            }
-
-            // Create request items
-            const requestItems = matched.map(m => ({
-                request_id: newRequest.id,
-                item_id: m.itemId,
-                quantity: m.parsedItem.quantity,
-            }));
-
-            await supabase.from("atk_request_items").insert(requestItems);
-
-            // Send confirmation
-            const itemList = matched
-                .map(m => `• ${m.match} × ${m.parsedItem.quantity} ${m.parsedItem.unit}`)
-                .join("\n");
-
-            await sendWhatsAppMessage({
-                target: normalizedPhone,
-                message: `✅ *Request ATK Berhasil!*
-
-📝 *Items:*
-${itemList}
-
-📋 *Keperluan:* ${parsed.purpose || "-"}
-🆔 *No. Request:* ${newRequest.id.slice(0, 8)}
-
-Status akan dikirim via WhatsApp.`,
-            });
-
-            return NextResponse.json({ status: "success", requestId: newRequest.id });
-        }
-
-        // Unknown command
+        // Default: show main menu
         await sendWhatsAppMessage({
             target: normalizedPhone,
-            message: `Halo ${profile.full_name}! 👋
-
-Ketik /help untuk bantuan cara request ATK.`,
+            message: getMainMenu(profile.full_name),
         });
 
-        return NextResponse.json({ status: "greeting_sent" });
+        return NextResponse.json({ status: "menu_sent" });
     } catch (error) {
         console.error("Webhook error:", error);
         return NextResponse.json(
@@ -276,6 +234,108 @@ Ketik /help untuk bantuan cara request ATK.`,
             { status: 500 }
         );
     }
+}
+
+async function handleConversation(
+    supabase: ReturnType<typeof createAdminClient>,
+    phone: string,
+    profile: { id: string; full_name: string; department_id: string | null },
+    message: string,
+    state: { step: string; data: { category?: string; priority?: string; description?: string }; timestamp: number }
+) {
+    const { step, data } = state;
+
+    // Step 1: Select category
+    if (step === "select_category") {
+        const categoryIndex = parseInt(message) - 1;
+        if (categoryIndex >= 0 && categoryIndex < CATEGORIES.length) {
+            data.category = CATEGORIES[categoryIndex];
+            conversationState.set(phone, { step: "select_priority", data, timestamp: Date.now() });
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `✅ Kategori: *${data.category.toUpperCase()}*\n\n` + getPriorityMenu(),
+            });
+            return NextResponse.json({ status: "priority_menu" });
+        } else {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: "❌ Pilihan tidak valid. Ketik angka 1-4.\n\n" + getCategoryMenu(),
+            });
+            return NextResponse.json({ status: "invalid_category" });
+        }
+    }
+
+    // Step 2: Select priority
+    if (step === "select_priority") {
+        const priorityIndex = parseInt(message) - 1;
+        if (priorityIndex >= 0 && priorityIndex < PRIORITIES.length) {
+            data.priority = PRIORITIES[priorityIndex];
+            conversationState.set(phone, { step: "enter_description", data, timestamp: Date.now() });
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `✅ Prioritas: *${data.priority.toUpperCase()}*
+
+📝 *Ketik deskripsi masalah Anda:*
+
+(Jelaskan secara singkat masalah yang dialami)`,
+            });
+            return NextResponse.json({ status: "description_prompt" });
+        } else {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: "❌ Pilihan tidak valid. Ketik angka 1-4.\n\n" + getPriorityMenu(),
+            });
+            return NextResponse.json({ status: "invalid_priority" });
+        }
+    }
+
+    // Step 3: Enter description & create ticket
+    if (step === "enter_description") {
+        data.description = message;
+
+        // Create ticket in database
+        const { data: ticket, error } = await supabase
+            .from("tickets")
+            .insert({
+                title: `[WA] ${data.description?.slice(0, 50)}...`,
+                description: data.description,
+                category: data.category,
+                priority: data.priority,
+                status: "open",
+                created_by: profile.id,
+                department_id: profile.department_id,
+            })
+            .select("id")
+            .single();
+
+        conversationState.delete(phone);
+
+        if (error || !ticket) {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: "❌ Gagal membuat ticket. Silakan coba lagi.\n\nKetik *1* untuk mencoba lagi.",
+            });
+            return NextResponse.json({ status: "error", error: error?.message });
+        }
+
+        const ticketId = ticket.id.slice(0, 8).toUpperCase();
+        await sendWhatsAppMessage({
+            target: phone,
+            message: `✅ *TICKET BERHASIL DIBUAT!*
+
+🆔 *ID:* ${ticketId}
+📂 *Kategori:* ${data.category}
+⚡ *Prioritas:* ${data.priority}
+📝 *Deskripsi:* ${data.description}
+
+Tim IT akan segera merespon ticket Anda.
+Ketik *2* untuk cek status ticket.`,
+        });
+
+        return NextResponse.json({ status: "ticket_created", ticketId: ticket.id });
+    }
+
+    return NextResponse.json({ status: "unknown_step" });
 }
 
 // Fonnte sends GET for verification
