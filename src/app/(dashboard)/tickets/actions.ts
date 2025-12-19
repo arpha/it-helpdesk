@@ -120,10 +120,10 @@ export async function assignTicket(ticketId: string, assigneeId: string): Promis
     try {
         const supabase = createAdminClient();
 
-        // Get ticket details
+        // Get ticket details with department
         const { data: ticket } = await supabase
             .from("tickets")
-            .select("title, category, priority, created_by, profiles:created_by(full_name)")
+            .select("title, category, priority, created_by, profiles:created_by(full_name), departments:department_id(name)")
             .eq("id", ticketId)
             .single();
 
@@ -151,6 +151,9 @@ export async function assignTicket(ticketId: string, assigneeId: string): Promis
             const creatorName = Array.isArray(ticket.profiles)
                 ? ticket.profiles[0]?.full_name
                 : (ticket.profiles as { full_name: string } | null)?.full_name || "User";
+            const deptName = Array.isArray(ticket.departments)
+                ? ticket.departments[0]?.name
+                : (ticket.departments as { name: string } | null)?.name || "-";
 
             await sendWhatsAppMessage({
                 target: formatPhoneNumber(assignee.whatsapp_phone),
@@ -160,6 +163,7 @@ export async function assignTicket(ticketId: string, assigneeId: string): Promis
 📂 *Kategori:* ${ticket.category}
 ⚡ *Prioritas:* ${ticket.priority?.toUpperCase()}
 👤 *Pelapor:* ${creatorName}
+🏢 *Departemen:* ${deptName}
 
 Silakan login ke IT Helpdesk untuk detail lebih lanjut.`,
             });
