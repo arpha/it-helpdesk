@@ -188,6 +188,7 @@ export function TicketsClient() {
                 id: selectedTicket.id,
                 resolution_notes: formResolution,
                 repair_type: formRepairType,
+                asset_id: selectedTicket.asset_id || formAssetId || undefined,
                 parts: formParts.filter(p => p.item_id && p.quantity > 0),
             });
 
@@ -558,12 +559,26 @@ export function TicketsClient() {
                         </div>
 
 
-                        {selectedTicket?.asset && (
+                        {selectedTicket?.asset ? (
                             <div className="space-y-2">
                                 <Label>Asset</Label>
                                 <div className="p-2 border rounded-md bg-muted/50">
                                     {selectedTicket.asset.name} ({selectedTicket.asset.asset_code})
                                 </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <Label>Asset (pilih jika ada)</Label>
+                                <Select value={formAssetId} onValueChange={setFormAssetId}>
+                                    <SelectTrigger><SelectValue placeholder="Pilih asset..." /></SelectTrigger>
+                                    <SelectContent>
+                                        {assetsData?.data?.map((asset) => (
+                                            <SelectItem key={asset.id} value={asset.id}>
+                                                {asset.name} ({asset.asset_code})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         )}
 

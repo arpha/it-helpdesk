@@ -28,6 +28,7 @@ type CompleteTicketInput = {
     id: string;
     resolution_notes?: string;
     repair_type?: string;
+    asset_id?: string;
     parts?: { item_id: string; quantity: number }[];
 };
 
@@ -207,14 +208,23 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
             }
         }
 
-        // 3. If asset is linked, create maintenance record
-        if (ticket?.asset_id) {
+        // 3. If asset is linked (from ticket or form), create maintenance record
+        const assetId = ticket?.asset_id || input.asset_id;
+        if (assetId) {
+            // Update ticket with asset_id if provided from form
+            if (input.asset_id && !ticket?.asset_id) {
+                await supabase
+                    .from("tickets")
+                    .update({ asset_id: input.asset_id })
+                    .eq("id", input.id);
+            }
+
             const partsDescription = input.parts?.length
                 ? `Parts used: ${input.parts.map(p => `${p.quantity}x`).join(", ")}`
                 : "";
 
             await supabase.from("asset_maintenance").insert({
-                asset_id: ticket.asset_id,
+                asset_id: assetId,
                 type: input.repair_type || "repair",
                 description: `Ticket resolution: ${input.resolution_notes || "Completed"}`,
                 notes: partsDescription,
