@@ -120,6 +120,13 @@ export async function assignTicket(ticketId: string, assigneeId: string): Promis
     try {
         const supabase = createAdminClient();
 
+        // Get ticket details
+        const { data: ticket } = await supabase
+            .from("tickets")
+            .select("title, category, priority, created_by, profiles:created_by(full_name)")
+            .eq("id", ticketId)
+            .single();
+
         const { error } = await supabase
             .from("tickets")
             .update({
@@ -130,6 +137,32 @@ export async function assignTicket(ticketId: string, assigneeId: string): Promis
 
         if (error) {
             return { success: false, error: error.message };
+        }
+
+        // Send WhatsApp notification to assigned technician
+        const { data: assignee } = await supabase
+            .from("profiles")
+            .select("full_name, whatsapp_phone")
+            .eq("id", assigneeId)
+            .single();
+
+        if (assignee?.whatsapp_phone && ticket) {
+            const { sendWhatsAppMessage, formatPhoneNumber } = await import("@/lib/fonnte/client");
+            const creatorName = Array.isArray(ticket.profiles)
+                ? ticket.profiles[0]?.full_name
+                : (ticket.profiles as { full_name: string } | null)?.full_name || "User";
+
+            await sendWhatsAppMessage({
+                target: formatPhoneNumber(assignee.whatsapp_phone),
+                message: `🎫 *TICKET BARU UNTUK ANDA*
+
+📋 *Judul:* ${ticket.title}
+📂 *Kategori:* ${ticket.category}
+⚡ *Prioritas:* ${ticket.priority?.toUpperCase()}
+👤 *Pelapor:* ${creatorName}
+
+Silakan login ke IT Helpdesk untuk detail lebih lanjut.`,
+            });
         }
 
         revalidatePath("/tickets");
