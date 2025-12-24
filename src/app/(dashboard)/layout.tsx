@@ -33,7 +33,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             <UserInitializer user={user} />
 
             {/* Sidebar - hidden on mobile, visible on desktop */}
-            <div className="hidden md:block">
+            <div className="hidden md:flex h-full">
                 <Sidebar />
             </div>
 
