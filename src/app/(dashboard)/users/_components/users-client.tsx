@@ -41,10 +41,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Download } from "lucide-react";
 import { useState, useTransition, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createUser, updateUser, deleteUser, uploadAvatar } from "../actions";
+import { createUser, updateUser, deleteUser, uploadAvatar, bulkImportUsers, BulkImportUsersResult } from "../actions";
+import * as XLSX from "xlsx";
 
 const roleColors: Record<string, string> = {
     admin: "bg-red-500/10 text-red-500 hover:bg-red-500/20",
@@ -108,6 +109,11 @@ export default function UsersClient() {
     const [addAvatarPreview, setAddAvatarPreview] = useState<string>("");
     const [addMessage, setAddMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+    // Import states
+    const [isImportOpen, setIsImportOpen] = useState(false);
+    const [importResult, setImportResult] = useState<BulkImportUsersResult | null>(null);
+    const importFileInputRef = useRef<HTMLInputElement>(null);
+
     const addFileInputRef = useRef<HTMLInputElement>(null);
     const editFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -156,6 +162,73 @@ export default function UsersClient() {
     const handleDelete = (user: UserProfile) => {
         setSelectedUser(user);
         setIsDeleteOpen(true);
+    };
+
+    // Import handlers
+    const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            if (jsonData.length === 0) {
+                setImportResult({ success: false, imported: 0, failed: 0, errors: ["No data found in file"], details: [] });
+                setIsImportOpen(true);
+                return;
+            }
+
+            // Map Excel columns to expected format
+            const items = (jsonData as Record<string, unknown>[]).map((row) => ({
+                username: String(row["Username"] || row["username"] || ""),
+                email: String(row["Email"] || row["email"] || ""),
+                password: String(row["Password"] || row["password"] || ""),
+                full_name: String(row["Full Name"] || row["full_name"] || row["Nama"] || ""),
+                role: String(row["Role"] || row["role"] || "user"),
+                department_name: String(row["Department"] || row["department"] || row["Departemen"] || ""),
+            }));
+
+            startTransition(async () => {
+                const result = await bulkImportUsers(items);
+                setImportResult(result);
+                setIsImportOpen(true);
+                queryClient.invalidateQueries({ queryKey: ["users"] });
+            });
+        } catch (error) {
+            setImportResult({
+                success: false,
+                imported: 0,
+                failed: 0,
+                errors: [error instanceof Error ? error.message : "Failed to parse Excel file"],
+                details: [],
+            });
+            setIsImportOpen(true);
+        }
+
+        // Reset file input
+        if (importFileInputRef.current) {
+            importFileInputRef.current.value = "";
+        }
+    };
+
+    const handleDownloadTemplate = () => {
+        const template = [
+            {
+                Username: "john.doe",
+                Email: "john@example.com",
+                Password: "password123",
+                "Full Name": "John Doe",
+                Role: "user",
+                Department: "Unit IT",
+            },
+        ];
+        const ws = XLSX.utils.json_to_sheet(template);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Users");
+        XLSX.writeFile(wb, "template_import_users.xlsx");
     };
 
     const handleOpenAdd = () => {
@@ -375,10 +448,27 @@ export default function UsersClient() {
                 onLimitChange={setLimit}
                 emptyMessage="No users found."
                 toolbarAction={
-                    <Button onClick={handleOpenAdd}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add User
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <input
+                            ref={importFileInputRef}
+                            type="file"
+                            accept=".xlsx,.xls"
+                            className="hidden"
+                            onChange={handleImportExcel}
+                        />
+                        <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+                            <Download className="mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Template</span>
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => importFileInputRef.current?.click()} disabled={isPending}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Import</span>
+                        </Button>
+                        <Button onClick={handleOpenAdd} size="sm">
+                            <Plus className="mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Add User</span>
+                        </Button>
+                    </div>
                 }
             />
 
@@ -746,6 +836,74 @@ export default function UsersClient() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Import Result Modal */}
+            <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Import Result</DialogTitle>
+                        <DialogDescription>
+                            Result of user import from Excel
+                        </DialogDescription>
+                    </DialogHeader>
+                    {importResult && (
+                        <div className="space-y-4 py-4">
+                            <div className="flex gap-4">
+                                <div className="flex-1 rounded-lg bg-green-500/10 p-3 text-center">
+                                    <p className="text-2xl font-bold text-green-600">{importResult.imported}</p>
+                                    <p className="text-sm text-muted-foreground">Berhasil</p>
+                                </div>
+                                <div className="flex-1 rounded-lg bg-red-500/10 p-3 text-center">
+                                    <p className="text-2xl font-bold text-red-600">{importResult.failed}</p>
+                                    <p className="text-sm text-muted-foreground">Gagal</p>
+                                </div>
+                            </div>
+
+                            {importResult.details.length > 0 && (
+                                <div className="max-h-[300px] overflow-auto border rounded-lg">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted sticky top-0">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left">No</th>
+                                                <th className="px-3 py-2 text-left">Username</th>
+                                                <th className="px-3 py-2 text-left">Email</th>
+                                                <th className="px-3 py-2 text-left">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {importResult.details.map((detail, idx) => (
+                                                <tr key={idx} className={detail.status === "failed" ? "bg-red-500/5" : ""}>
+                                                    <td className="px-3 py-2">{idx + 1}</td>
+                                                    <td className="px-3 py-2">
+                                                        <div>
+                                                            {detail.username || "-"}
+                                                            {detail.error && (
+                                                                <p className="text-xs text-red-500">{detail.error}</p>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-2">{detail.email || "-"}</td>
+                                                    <td className="px-3 py-2">
+                                                        <Badge variant="secondary" className={detail.status === "success" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}>
+                                                            {detail.status === "success" ? "Sukses" : "Gagal"}
+                                                        </Badge>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end">
+                                <Button onClick={() => setIsImportOpen(false)}>
+                                    Tutup
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

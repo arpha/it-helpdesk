@@ -219,3 +219,152 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
         };
     }
 }
+
+// Types for bulk import
+type ImportUserInput = {
+    username: string;
+    email: string;
+    password: string;
+    full_name: string;
+    role?: string;
+    department_name?: string;
+};
+
+type ImportUserDetail = {
+    username: string;
+    email: string;
+    full_name: string;
+    status: "success" | "failed";
+    error?: string;
+};
+
+export type BulkImportUsersResult = {
+    success: boolean;
+    imported: number;
+    failed: number;
+    errors: string[];
+    details: ImportUserDetail[];
+};
+
+export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImportUsersResult> {
+    const supabase = createAdminClient();
+    let imported = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    const details: ImportUserDetail[] = [];
+
+    // Get departments mapping
+    const { data: departments } = await supabase.from("departments").select("id, name");
+    const deptMap = new Map(departments?.map(d => [d.name.toLowerCase(), d.id]) || []);
+
+    for (const item of items) {
+        const detail: ImportUserDetail = {
+            username: item.username || "",
+            email: item.email || "",
+            full_name: item.full_name || "",
+            status: "success",
+        };
+
+        try {
+            // Validate required fields
+            if (!item.username || !item.email || !item.password || !item.full_name) {
+                detail.status = "failed";
+                detail.error = "Missing required fields (username, email, password, full_name)";
+                errors.push(`${item.email || item.username || "Unknown"}: ${detail.error}`);
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(item.email)) {
+                detail.status = "failed";
+                detail.error = "Invalid email format";
+                errors.push(`${item.email}: ${detail.error}`);
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
+            // Determine role
+            const validRoles = ["admin", "user", "staff_it", "manager_it"];
+            const role = validRoles.includes(item.role?.toLowerCase() || "")
+                ? item.role!.toLowerCase() as "admin" | "user" | "staff_it" | "manager_it"
+                : "user";
+
+            // Find department
+            const departmentId = item.department_name
+                ? deptMap.get(item.department_name.toLowerCase()) || null
+                : null;
+
+            // Create user in auth.users
+            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                email: item.email,
+                password: item.password,
+                email_confirm: true,
+                user_metadata: {
+                    full_name: item.full_name,
+                },
+            });
+
+            if (authError) {
+                detail.status = "failed";
+                detail.error = authError.message;
+                errors.push(`${item.email}: ${authError.message}`);
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
+            if (!authData.user) {
+                detail.status = "failed";
+                detail.error = "Failed to create user";
+                errors.push(`${item.email}: Failed to create user`);
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
+            // Wait for trigger to create profile
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
+            // Update profile
+            const { error: profileError } = await supabase
+                .from("profiles")
+                .update({
+                    username: item.username.toLowerCase().replace(/\s/g, '.'),
+                    full_name: item.full_name,
+                    role: role,
+                    department_id: departmentId,
+                })
+                .eq("id", authData.user.id);
+
+            if (profileError) {
+                detail.status = "failed";
+                detail.error = profileError.message;
+                errors.push(`${item.email}: ${profileError.message}`);
+                failed++;
+            } else {
+                imported++;
+            }
+        } catch (error) {
+            detail.status = "failed";
+            detail.error = error instanceof Error ? error.message : "Unknown error";
+            errors.push(`${item.email || item.username || "Unknown"}: ${detail.error}`);
+            failed++;
+        }
+
+        details.push(detail);
+    }
+
+    revalidatePath("/users");
+
+    return {
+        success: failed === 0,
+        imported,
+        failed,
+        errors,
+        details,
+    };
+}
