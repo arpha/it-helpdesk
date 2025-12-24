@@ -434,7 +434,14 @@ export function TicketsClient() {
                                 <SelectContent>
                                     {assetsData?.data?.map((asset) => (
                                         <SelectItem key={asset.id} value={asset.id}>
-                                            {asset.name} ({asset.asset_code})
+                                            <div className="flex flex-col">
+                                                <span>{asset.name} ({asset.asset_code})</span>
+                                                {asset.departments?.name && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {asset.departments.name}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -577,7 +584,14 @@ export function TicketsClient() {
                                     <SelectContent>
                                         {assetsData?.data?.map((asset) => (
                                             <SelectItem key={asset.id} value={asset.id}>
-                                                {asset.name} ({asset.asset_code})
+                                                <div className="flex flex-col">
+                                                    <span>{asset.name} ({asset.asset_code})</span>
+                                                    {asset.departments?.name && (
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {asset.departments.name}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
