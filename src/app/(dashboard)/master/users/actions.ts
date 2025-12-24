@@ -368,11 +368,20 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
             } else {
                 imported++;
             }
-        } catch (error) {
+        } catch (error: unknown) {
             detail.status = "failed";
-            const errorMsg = error instanceof Error ? error.message : "Unknown error";
-            detail.error = `Error: ${errorMsg}`;
+            // Capture all possible error information
+            let errorMsg = "Unknown error";
+            if (error instanceof Error) {
+                errorMsg = error.message;
+            } else if (typeof error === 'object' && error !== null) {
+                errorMsg = JSON.stringify(error);
+            } else if (typeof error === 'string') {
+                errorMsg = error;
+            }
+            detail.error = errorMsg;
             errors.push(`${item.email || item.username || "Unknown"}: ${errorMsg}`);
+            console.error(`Import error for ${item.email}:`, error);
             failed++;
         }
 
