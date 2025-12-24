@@ -581,7 +581,7 @@ export default function ItemsClient() {
                         <SelectItem value="inactive">Non-Aktif</SelectItem>
                     </SelectContent>
                 </Select>
-                <div className="relative flex-1 max-w-sm">
+                <div className="relative flex-1 max-w-sm ml-auto">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search items..."
