@@ -297,7 +297,7 @@ export function Sidebar() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="md:hidden fixed top-3 left-3 z-50"
+                        className="md:hidden"
                     >
                         <Menu className="h-5 w-5" />
                     </Button>
