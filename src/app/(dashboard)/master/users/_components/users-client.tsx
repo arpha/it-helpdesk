@@ -461,6 +461,18 @@ export default function UsersClient() {
 
     return (
         <>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
+                <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-sm sm:ml-auto">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search users..."
+                        value={searchInput}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-8"
+                    />
+                </div>
+            </div>
+
             <DataTable
                 columns={columns}
                 data={usersData?.data || []}
@@ -478,15 +490,6 @@ export default function UsersClient() {
                 hideSearch={true}
                 toolbarAction={
                     <div className="flex items-center gap-2">
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search users..."
-                                value={searchInput}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="w-[150px] lg:w-[250px] pl-8"
-                            />
-                        </div>
                         <input
                             ref={importFileInputRef}
                             type="file"
