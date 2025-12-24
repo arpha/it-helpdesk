@@ -186,6 +186,15 @@ type BulkImportResult = {
     imported: number;
     failed: number;
     errors: string[];
+    details: {
+        name: string;
+        type: string;
+        unit: string;
+        price: number;
+        stock: number;
+        status: "success" | "failed";
+        error?: string;
+    }[];
 };
 
 export async function bulkImportItems(items: ImportItemInput[]): Promise<BulkImportResult> {
@@ -193,13 +202,24 @@ export async function bulkImportItems(items: ImportItemInput[]): Promise<BulkImp
     let imported = 0;
     let failed = 0;
     const errors: string[] = [];
+    const details: BulkImportResult["details"] = [];
 
     for (const item of items) {
         try {
             // Validate required fields
             if (!item.name || !item.unit || item.price === undefined) {
                 failed++;
-                errors.push(`Item "${item.name || 'unknown'}": Missing required fields (name, unit, or price)`);
+                const errorMsg = "Missing required fields (name, unit, or price)";
+                errors.push(`Item "${item.name || 'unknown'}": ${errorMsg}`);
+                details.push({
+                    name: item.name || "unknown",
+                    type: item.type || "atk",
+                    unit: item.unit || "-",
+                    price: Number(item.price) || 0,
+                    stock: Number(item.stock_quantity) || 0,
+                    status: "failed",
+                    error: errorMsg,
+                });
                 continue;
             }
 
@@ -223,15 +243,42 @@ export async function bulkImportItems(items: ImportItemInput[]): Promise<BulkImp
             if (error) {
                 failed++;
                 errors.push(`Item "${item.name}": ${error.message}`);
+                details.push({
+                    name: item.name,
+                    type: itemType,
+                    unit: item.unit,
+                    price: Number(item.price) || 0,
+                    stock: Number(item.stock_quantity) || 0,
+                    status: "failed",
+                    error: error.message,
+                });
             } else {
                 imported++;
+                details.push({
+                    name: item.name,
+                    type: itemType,
+                    unit: item.unit,
+                    price: Number(item.price) || 0,
+                    stock: Number(item.stock_quantity) || 0,
+                    status: "success",
+                });
             }
         } catch (error) {
             failed++;
-            errors.push(`Item "${item.name}": ${error instanceof Error ? error.message : "Unknown error"}`);
+            const errorMsg = error instanceof Error ? error.message : "Unknown error";
+            errors.push(`Item "${item.name}": ${errorMsg}`);
+            details.push({
+                name: item.name || "unknown",
+                type: item.type || "atk",
+                unit: item.unit || "-",
+                price: Number(item.price) || 0,
+                stock: Number(item.stock_quantity) || 0,
+                status: "failed",
+                error: errorMsg,
+            });
         }
     }
 
     revalidatePath("/atk/items");
-    return { success: failed === 0, imported, failed, errors };
+    return { success: failed === 0, imported, failed, errors, details };
 }

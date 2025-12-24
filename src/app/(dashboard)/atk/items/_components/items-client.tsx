@@ -98,7 +98,20 @@ export default function ItemsClient() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
     const [isImportOpen, setIsImportOpen] = useState(false);
-    const [importResult, setImportResult] = useState<{ imported: number; failed: number; errors: string[] } | null>(null);
+    const [importResult, setImportResult] = useState<{
+        imported: number;
+        failed: number;
+        errors: string[];
+        details: {
+            name: string;
+            type: string;
+            unit: string;
+            price: number;
+            stock: number;
+            status: "success" | "failed";
+            error?: string;
+        }[];
+    } | null>(null);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -248,7 +261,7 @@ export default function ItemsClient() {
                 const jsonData = XLSX.utils.sheet_to_json(worksheet) as Record<string, unknown>[];
 
                 if (jsonData.length === 0) {
-                    setImportResult({ imported: 0, failed: 0, errors: ["File tidak memiliki data"] });
+                    setImportResult({ imported: 0, failed: 0, errors: ["File tidak memiliki data"], details: [] });
                     setIsImportOpen(true);
                     return;
                 }
@@ -276,6 +289,7 @@ export default function ItemsClient() {
                     imported: 0,
                     failed: 0,
                     errors: [`Error parsing file: ${error instanceof Error ? error.message : "Unknown error"}`],
+                    details: [],
                 });
                 setIsImportOpen(true);
             }
@@ -857,33 +871,75 @@ export default function ItemsClient() {
 
             {/* Import Result Modal */}
             <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
                     <DialogHeader>
                         <DialogTitle>Hasil Import</DialogTitle>
                         <DialogDescription>Ringkasan proses import data</DialogDescription>
                     </DialogHeader>
                     {importResult && (
-                        <div className="space-y-4 py-4">
+                        <div className="space-y-4 py-4 overflow-hidden flex flex-col">
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 rounded-lg bg-green-500/10 text-center">
-                                    <p className="text-2xl font-bold text-green-600">{importResult.imported}</p>
-                                    <p className="text-sm text-muted-foreground">Berhasil</p>
+                                <div className="p-3 rounded-lg bg-green-500/10 text-center">
+                                    <p className="text-xl font-bold text-green-600">{importResult.imported}</p>
+                                    <p className="text-xs text-muted-foreground">Berhasil</p>
                                 </div>
-                                <div className="p-4 rounded-lg bg-red-500/10 text-center">
-                                    <p className="text-2xl font-bold text-red-600">{importResult.failed}</p>
-                                    <p className="text-sm text-muted-foreground">Gagal</p>
+                                <div className="p-3 rounded-lg bg-red-500/10 text-center">
+                                    <p className="text-xl font-bold text-red-600">{importResult.failed}</p>
+                                    <p className="text-xs text-muted-foreground">Gagal</p>
                                 </div>
                             </div>
-                            {importResult.errors.length > 0 && (
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium text-destructive">Errors:</p>
-                                    <div className="max-h-40 overflow-y-auto space-y-1 text-sm">
-                                        {importResult.errors.map((error, idx) => (
-                                            <p key={idx} className="text-muted-foreground">• {error}</p>
-                                        ))}
+
+                            {importResult.details && importResult.details.length > 0 && (
+                                <div className="flex-1 overflow-hidden">
+                                    <p className="text-sm font-medium mb-2">Detail Import:</p>
+                                    <div className="border rounded-md overflow-auto max-h-[300px]">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-muted/50 sticky top-0">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left font-medium">No</th>
+                                                    <th className="px-3 py-2 text-left font-medium">Nama Barang</th>
+                                                    <th className="px-3 py-2 text-left font-medium">Tipe</th>
+                                                    <th className="px-3 py-2 text-left font-medium">Satuan</th>
+                                                    <th className="px-3 py-2 text-right font-medium">Harga</th>
+                                                    <th className="px-3 py-2 text-right font-medium">Stock</th>
+                                                    <th className="px-3 py-2 text-center font-medium">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {importResult.details.map((item, idx) => (
+                                                    <tr key={idx} className={item.status === "failed" ? "bg-red-500/5" : ""}>
+                                                        <td className="px-3 py-2">{idx + 1}</td>
+                                                        <td className="px-3 py-2">
+                                                            <div>
+                                                                <p>{item.name}</p>
+                                                                {item.error && (
+                                                                    <p className="text-xs text-destructive">{item.error}</p>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <Badge variant="secondary" className={item.type === "atk" ? "bg-blue-500/10 text-blue-500" : "bg-orange-500/10 text-orange-500"}>
+                                                                {item.type === "atk" ? "ATK" : "Sparepart"}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-3 py-2">{item.unit}</td>
+                                                        <td className="px-3 py-2 text-right">{formatCurrency(item.price)}</td>
+                                                        <td className="px-3 py-2 text-right">{item.stock}</td>
+                                                        <td className="px-3 py-2 text-center">
+                                                            {item.status === "success" ? (
+                                                                <Badge className="bg-green-500/10 text-green-600">Berhasil</Badge>
+                                                            ) : (
+                                                                <Badge className="bg-red-500/10 text-red-600">Gagal</Badge>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             )}
+
                             <div className="flex justify-end">
                                 <Button onClick={() => setIsImportOpen(false)}>Tutup</Button>
                             </div>
