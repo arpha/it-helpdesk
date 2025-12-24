@@ -41,7 +41,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Package, FileSpreadsheet, Download } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Package, FileSpreadsheet, Download, Search } from "lucide-react";
 import { useState, useTransition, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createItem, updateItem, deleteItem, uploadItemImage, bulkImportItems } from "../actions";
@@ -581,15 +581,21 @@ export default function ItemsClient() {
                         <SelectItem value="inactive">Non-Aktif</SelectItem>
                     </SelectContent>
                 </Select>
+                <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search items..."
+                        value={searchInput}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-9"
+                    />
+                </div>
             </div>
 
             <DataTable
                 columns={columns}
                 data={itemsData?.data || []}
                 isLoading={isLoading}
-                searchValue={searchInput}
-                onSearchChange={setSearch}
-                searchPlaceholder="Search items..."
                 page={page}
                 totalPages={itemsData?.totalPages || 1}
                 totalItems={itemsData?.totalItems}
