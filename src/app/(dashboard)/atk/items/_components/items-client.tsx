@@ -564,9 +564,9 @@ export default function ItemsClient() {
 
     return (
         <>
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
                 <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "atk" | "sparepart" | "all")}>
-                    <SelectTrigger className="w-40"><SelectValue placeholder="Filter type" /></SelectTrigger>
+                    <SelectTrigger className="w-[120px] sm:w-40"><SelectValue placeholder="Filter type" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
                         <SelectItem value="atk">ATK</SelectItem>
@@ -574,14 +574,14 @@ export default function ItemsClient() {
                     </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "active" | "inactive" | "all")}>
-                    <SelectTrigger className="w-40"><SelectValue placeholder="Filter status" /></SelectTrigger>
+                    <SelectTrigger className="w-[120px] sm:w-40"><SelectValue placeholder="Filter status" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="active">Aktif</SelectItem>
                         <SelectItem value="inactive">Non-Aktif</SelectItem>
                     </SelectContent>
                 </Select>
-                <div className="relative flex-1 max-w-sm ml-auto">
+                <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-sm sm:ml-auto order-last sm:order-none">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search items..."
@@ -604,7 +604,7 @@ export default function ItemsClient() {
                 onLimitChange={setLimit}
                 emptyMessage="No items found."
                 toolbarAction={
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <input
                             ref={importInputRef}
                             type="file"
@@ -612,17 +612,17 @@ export default function ItemsClient() {
                             className="hidden"
                             onChange={handleImportExcel}
                         />
-                        <Button variant="outline" onClick={handleDownloadTemplate}>
-                            <Download className="mr-2 h-4 w-4" />Template
+                        <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="h-9">
+                            <Download className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Template</span>
                         </Button>
-                        <Button variant="outline" onClick={() => importInputRef.current?.click()} disabled={isPending}>
-                            <Upload className="mr-2 h-4 w-4" />{isPending ? "Importing..." : "Import Excel"}
+                        <Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()} disabled={isPending} className="h-9">
+                            <Upload className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">{isPending ? "Importing..." : "Import"}</span>
                         </Button>
-                        <Button variant="outline" onClick={handleExportExcel}>
-                            <FileSpreadsheet className="mr-2 h-4 w-4" />Export Excel
+                        <Button variant="outline" size="sm" onClick={handleExportExcel} className="h-9">
+                            <FileSpreadsheet className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Export</span>
                         </Button>
-                        <Button onClick={handleOpenAdd}>
-                            <Plus className="mr-2 h-4 w-4" />Add Item
+                        <Button size="sm" onClick={handleOpenAdd} className="h-9">
+                            <Plus className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Add Item</span>
                         </Button>
                     </div>
                 }
