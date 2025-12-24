@@ -343,23 +343,26 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
                 continue;
             }
 
-            // Wait for trigger to create profile
+            // Wait for trigger to create profile (or it might fail)
             await new Promise((resolve) => setTimeout(resolve, 500));
 
-            // Update profile
+            // Use upsert to handle both cases: trigger success or failure
             const { error: profileError } = await supabase
                 .from("profiles")
-                .update({
+                .upsert({
+                    id: authData.user.id,
                     username: item.username.toLowerCase().replace(/\s/g, '.'),
                     full_name: item.full_name,
+                    email: item.email,
                     role: role,
                     department_id: departmentId,
-                })
-                .eq("id", authData.user.id);
+                }, {
+                    onConflict: 'id'
+                });
 
             if (profileError) {
                 detail.status = "failed";
-                detail.error = `Profile error: ${profileError.message}`;
+                detail.error = `Profile error: ${profileError.message} (code: ${profileError.code})`;
                 errors.push(`${item.email}: ${profileError.message}`);
                 failed++;
             } else {
