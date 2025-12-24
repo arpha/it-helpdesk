@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 type CreateUserInput = {
     email: string;
     password: string;
+    username: string;
     full_name: string;
     role: "admin" | "user" | "staff_it" | "manager_it";
     department_id?: string | null;
@@ -14,6 +15,7 @@ type CreateUserInput = {
 
 type UpdateUserInput = {
     id: string;
+    username?: string;
     full_name: string;
     role: "admin" | "user" | "staff_it" | "manager_it";
     department_id?: string | null;
@@ -101,6 +103,7 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult> 
         const { error: profileError } = await supabase
             .from("profiles")
             .update({
+                username: input.username.toLowerCase().replace(/\s/g, '.'),
                 full_name: input.full_name,
                 role: input.role,
                 department_id: input.department_id || null,
@@ -137,6 +140,11 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
             role: input.role,
             department_id: input.department_id || null,
         };
+
+        // Only update username if provided
+        if (input.username) {
+            updateData.username = input.username.toLowerCase().replace(/\s/g, '.');
+        }
 
         // Only update avatar_url if provided
         if (input.avatar_url !== undefined) {

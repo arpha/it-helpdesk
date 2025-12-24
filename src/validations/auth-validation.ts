@@ -1,10 +1,10 @@
 import z from "zod";
 
 export const loginSchemaForm = z.object({
-  email: z
+  username: z
     .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email"),
+    .min(1, "Username is required")
+    .regex(/^[a-z0-9._]+$/, "Username must be lowercase, no spaces"),
   password: z.string().min(1, "Password is required"),
 });
 

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export type UserProfile = {
     id: string;
+    username: string;
     full_name: string;
     role: "admin" | "user" | "staff_it" | "manager_it";
     department_id: string | null;

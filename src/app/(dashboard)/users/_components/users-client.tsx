@@ -88,6 +88,7 @@ export default function UsersClient() {
 
     // Form state
     const [editFullName, setEditFullName] = useState("");
+    const [editUsername, setEditUsername] = useState("");
     const [editRole, setEditRole] = useState<string>("");
     const [editDepartment, setEditDepartment] = useState<string>("");
     const [editAvatarUrl, setEditAvatarUrl] = useState<string>("");
@@ -99,6 +100,7 @@ export default function UsersClient() {
     // Add user form state
     const [addEmail, setAddEmail] = useState("");
     const [addPassword, setAddPassword] = useState("");
+    const [addUsername, setAddUsername] = useState("");
     const [addFullName, setAddFullName] = useState("");
     const [addRole, setAddRole] = useState<string>("user");
     const [addDepartment, setAddDepartment] = useState<string>("");
@@ -141,6 +143,7 @@ export default function UsersClient() {
     const handleEdit = (user: UserProfile) => {
         setSelectedUser(user);
         setEditFullName(user.full_name);
+        setEditUsername(user.username || "");
         setEditRole(user.role);
         setEditDepartment(user.department_id || "");
         setEditAvatarUrl(user.avatar_url || "");
@@ -158,6 +161,7 @@ export default function UsersClient() {
     const handleOpenAdd = () => {
         setAddEmail("");
         setAddPassword("");
+        setAddUsername("");
         setAddFullName("");
         setAddRole("user");
         setAddDepartment("");
@@ -170,7 +174,7 @@ export default function UsersClient() {
     const handleSaveAdd = () => {
         setAddMessage(null);
 
-        if (!addEmail || !addPassword || !addFullName) {
+        if (!addEmail || !addPassword || !addFullName || !addUsername) {
             setAddMessage({ type: "error", text: "Please fill all required fields" });
             return;
         }
@@ -195,6 +199,7 @@ export default function UsersClient() {
             const result = await createUser({
                 email: addEmail,
                 password: addPassword,
+                username: addUsername,
                 full_name: addFullName,
                 role: addRole as "admin" | "user" | "staff_it" | "manager_it",
                 department_id: addDepartment || null,
@@ -236,6 +241,7 @@ export default function UsersClient() {
 
             const result = await updateUser({
                 id: selectedUser.id,
+                username: editUsername || undefined,
                 full_name: editFullName,
                 role: editRole as "admin" | "user" | "staff_it" | "manager_it",
                 department_id: editDepartment || null,
@@ -387,8 +393,8 @@ export default function UsersClient() {
                         {addMessage && (
                             <div
                                 className={`rounded-md p-3 text-sm ${addMessage.type === "success"
-                                        ? "bg-green-500/10 text-green-600"
-                                        : "bg-destructive/10 text-destructive"
+                                    ? "bg-green-500/10 text-green-600"
+                                    : "bg-destructive/10 text-destructive"
                                     }`}
                             >
                                 {addMessage.text}
@@ -459,6 +465,17 @@ export default function UsersClient() {
                                 onChange={(e) => setAddPassword(e.target.value)}
                                 placeholder="Min. 6 characters"
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="add_username">Username *</Label>
+                            <Input
+                                id="add_username"
+                                value={addUsername}
+                                onChange={(e) => setAddUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                                placeholder="john.doe"
+                            />
+                            <p className="text-xs text-muted-foreground">Lowercase, no spaces (for login)</p>
                         </div>
 
                         <div className="space-y-2">
@@ -581,8 +598,8 @@ export default function UsersClient() {
                             {message && (
                                 <div
                                     className={`rounded-md p-3 text-sm ${message.type === "success"
-                                            ? "bg-green-500/10 text-green-600"
-                                            : "bg-destructive/10 text-destructive"
+                                        ? "bg-green-500/10 text-green-600"
+                                        : "bg-destructive/10 text-destructive"
                                         }`}
                                 >
                                     {message.text}
@@ -631,6 +648,16 @@ export default function UsersClient() {
                                         )}
                                     </div>
                                 </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_username">Username</Label>
+                                <Input
+                                    id="edit_username"
+                                    value={editUsername}
+                                    onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                                />
+                                <p className="text-xs text-muted-foreground">Lowercase, no spaces (for login)</p>
                             </div>
 
                             <div className="space-y-2">

@@ -75,10 +75,10 @@ export default function Login() {
 
             <FormInput
               form={form}
-              name="email"
-              label="Email"
-              placeholder="Insert email here"
-              type="email"
+              name="username"
+              label="Username"
+              placeholder="Enter your username"
+              type="text"
             />
             <FormInput
               form={form}
