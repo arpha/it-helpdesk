@@ -498,15 +498,15 @@ export default function UsersClient() {
                             onChange={handleImportExcel}
                         />
                         <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-                            <Download className="mr-2 h-4 w-4" />
+                            <Download className="h-4 w-4 sm:mr-2" />
                             <span className="hidden sm:inline">Template</span>
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => importFileInputRef.current?.click()} disabled={isPending}>
-                            <Upload className="mr-2 h-4 w-4" />
+                            <Upload className="h-4 w-4 sm:mr-2" />
                             <span className="hidden sm:inline">Import</span>
                         </Button>
                         <Button onClick={handleOpenAdd} size="sm">
-                            <Plus className="mr-2 h-4 w-4" />
+                            <Plus className="h-4 w-4 sm:mr-2" />
                             <span className="hidden sm:inline">Add User</span>
                         </Button>
                     </div>
