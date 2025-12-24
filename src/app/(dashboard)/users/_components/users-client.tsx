@@ -215,19 +215,47 @@ export default function UsersClient() {
     };
 
     const handleDownloadTemplate = () => {
+        // Get department names from database
+        const deptNames = departments?.map(d => d.name) || [];
+        const roleOptions = ["user", "admin", "staff_it", "manager_it"];
+
+        // Create template data with example
         const template = [
             {
-                Username: "john.doe",
-                Email: "john@example.com",
+                Username: "contoh.user",
+                Email: "contoh@example.com",
                 Password: "password123",
-                "Full Name": "John Doe",
+                "Full Name": "Contoh User",
                 Role: "user",
-                Department: "Unit IT",
+                Department: deptNames[0] || "",
             },
         ];
+
         const ws = XLSX.utils.json_to_sheet(template);
+
+        // Add 99 empty rows for user to fill
+        for (let i = 2; i <= 100; i++) {
+            ws[`A${i}`] = { t: "s", v: "" };
+        }
+
+        // Create sheet for dropdown options (hidden)
+        const optionsData = [];
+        const maxRows = Math.max(deptNames.length, roleOptions.length);
+        for (let i = 0; i < maxRows; i++) {
+            optionsData.push({
+                Departments: deptNames[i] || "",
+                Roles: roleOptions[i] || "",
+            });
+        }
+        const optionsWs = XLSX.utils.json_to_sheet(optionsData);
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Users");
+        XLSX.utils.book_append_sheet(wb, optionsWs, "Options");
+
+        // Note: XLSX library doesn't support data validation natively
+        // The options sheet provides reference for users
+
         XLSX.writeFile(wb, "template_import_users.xlsx");
     };
 
