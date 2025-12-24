@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useATKRequests, ATKRequest } from "@/hooks/api/use-atk-requests";
 import { useATKItems } from "@/hooks/api/use-atk-items";
+import { useUsers } from "@/hooks/api/use-users";
 import { useAuthStore } from "@/stores/auth-store";
 import { DataTable, Column } from "@/components/ui/data-table";
 import {
@@ -94,6 +95,7 @@ export default function RequestsClient() {
     });
 
     const { data: itemsData } = useATKItems({ page: 1, limit: 100 });
+    const { data: usersData } = useUsers({ page: 1, limit: 100 });
 
     // Modal states
     const [selectedRequest, setSelectedRequest] = useState<ATKRequest | null>(null);
@@ -107,6 +109,7 @@ export default function RequestsClient() {
     // Form states
     const [createNotes, setCreateNotes] = useState("");
     const [createItems, setCreateItems] = useState<{ item_id: string; quantity: number }[]>([]);
+    const [selectedRequester, setSelectedRequester] = useState<string>("");
     const [approvedQuantities, setApprovedQuantities] = useState<Record<string, number>>({});
     const [rejectReason, setRejectReason] = useState("");
     const [isPending, startTransition] = useTransition();
@@ -144,6 +147,7 @@ export default function RequestsClient() {
     const handleOpenCreate = () => {
         setCreateNotes("");
         setCreateItems([{ item_id: "", quantity: 1 }]);
+        setSelectedRequester("");
         setMessage(null);
         setIsCreateOpen(true);
     };
@@ -164,6 +168,12 @@ export default function RequestsClient() {
 
     const handleCreate = () => {
         setMessage(null);
+
+        if (!selectedRequester) {
+            setMessage({ type: "error", text: "Pilih pemohon terlebih dahulu" });
+            return;
+        }
+
         const validItems = createItems.filter((item) => item.item_id && item.quantity > 0);
         if (validItems.length === 0) {
             setMessage({ type: "error", text: "Tambahkan minimal 1 item" });
@@ -174,6 +184,7 @@ export default function RequestsClient() {
             const result = await createRequest({
                 notes: createNotes || undefined,
                 items: validItems,
+                requester_id: selectedRequester || undefined,
             });
 
             if (result.success) {
@@ -417,6 +428,22 @@ export default function RequestsClient() {
                                 {message.text}
                             </div>
                         )}
+
+                        <div className="space-y-2">
+                            <Label>Requester *</Label>
+                            <Select value={selectedRequester} onValueChange={setSelectedRequester}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih pemohon" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {usersData?.data.map((u) => (
+                                        <SelectItem key={u.id} value={u.id}>
+                                            {u.full_name} {u.departments?.name ? `(${u.departments.name})` : ""}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         <div className="space-y-2">
                             <Label>Items *</Label>

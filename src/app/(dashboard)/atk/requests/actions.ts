@@ -8,6 +8,7 @@ import { sendWhatsAppMessage, formatPhoneNumber } from "@/lib/fonnte/client";
 type CreateRequestInput = {
     notes?: string;
     items: { item_id: string; quantity: number }[];
+    requester_id?: string; // Optional, if not provided uses logged in user
 };
 
 type ApproveRequestInput = {
@@ -71,18 +72,21 @@ export async function createRequest(input: CreateRequestInput): Promise<ActionRe
             return { success: false, error: "Not authenticated" };
         }
 
-        // Get user profile for department
+        // Use provided requester_id or fallback to logged in user
+        const requesterId = input.requester_id || user.id;
+
+        // Get requester's profile for department
         const { data: profile } = await supabase
             .from("profiles")
             .select("department_id")
-            .eq("id", user.id)
+            .eq("id", requesterId)
             .single();
 
         // Create request
         const { data: request, error: requestError } = await supabase
             .from("atk_requests")
             .insert({
-                requester_id: user.id,
+                requester_id: requesterId,
                 department_id: profile?.department_id || null,
                 notes: input.notes || null,
                 status: "pending",
