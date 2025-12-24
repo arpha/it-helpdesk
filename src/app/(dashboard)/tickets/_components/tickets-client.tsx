@@ -47,6 +47,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import {
     MoreHorizontal,
     Eye,
     CheckCircle,
@@ -56,6 +69,8 @@ import {
     Loader2,
     X,
     Wrench,
+    ChevronsUpDown,
+    Check,
 } from "lucide-react";
 import {
     createTicket,
@@ -137,6 +152,7 @@ export function TicketsClient() {
     const [formResolution, setFormResolution] = useState("");
     const [formRepairType, setFormRepairType] = useState("repair");
     const [formParts, setFormParts] = useState<{ item_id: string; quantity: number }[]>([]);
+    const [assetPopoverOpen, setAssetPopoverOpen] = useState(false);
 
     const isStaff = user?.role === "admin" || user?.role === "staff_it" || user?.role === "manager_it";
 
@@ -429,23 +445,64 @@ export function TicketsClient() {
                         </div>
                         <div className="space-y-2">
                             <Label>Related Asset (optional)</Label>
-                            <Select value={formAssetId} onValueChange={setFormAssetId}>
-                                <SelectTrigger><SelectValue placeholder="Select asset..." /></SelectTrigger>
-                                <SelectContent>
-                                    {assetsData?.data?.map((asset) => (
-                                        <SelectItem key={asset.id} value={asset.id}>
-                                            <div className="flex flex-col">
-                                                <span>{asset.name} ({asset.asset_code})</span>
-                                                {asset.departments?.name && (
+                            <Popover open={assetPopoverOpen} onOpenChange={setAssetPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={assetPopoverOpen}
+                                        className="w-full justify-between font-normal"
+                                    >
+                                        {formAssetId ? (
+                                            <div className="flex flex-col items-start text-left">
+                                                <span className="truncate">
+                                                    {assetsData?.data?.find((a) => a.id === formAssetId)?.name} ({assetsData?.data?.find((a) => a.id === formAssetId)?.asset_code})
+                                                </span>
+                                                {assetsData?.data?.find((a) => a.id === formAssetId)?.departments?.name && (
                                                     <span className="text-xs text-muted-foreground">
-                                                        {asset.departments.name}
+                                                        {assetsData?.data?.find((a) => a.id === formAssetId)?.departments?.name}
                                                     </span>
                                                 )}
                                             </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        ) : (
+                                            <span className="text-muted-foreground">Search asset...</span>
+                                        )}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Cari asset..." />
+                                        <CommandList>
+                                            <CommandEmpty>Asset tidak ditemukan.</CommandEmpty>
+                                            <CommandGroup>
+                                                {assetsData?.data?.map((asset) => (
+                                                    <CommandItem
+                                                        key={asset.id}
+                                                        value={`${asset.name} ${asset.asset_code} ${asset.departments?.name || ""}`}
+                                                        onSelect={() => {
+                                                            setFormAssetId(asset.id === formAssetId ? "" : asset.id);
+                                                            setAssetPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={`mr-2 h-4 w-4 ${formAssetId === asset.id ? "opacity-100" : "opacity-0"}`}
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span>{asset.name} ({asset.asset_code})</span>
+                                                            {asset.departments?.name && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {asset.departments.name}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </div>
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
@@ -579,23 +636,64 @@ export function TicketsClient() {
                         ) : (
                             <div className="space-y-2">
                                 <Label>Asset (pilih jika ada)</Label>
-                                <Select value={formAssetId} onValueChange={setFormAssetId}>
-                                    <SelectTrigger><SelectValue placeholder="Pilih asset..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {assetsData?.data?.map((asset) => (
-                                            <SelectItem key={asset.id} value={asset.id}>
-                                                <div className="flex flex-col">
-                                                    <span>{asset.name} ({asset.asset_code})</span>
-                                                    {asset.departments?.name && (
+                                <Popover open={assetPopoverOpen} onOpenChange={setAssetPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={assetPopoverOpen}
+                                            className="w-full justify-between font-normal"
+                                        >
+                                            {formAssetId ? (
+                                                <div className="flex flex-col items-start text-left">
+                                                    <span className="truncate">
+                                                        {assetsData?.data?.find((a) => a.id === formAssetId)?.name} ({assetsData?.data?.find((a) => a.id === formAssetId)?.asset_code})
+                                                    </span>
+                                                    {assetsData?.data?.find((a) => a.id === formAssetId)?.departments?.name && (
                                                         <span className="text-xs text-muted-foreground">
-                                                            {asset.departments.name}
+                                                            {assetsData?.data?.find((a) => a.id === formAssetId)?.departments?.name}
                                                         </span>
                                                     )}
                                                 </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                            ) : (
+                                                <span className="text-muted-foreground">Cari asset...</span>
+                                            )}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[400px] p-0" align="start">
+                                        <Command>
+                                            <CommandInput placeholder="Cari asset..." />
+                                            <CommandList>
+                                                <CommandEmpty>Asset tidak ditemukan.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {assetsData?.data?.map((asset) => (
+                                                        <CommandItem
+                                                            key={asset.id}
+                                                            value={`${asset.name} ${asset.asset_code} ${asset.departments?.name || ""}`}
+                                                            onSelect={() => {
+                                                                setFormAssetId(asset.id === formAssetId ? "" : asset.id);
+                                                                setAssetPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={`mr-2 h-4 w-4 ${formAssetId === asset.id ? "opacity-100" : "opacity-0"}`}
+                                                            />
+                                                            <div className="flex flex-col">
+                                                                <span>{asset.name} ({asset.asset_code})</span>
+                                                                {asset.departments?.name && (
+                                                                    <span className="text-xs text-muted-foreground">
+                                                                        {asset.departments.name}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                         )}
 
