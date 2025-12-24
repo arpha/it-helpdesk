@@ -71,8 +71,9 @@ export default function ItemsClient() {
     const { page, limit, search, searchInput, setPage, setLimit, setSearch } = useDataTable();
     const queryClient = useQueryClient();
     const [typeFilter, setTypeFilter] = useState<"atk" | "sparepart" | "all">("all");
+    const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("all");
 
-    const { data: itemsData, isLoading } = useATKItems({ page, limit, search, type: typeFilter });
+    const { data: itemsData, isLoading } = useATKItems({ page, limit, search, type: typeFilter, status: statusFilter });
 
     // Modal states
     const [selectedItem, setSelectedItem] = useState<ATKItem | null>(null);
@@ -91,6 +92,7 @@ export default function ItemsClient() {
     const [formImageFile, setFormImageFile] = useState<File | null>(null);
     const [formImagePreview, setFormImagePreview] = useState("");
     const [formImageUrl, setFormImageUrl] = useState("");
+    const [formIsActive, setFormIsActive] = useState(true);
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,6 +117,7 @@ export default function ItemsClient() {
         setFormImageFile(null);
         setFormImagePreview("");
         setFormImageUrl("");
+        setFormIsActive(true);
         setMessage(null);
     };
 
@@ -134,6 +137,7 @@ export default function ItemsClient() {
         setFormImageFile(null);
         setFormImagePreview(item.image_url || "");
         setFormImageUrl(item.image_url || "");
+        setFormIsActive(item.is_active);
         setMessage(null);
         setIsEditOpen(true);
     };
@@ -211,6 +215,7 @@ export default function ItemsClient() {
                 price: parseFloat(formPrice),
                 min_stock: parseInt(formMinStock) || 5,
                 image_url: imageUrl,
+                is_active: formIsActive,
             });
 
             if (result.success) {
@@ -255,6 +260,7 @@ export default function ItemsClient() {
                 price: parseFloat(formPrice),
                 min_stock: parseInt(formMinStock) || 5,
                 image_url: imageUrl || formImageUrl || null,
+                is_active: formIsActive,
             });
 
             if (result.success) {
@@ -320,6 +326,15 @@ export default function ItemsClient() {
                 <span className={row.stock_quantity <= row.min_stock ? "text-destructive font-medium" : ""}>
                     {row.stock_quantity}
                 </span>
+            ),
+        },
+        {
+            key: "status",
+            header: "Status",
+            cell: (row) => (
+                <Badge variant="secondary" className={row.is_active ? "bg-green-500/10 text-green-600" : "bg-gray-500/10 text-gray-500"}>
+                    {row.is_active ? "Aktif" : "Non-Aktif"}
+                </Badge>
             ),
         },
         {
@@ -443,6 +458,14 @@ export default function ItemsClient() {
                         <SelectItem value="sparepart">Sparepart</SelectItem>
                     </SelectContent>
                 </Select>
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "active" | "inactive" | "all")}>
+                    <SelectTrigger className="w-40"><SelectValue placeholder="Filter status" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="active">Aktif</SelectItem>
+                        <SelectItem value="inactive">Non-Aktif</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
 
             <DataTable
@@ -547,6 +570,17 @@ export default function ItemsClient() {
                                 <Label htmlFor="add_min_stock">Min Stock</Label>
                                 <Input id="add_min_stock" type="number" value={formMinStock} onChange={(e) => setFormMinStock(e.target.value)} />
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Status</Label>
+                            <Select value={formIsActive ? "active" : "inactive"} onValueChange={(v) => setFormIsActive(v === "active")}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">Aktif</SelectItem>
+                                    <SelectItem value="inactive">Non-Aktif</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="flex justify-end gap-2 pt-4">
@@ -666,6 +700,17 @@ export default function ItemsClient() {
                                 <Label htmlFor="edit_min_stock">Min Stock</Label>
                                 <Input id="edit_min_stock" type="number" value={formMinStock} onChange={(e) => setFormMinStock(e.target.value)} />
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Status</Label>
+                            <Select value={formIsActive ? "active" : "inactive"} onValueChange={(v) => setFormIsActive(v === "active")}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">Aktif</SelectItem>
+                                    <SelectItem value="inactive">Non-Aktif</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="flex justify-end gap-2 pt-4">

@@ -14,6 +14,7 @@ type CreateItemInput = {
     stock_quantity?: number;
     min_stock?: number;
     image_url?: string | null;
+    is_active?: boolean;
 };
 
 type UpdateItemInput = {
@@ -25,6 +26,7 @@ type UpdateItemInput = {
     price: number;
     min_stock?: number;
     image_url?: string | null;
+    is_active?: boolean;
 };
 
 type ActionResult = {
@@ -84,6 +86,7 @@ export async function createItem(input: CreateItemInput): Promise<ActionResult> 
             stock_quantity: input.stock_quantity || 0,
             min_stock: input.min_stock || 5,
             image_url: input.image_url || null,
+            is_active: input.is_active !== undefined ? input.is_active : true,
         });
 
         if (error) {
@@ -114,6 +117,7 @@ export async function updateItem(input: UpdateItemInput): Promise<ActionResult> 
                 price: input.price,
                 min_stock: input.min_stock || 5,
                 image_url: input.image_url || null,
+                is_active: input.is_active !== undefined ? input.is_active : true,
             })
             .eq("id", input.id);
 

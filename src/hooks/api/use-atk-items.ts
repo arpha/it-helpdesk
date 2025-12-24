@@ -13,6 +13,7 @@ export type ATKItem = {
     stock_quantity: number;
     min_stock: number;
     image_url: string | null;
+    is_active: boolean;
     created_at: string;
     updated_at: string;
 };
@@ -22,6 +23,7 @@ type UseATKItemsParams = {
     limit: number;
     search?: string;
     type?: "atk" | "sparepart" | "all";
+    status?: "active" | "inactive" | "all";
 };
 
 type ATKItemsResult = {
@@ -32,7 +34,7 @@ type ATKItemsResult = {
 
 async function fetchATKItems(params: UseATKItemsParams): Promise<ATKItemsResult> {
     const supabase = createClient();
-    const { page, limit, search, type } = params;
+    const { page, limit, search, type, status } = params;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
@@ -44,6 +46,10 @@ async function fetchATKItems(params: UseATKItemsParams): Promise<ATKItemsResult>
 
     if (type && type !== "all") {
         query = query.eq("type", type);
+    }
+
+    if (status && status !== "all") {
+        query = query.eq("is_active", status === "active");
     }
 
     const { data, count, error } = await query
@@ -63,7 +69,7 @@ async function fetchATKItems(params: UseATKItemsParams): Promise<ATKItemsResult>
 
 export function useATKItems(params: UseATKItemsParams) {
     return useQuery({
-        queryKey: ["atk-items", params.page, params.limit, params.search, params.type],
+        queryKey: ["atk-items", params.page, params.limit, params.search, params.type, params.status],
         queryFn: () => fetchATKItems(params),
     });
 }
