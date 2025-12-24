@@ -42,6 +42,7 @@ type DataTableProps<T> = {
     emptyMessage?: string;
     // Toolbar action
     toolbarAction?: ReactNode;
+    hideSearch?: boolean;
 };
 
 export function DataTable<T>({
@@ -60,8 +61,9 @@ export function DataTable<T>({
     limitOptions,
     emptyMessage = "No data found.",
     toolbarAction,
+    hideSearch = false,
 }: DataTableProps<T>) {
-    const showSearch = onSearchChange !== undefined;
+    const showSearch = onSearchChange !== undefined && !hideSearch;
     const showLimit = onLimitChange !== undefined;
     const showPagination = onPageChange !== undefined && totalPages > 0;
 

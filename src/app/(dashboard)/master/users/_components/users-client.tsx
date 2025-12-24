@@ -41,7 +41,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Download } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Download, Search } from "lucide-react";
 import { useState, useTransition, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createUser, updateUser, deleteUser, uploadAvatar, bulkImportUsers, BulkImportUsersResult } from "../actions";
@@ -465,9 +465,6 @@ export default function UsersClient() {
                 columns={columns}
                 data={usersData?.data || []}
                 isLoading={isLoading}
-                searchValue={searchInput}
-                onSearchChange={setSearch}
-                searchPlaceholder="Search users..."
                 page={page}
                 totalPages={usersData?.totalPages || 1}
                 totalItems={usersData?.totalItems}
@@ -475,8 +472,21 @@ export default function UsersClient() {
                 limit={limit}
                 onLimitChange={setLimit}
                 emptyMessage="No users found."
+                searchPlaceholder="Search users..."
+                searchValue={searchInput}
+                onSearchChange={setSearch}
+                hideSearch={true}
                 toolbarAction={
                     <div className="flex items-center gap-2">
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search users..."
+                                value={searchInput}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-[150px] lg:w-[250px] pl-8"
+                            />
+                        </div>
                         <input
                             ref={importFileInputRef}
                             type="file"
