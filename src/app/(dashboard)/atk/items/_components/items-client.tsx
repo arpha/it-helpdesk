@@ -41,10 +41,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Package, FileSpreadsheet } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Package, FileSpreadsheet, Download } from "lucide-react";
 import { useState, useTransition, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createItem, updateItem, deleteItem, uploadItemImage } from "../actions";
+import { createItem, updateItem, deleteItem, uploadItemImage, bulkImportItems } from "../actions";
 import * as XLSX from "xlsx";
 
 const typeLabels: Record<string, string> = {
@@ -96,6 +96,9 @@ export default function ItemsClient() {
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const importInputRef = useRef<HTMLInputElement>(null);
+    const [isImportOpen, setIsImportOpen] = useState(false);
+    const [importResult, setImportResult] = useState<{ imported: number; failed: number; errors: string[] } | null>(null);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -163,6 +166,7 @@ export default function ItemsClient() {
             Harga: item.price,
             Stock: item.stock_quantity,
             "Min Stock": item.min_stock,
+            Status: item.is_active ? "Aktif" : "Non-Aktif",
             Deskripsi: item.description || "-",
         }));
 
@@ -179,10 +183,107 @@ export default function ItemsClient() {
             { wch: 15 }, // Harga
             { wch: 10 }, // Stock
             { wch: 10 }, // Min Stock
+            { wch: 12 }, // Status
             { wch: 30 }, // Deskripsi
         ];
 
         XLSX.writeFile(workbook, `ATK_Items_${new Date().toISOString().split("T")[0]}.xlsx`);
+    };
+
+    const handleDownloadTemplate = () => {
+        const templateData = [
+            {
+                "Nama Barang": "Contoh Item 1",
+                Tipe: "atk",
+                Satuan: "pcs",
+                Harga: 10000,
+                Stock: 100,
+                "Min Stock": 10,
+                Status: "Aktif",
+                Deskripsi: "Deskripsi opsional",
+            },
+            {
+                "Nama Barang": "Contoh Item 2",
+                Tipe: "sparepart",
+                Satuan: "unit",
+                Harga: 50000,
+                Stock: 20,
+                "Min Stock": 5,
+                Status: "Aktif",
+                Deskripsi: "",
+            },
+        ];
+
+        const worksheet = XLSX.utils.json_to_sheet(templateData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Template Import");
+
+        worksheet["!cols"] = [
+            { wch: 30 }, // Nama Barang
+            { wch: 12 }, // Tipe (atk/sparepart)
+            { wch: 10 }, // Satuan
+            { wch: 15 }, // Harga
+            { wch: 10 }, // Stock
+            { wch: 10 }, // Min Stock
+            { wch: 12 }, // Status (Aktif/Non-Aktif)
+            { wch: 30 }, // Deskripsi
+        ];
+
+        XLSX.writeFile(workbook, "Template_Import_ATK.xlsx");
+    };
+
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setImportResult(null);
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = new Uint8Array(event.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: "array" });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet) as Record<string, unknown>[];
+
+                if (jsonData.length === 0) {
+                    setImportResult({ imported: 0, failed: 0, errors: ["File tidak memiliki data"] });
+                    setIsImportOpen(true);
+                    return;
+                }
+
+                // Map Excel columns to item fields
+                const items = jsonData.map((row) => ({
+                    name: String(row["Nama Barang"] || ""),
+                    type: (String(row["Tipe"] || "atk").toLowerCase() === "sparepart" ? "sparepart" : "atk") as "atk" | "sparepart",
+                    unit: String(row["Satuan"] || "pcs"),
+                    price: Number(row["Harga"]) || 0,
+                    stock_quantity: Number(row["Stock"]) || 0,
+                    min_stock: Number(row["Min Stock"]) || 5,
+                    is_active: String(row["Status"] || "Aktif").toLowerCase() !== "non-aktif",
+                    description: row["Deskripsi"] ? String(row["Deskripsi"]) : null,
+                }));
+
+                startTransition(async () => {
+                    const result = await bulkImportItems(items);
+                    setImportResult(result);
+                    setIsImportOpen(true);
+                    queryClient.invalidateQueries({ queryKey: ["atk-items"] });
+                });
+            } catch (error) {
+                setImportResult({
+                    imported: 0,
+                    failed: 0,
+                    errors: [`Error parsing file: ${error instanceof Error ? error.message : "Unknown error"}`],
+                });
+                setIsImportOpen(true);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+
+        // Reset input
+        e.target.value = "";
     };
 
     const handleSaveAdd = () => {
@@ -484,6 +585,19 @@ export default function ItemsClient() {
                 emptyMessage="No items found."
                 toolbarAction={
                     <div className="flex gap-2">
+                        <input
+                            ref={importInputRef}
+                            type="file"
+                            accept=".xlsx,.xls"
+                            className="hidden"
+                            onChange={handleImportExcel}
+                        />
+                        <Button variant="outline" onClick={handleDownloadTemplate}>
+                            <Download className="mr-2 h-4 w-4" />Template
+                        </Button>
+                        <Button variant="outline" onClick={() => importInputRef.current?.click()} disabled={isPending}>
+                            <Upload className="mr-2 h-4 w-4" />{isPending ? "Importing..." : "Import Excel"}
+                        </Button>
                         <Button variant="outline" onClick={handleExportExcel}>
                             <FileSpreadsheet className="mr-2 h-4 w-4" />Export Excel
                         </Button>
@@ -740,6 +854,43 @@ export default function ItemsClient() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Import Result Modal */}
+            <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Hasil Import</DialogTitle>
+                        <DialogDescription>Ringkasan proses import data</DialogDescription>
+                    </DialogHeader>
+                    {importResult && (
+                        <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 rounded-lg bg-green-500/10 text-center">
+                                    <p className="text-2xl font-bold text-green-600">{importResult.imported}</p>
+                                    <p className="text-sm text-muted-foreground">Berhasil</p>
+                                </div>
+                                <div className="p-4 rounded-lg bg-red-500/10 text-center">
+                                    <p className="text-2xl font-bold text-red-600">{importResult.failed}</p>
+                                    <p className="text-sm text-muted-foreground">Gagal</p>
+                                </div>
+                            </div>
+                            {importResult.errors.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-destructive">Errors:</p>
+                                    <div className="max-h-40 overflow-y-auto space-y-1 text-sm">
+                                        {importResult.errors.map((error, idx) => (
+                                            <p key={idx} className="text-muted-foreground">• {error}</p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            <div className="flex justify-end">
+                                <Button onClick={() => setIsImportOpen(false)}>Tutup</Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

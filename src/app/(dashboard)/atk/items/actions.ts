@@ -169,3 +169,69 @@ export async function deleteItem(id: string): Promise<ActionResult> {
         };
     }
 }
+
+type ImportItemInput = {
+    type: ItemType;
+    name: string;
+    description?: string | null;
+    unit: string;
+    price: number;
+    stock_quantity?: number;
+    min_stock?: number;
+    is_active?: boolean;
+};
+
+type BulkImportResult = {
+    success: boolean;
+    imported: number;
+    failed: number;
+    errors: string[];
+};
+
+export async function bulkImportItems(items: ImportItemInput[]): Promise<BulkImportResult> {
+    const supabase = createAdminClient();
+    let imported = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const item of items) {
+        try {
+            // Validate required fields
+            if (!item.name || !item.unit || item.price === undefined) {
+                failed++;
+                errors.push(`Item "${item.name || 'unknown'}": Missing required fields (name, unit, or price)`);
+                continue;
+            }
+
+            // Validate type
+            const validTypes = ["atk", "sparepart"];
+            const itemType = validTypes.includes(item.type?.toLowerCase())
+                ? item.type.toLowerCase() as ItemType
+                : "atk";
+
+            const { error } = await supabase.from("atk_items").insert({
+                type: itemType,
+                name: item.name.trim(),
+                description: item.description || null,
+                unit: item.unit.toLowerCase().trim(),
+                price: Number(item.price) || 0,
+                stock_quantity: Number(item.stock_quantity) || 0,
+                min_stock: Number(item.min_stock) || 5,
+                is_active: item.is_active !== undefined ? item.is_active : true,
+            });
+
+            if (error) {
+                failed++;
+                errors.push(`Item "${item.name}": ${error.message}`);
+            } else {
+                imported++;
+            }
+        } catch (error) {
+            failed++;
+            errors.push(`Item "${item.name}": ${error instanceof Error ? error.message : "Unknown error"}`);
+        }
+    }
+
+    revalidatePath("/atk/items");
+    return { success: failed === 0, imported, failed, errors };
+}
