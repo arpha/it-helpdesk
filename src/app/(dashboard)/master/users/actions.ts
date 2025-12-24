@@ -287,6 +287,16 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
                 continue;
             }
 
+            // Validate password length
+            if (item.password.length < 6) {
+                detail.status = "failed";
+                detail.error = "Password must be at least 6 characters";
+                errors.push(`${item.email}: ${detail.error}`);
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
             // Determine role
             const validRoles = ["admin", "user", "staff_it", "manager_it"];
             const role = validRoles.includes(item.role?.toLowerCase() || "")
@@ -310,8 +320,15 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
 
             if (authError) {
                 detail.status = "failed";
-                detail.error = authError.message;
-                errors.push(`${item.email}: ${authError.message}`);
+                // Map common auth errors to Indonesian
+                let errorMsg = authError.message;
+                if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
+                    errorMsg = "Email sudah terdaftar";
+                } else if (authError.message.includes("password")) {
+                    errorMsg = "Password tidak valid (min 6 karakter)";
+                }
+                detail.error = errorMsg;
+                errors.push(`${item.email}: ${errorMsg}`);
                 failed++;
                 details.push(detail);
                 continue;
@@ -319,15 +336,15 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
 
             if (!authData.user) {
                 detail.status = "failed";
-                detail.error = "Failed to create user";
-                errors.push(`${item.email}: Failed to create user`);
+                detail.error = "Gagal membuat user";
+                errors.push(`${item.email}: Gagal membuat user`);
                 failed++;
                 details.push(detail);
                 continue;
             }
 
             // Wait for trigger to create profile
-            await new Promise((resolve) => setTimeout(resolve, 300));
+            await new Promise((resolve) => setTimeout(resolve, 500));
 
             // Update profile
             const { error: profileError } = await supabase
@@ -342,7 +359,7 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
 
             if (profileError) {
                 detail.status = "failed";
-                detail.error = profileError.message;
+                detail.error = `Profile error: ${profileError.message}`;
                 errors.push(`${item.email}: ${profileError.message}`);
                 failed++;
             } else {
@@ -350,8 +367,9 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
             }
         } catch (error) {
             detail.status = "failed";
-            detail.error = error instanceof Error ? error.message : "Unknown error";
-            errors.push(`${item.email || item.username || "Unknown"}: ${detail.error}`);
+            const errorMsg = error instanceof Error ? error.message : "Unknown error";
+            detail.error = `Error: ${errorMsg}`;
+            errors.push(`${item.email || item.username || "Unknown"}: ${errorMsg}`);
             failed++;
         }
 
