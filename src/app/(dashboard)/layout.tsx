@@ -32,8 +32,10 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             {/* Initialize user store */}
             <UserInitializer user={user} />
 
-            {/* Sidebar */}
-            <Sidebar />
+            {/* Sidebar - hidden on mobile, visible on desktop */}
+            <div className="hidden md:block">
+                <Sidebar />
+            </div>
 
             {/* Main Content */}
             <div className="flex flex-1 flex-col overflow-hidden">
