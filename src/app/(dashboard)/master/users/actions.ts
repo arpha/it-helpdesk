@@ -105,6 +105,7 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult> 
             .from("profiles")
             .upsert({
                 id: authData.user.id,
+                username: input.username.toLowerCase().replace(/\s/g, '.'),
                 full_name: input.full_name,
                 role: input.role,
                 department_id: input.department_id || null,
@@ -363,6 +364,7 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
                 .from("profiles")
                 .upsert({
                     id: authData.user.id,
+                    username: item.username.toLowerCase().replace(/\s/g, '.'),
                     full_name: item.full_name,
                     role: role,
                     department_id: departmentId,
