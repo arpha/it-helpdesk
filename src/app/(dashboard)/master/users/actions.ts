@@ -83,50 +83,62 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult> 
         });
 
         if (authError) {
+            console.error("Auth error creating user:", authError);
             return {
                 success: false,
-                error: authError.message,
+                error: `Auth error: ${authError.message} (status: ${authError.status})`,
             };
         }
 
         if (!authData.user) {
             return {
                 success: false,
-                error: "Failed to create user",
+                error: "Failed to create user - no user returned",
             };
         }
 
         // Wait a moment for the trigger to create the profile
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Update profile with additional data
+        // Use upsert to handle both cases: trigger success or failure
         const { error: profileError } = await supabase
             .from("profiles")
-            .update({
-                username: input.username.toLowerCase().replace(/\s/g, '.'),
+            .upsert({
+                id: authData.user.id,
                 full_name: input.full_name,
                 role: input.role,
                 department_id: input.department_id || null,
                 avatar_url: input.avatar_url || null,
-            })
-            .eq("id", authData.user.id);
+            }, {
+                onConflict: 'id'
+            });
 
         if (profileError) {
+            console.error("Profile error:", profileError);
             return {
                 success: false,
-                error: profileError.message,
+                error: `Profile error: ${profileError.message} (code: ${profileError.code})`,
             };
         }
 
-        revalidatePath("/users");
+        revalidatePath("/master/users");
 
         return {
             success: true,
         };
-    } catch (error) {
+    } catch (error: unknown) {
+        console.error("Unexpected error creating user:", error);
+        let errorMsg = "Unknown error occurred";
+        if (error instanceof Error) {
+            errorMsg = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+            errorMsg = JSON.stringify(error);
+        } else if (typeof error === 'string') {
+            errorMsg = error;
+        }
         return {
             success: false,
-            error: error instanceof Error ? error.message : "Unknown error occurred",
+            error: errorMsg,
         };
     }
 }
@@ -351,9 +363,7 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
                 .from("profiles")
                 .upsert({
                     id: authData.user.id,
-                    username: item.username.toLowerCase().replace(/\s/g, '.'),
                     full_name: item.full_name,
-                    email: item.email,
                     role: role,
                     department_id: departmentId,
                 }, {
