@@ -777,7 +777,7 @@ export default function AssetsClient() {
                                     <PopoverContent className="w-full p-0" align="start">
                                         <Command>
                                             <CommandInput placeholder="Search user..." />
-                                            <CommandList>
+                                            <CommandList className="max-h-48 overflow-y-auto">
                                                 <CommandEmpty>No user found.</CommandEmpty>
                                                 <CommandGroup>
                                                     <CommandItem
