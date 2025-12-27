@@ -738,12 +738,12 @@ export default function AssetsClient() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Assigned To</Label>
-                                <Select value={formAssignedTo} onValueChange={setFormAssignedTo}>
+                                <Select value={formAssignedTo || "__none__"} onValueChange={(val) => setFormAssignedTo(val === "__none__" ? "" : val)}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select user" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">None</SelectItem>
+                                        <SelectItem value="__none__">None</SelectItem>
                                         {users?.map((user) => (
                                             <SelectItem key={user.id} value={user.id}>
                                                 {user.full_name || user.username || user.email}
