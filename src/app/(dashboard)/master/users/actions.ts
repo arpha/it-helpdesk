@@ -9,7 +9,6 @@ type CreateUserInput = {
     username: string;
     full_name: string;
     role: "admin" | "user" | "staff_it" | "manager_it";
-    department_id?: string | null;
     avatar_url?: string | null;
 };
 
@@ -18,7 +17,6 @@ type UpdateUserInput = {
     username?: string;
     full_name: string;
     role: "admin" | "user" | "staff_it" | "manager_it";
-    department_id?: string | null;
     avatar_url?: string | null;
 };
 
@@ -108,7 +106,6 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult> 
                 username: input.username.toLowerCase().replace(/\s/g, '.'),
                 full_name: input.full_name,
                 role: input.role,
-                department_id: input.department_id || null,
                 avatar_url: input.avatar_url || null,
             }, {
                 onConflict: 'id'
@@ -151,7 +148,6 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
         const updateData: Record<string, unknown> = {
             full_name: input.full_name,
             role: input.role,
-            department_id: input.department_id || null,
         };
 
         // Only update username if provided
@@ -415,17 +411,13 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
 // Function to import a small batch of users (max 10 at a time)
 // This is called repeatedly from the frontend to avoid timeout
 export async function importUsersBatch(
-    items: ImportUserInput[],
-    departmentMap: Record<string, string>
+    items: ImportUserInput[]
 ): Promise<BulkImportUsersResult> {
     const supabase = createAdminClient();
     let imported = 0;
     let failed = 0;
     const errors: string[] = [];
     const details: ImportUserDetail[] = [];
-
-    // Convert department map to Map object
-    const deptMap = new Map(Object.entries(departmentMap));
 
     for (const item of items) {
         const detail: ImportUserDetail = {
@@ -470,10 +462,7 @@ export async function importUsersBatch(
                 ? item.role!.toLowerCase() as "admin" | "user" | "staff_it" | "manager_it"
                 : "user";
 
-            // Find department
-            const departmentId = item.department_name
-                ? deptMap.get(item.department_name.toLowerCase()) || null
-                : null;
+
 
             // Create user in auth.users
             const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -516,7 +505,6 @@ export async function importUsersBatch(
                     username: item.username.toLowerCase().replace(/\s/g, '.'),
                     full_name: item.full_name,
                     role: role,
-                    department_id: departmentId,
                 }, {
                     onConflict: 'id'
                 });

@@ -3,7 +3,6 @@
 import { DataTable, Column } from "@/components/ui/data-table";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useUsers, UserProfile } from "@/hooks/api/use-users";
-import { useDepartments } from "@/hooks/api/use-departments";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -44,7 +43,7 @@ import { Label } from "@/components/ui/label";
 import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Download, Search } from "lucide-react";
 import { useState, useTransition, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createUser, updateUser, deleteUser, uploadAvatar, importUsersBatch, getDepartmentsForImport, revalidateUsersPath, BulkImportUsersResult } from "../actions";
+import { createUser, updateUser, deleteUser, uploadAvatar, importUsersBatch, revalidateUsersPath, BulkImportUsersResult } from "../actions";
 import * as XLSX from "xlsx";
 import { Progress } from "@/components/ui/progress";
 
@@ -79,7 +78,6 @@ export default function UsersClient() {
     const queryClient = useQueryClient();
 
     const { data: usersData, isLoading } = useUsers({ page, limit, search });
-    const { data: departments } = useDepartments();
 
     // Modal states
     const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
@@ -92,7 +90,6 @@ export default function UsersClient() {
     const [editFullName, setEditFullName] = useState("");
     const [editUsername, setEditUsername] = useState("");
     const [editRole, setEditRole] = useState<string>("");
-    const [editDepartment, setEditDepartment] = useState<string>("");
     const [editAvatarUrl, setEditAvatarUrl] = useState<string>("");
     const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null);
     const [editAvatarPreview, setEditAvatarPreview] = useState<string>("");
@@ -105,7 +102,6 @@ export default function UsersClient() {
     const [addUsername, setAddUsername] = useState("");
     const [addFullName, setAddFullName] = useState("");
     const [addRole, setAddRole] = useState<string>("user");
-    const [addDepartment, setAddDepartment] = useState<string>("");
     const [addAvatarFile, setAddAvatarFile] = useState<File | null>(null);
     const [addAvatarPreview, setAddAvatarPreview] = useState<string>("");
     const [addMessage, setAddMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -155,7 +151,6 @@ export default function UsersClient() {
         setEditFullName(user.full_name || "");
         setEditUsername(user.username || "");
         setEditRole(user.role);
-        setEditDepartment(user.department_id || "");
         setEditAvatarUrl(user.avatar_url || "");
         setEditAvatarFile(null);
         setEditAvatarPreview(user.avatar_url || "");
@@ -192,7 +187,6 @@ export default function UsersClient() {
                 password: String(row["Password"] || row["password"] || ""),
                 full_name: String(row["Full Name"] || row["full_name"] || row["Nama"] || ""),
                 role: String(row["Role"] || row["role"] || "user"),
-                department_name: String(row["Department"] || row["department"] || row["Departemen"] || ""),
             }));
 
             // Start batch processing
@@ -200,9 +194,6 @@ export default function UsersClient() {
             setImportProgress(0);
             setImportStatus(`Mempersiapkan import ${items.length} users...`);
             setIsImportOpen(true);
-
-            // Get departments map once
-            const departmentMap = await getDepartmentsForImport();
 
             // Process in batches of 10
             const BATCH_SIZE = 10;
@@ -221,7 +212,7 @@ export default function UsersClient() {
                 setImportProgress(Math.round((i / totalBatches) * 100));
 
                 try {
-                    const result = await importUsersBatch(batch, departmentMap);
+                    const result = await importUsersBatch(batch);
                     totalImported += result.imported;
                     totalFailed += result.failed;
                     allDetails.push(...result.details);
@@ -276,8 +267,6 @@ export default function UsersClient() {
     };
 
     const handleDownloadTemplate = () => {
-        // Get department names from database
-        const deptNames = departments?.map(d => d.name) || [];
         const roleOptions = ["user", "admin", "staff_it", "manager_it"];
 
         // Create template data with example
@@ -288,7 +277,6 @@ export default function UsersClient() {
                 Password: "password123",
                 "Full Name": "Contoh User",
                 Role: "user",
-                Department: deptNames[0] || "",
             },
         ];
 
@@ -300,14 +288,9 @@ export default function UsersClient() {
         }
 
         // Create sheet for dropdown options (hidden)
-        const optionsData = [];
-        const maxRows = Math.max(deptNames.length, roleOptions.length);
-        for (let i = 0; i < maxRows; i++) {
-            optionsData.push({
-                Departments: deptNames[i] || "",
-                Roles: roleOptions[i] || "",
-            });
-        }
+        const optionsData = roleOptions.map(role => ({
+            Roles: role,
+        }));
         const optionsWs = XLSX.utils.json_to_sheet(optionsData);
 
         const wb = XLSX.utils.book_new();
@@ -326,7 +309,6 @@ export default function UsersClient() {
         setAddUsername("");
         setAddFullName("");
         setAddRole("user");
-        setAddDepartment("");
         setAddAvatarFile(null);
         setAddAvatarPreview("");
         setAddMessage(null);
@@ -364,7 +346,6 @@ export default function UsersClient() {
                 username: addUsername,
                 full_name: addFullName,
                 role: addRole as "admin" | "user" | "staff_it" | "manager_it",
-                department_id: addDepartment || null,
                 avatar_url: avatarUrl,
             });
 
@@ -406,7 +387,6 @@ export default function UsersClient() {
                 username: editUsername || undefined,
                 full_name: editFullName,
                 role: editRole as "admin" | "user" | "staff_it" | "manager_it",
-                department_id: editDepartment || null,
                 avatar_url: avatarUrl,
             });
 
@@ -696,22 +676,6 @@ export default function UsersClient() {
                             </Select>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Department</Label>
-                            <Select value={addDepartment} onValueChange={setAddDepartment}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select department" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {departments?.map((dept) => (
-                                        <SelectItem key={dept.id} value={dept.id}>
-                                            {dept.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
                         <div className="flex justify-end gap-2 pt-4">
                             <Button variant="outline" onClick={() => setIsAddOpen(false)}>
                                 Cancel
@@ -871,22 +835,6 @@ export default function UsersClient() {
                                         {roles.map((role) => (
                                             <SelectItem key={role} value={role}>
                                                 {roleLabels[role]}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Department</Label>
-                                <Select value={editDepartment} onValueChange={setEditDepartment}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select department" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {departments?.map((dept) => (
-                                            <SelectItem key={dept.id} value={dept.id}>
-                                                {dept.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
