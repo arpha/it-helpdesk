@@ -44,8 +44,9 @@ import { Label } from "@/components/ui/label";
 import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Download, Search } from "lucide-react";
 import { useState, useTransition, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createUser, updateUser, deleteUser, uploadAvatar, bulkImportUsers, BulkImportUsersResult } from "../actions";
+import { createUser, updateUser, deleteUser, uploadAvatar, importUsersBatch, getDepartmentsForImport, revalidateUsersPath, BulkImportUsersResult } from "../actions";
 import * as XLSX from "xlsx";
+import { Progress } from "@/components/ui/progress";
 
 const roleColors: Record<string, string> = {
     admin: "bg-red-500/10 text-red-500 hover:bg-red-500/20",
@@ -112,6 +113,9 @@ export default function UsersClient() {
     // Import states
     const [isImportOpen, setIsImportOpen] = useState(false);
     const [importResult, setImportResult] = useState<BulkImportUsersResult | null>(null);
+    const [importProgress, setImportProgress] = useState(0);
+    const [importStatus, setImportStatus] = useState("");
+    const [isImporting, setIsImporting] = useState(false);
     const importFileInputRef = useRef<HTMLInputElement>(null);
 
     const addFileInputRef = useRef<HTMLInputElement>(null);
@@ -191,12 +195,68 @@ export default function UsersClient() {
                 department_name: String(row["Department"] || row["department"] || row["Departemen"] || ""),
             }));
 
-            startTransition(async () => {
-                const result = await bulkImportUsers(items);
-                setImportResult(result);
-                setIsImportOpen(true);
-                queryClient.invalidateQueries({ queryKey: ["users"] });
+            // Start batch processing
+            setIsImporting(true);
+            setImportProgress(0);
+            setImportStatus(`Mempersiapkan import ${items.length} users...`);
+            setIsImportOpen(true);
+
+            // Get departments map once
+            const departmentMap = await getDepartmentsForImport();
+
+            // Process in batches of 10
+            const BATCH_SIZE = 10;
+            const totalBatches = Math.ceil(items.length / BATCH_SIZE);
+            let totalImported = 0;
+            let totalFailed = 0;
+            const allDetails: BulkImportUsersResult["details"] = [];
+            const allErrors: string[] = [];
+
+            for (let i = 0; i < totalBatches; i++) {
+                const start = i * BATCH_SIZE;
+                const end = Math.min(start + BATCH_SIZE, items.length);
+                const batch = items.slice(start, end);
+
+                setImportStatus(`Memproses batch ${i + 1}/${totalBatches} (${start + 1}-${end} dari ${items.length})...`);
+                setImportProgress(Math.round((i / totalBatches) * 100));
+
+                try {
+                    const result = await importUsersBatch(batch, departmentMap);
+                    totalImported += result.imported;
+                    totalFailed += result.failed;
+                    allDetails.push(...result.details);
+                    allErrors.push(...result.errors);
+                } catch (err) {
+                    // If batch fails, mark all as failed
+                    batch.forEach(item => {
+                        totalFailed++;
+                        allDetails.push({
+                            username: item.username,
+                            email: item.email,
+                            full_name: item.full_name,
+                            status: "failed",
+                            error: err instanceof Error ? err.message : "Batch timeout"
+                        });
+                    });
+                }
+            }
+
+            // Revalidate after all batches complete
+            await revalidateUsersPath();
+
+            // Set final result
+            setImportResult({
+                success: totalFailed === 0,
+                imported: totalImported,
+                failed: totalFailed,
+                errors: allErrors,
+                details: allDetails,
             });
+            setImportProgress(100);
+            setImportStatus("Import selesai!");
+            setIsImporting(false);
+            queryClient.invalidateQueries({ queryKey: ["users"] });
+
         } catch (error) {
             setImportResult({
                 success: false,
@@ -205,6 +265,7 @@ export default function UsersClient() {
                 errors: [error instanceof Error ? error.message : "Failed to parse Excel file"],
                 details: [],
             });
+            setIsImporting(false);
             setIsImportOpen(true);
         }
 
@@ -879,15 +940,27 @@ export default function UsersClient() {
             </AlertDialog>
 
             {/* Import Result Modal */}
-            <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+            <Dialog open={isImportOpen} onOpenChange={(open) => !isImporting && setIsImportOpen(open)}>
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Import Result</DialogTitle>
+                        <DialogTitle>{isImporting ? "Importing Users..." : "Import Result"}</DialogTitle>
                         <DialogDescription>
-                            Result of user import from Excel
+                            {isImporting ? importStatus : "Result of user import from Excel"}
                         </DialogDescription>
                     </DialogHeader>
-                    {importResult && (
+
+                    {/* Progress bar during import */}
+                    {isImporting && (
+                        <div className="space-y-4 py-4">
+                            <Progress value={importProgress} className="w-full" />
+                            <p className="text-sm text-center text-muted-foreground">
+                                {importProgress}% selesai
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Results after import complete */}
+                    {!isImporting && importResult && (
                         <div className="space-y-4 py-4">
                             <div className="flex gap-4">
                                 <div className="flex-1 rounded-lg bg-green-500/10 p-3 text-center">

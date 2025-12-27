@@ -400,7 +400,8 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
         details.push(detail);
     }
 
-    revalidatePath("/users");
+    // Don't revalidate here - let the caller handle it after all batches
+    // revalidatePath("/master/users");
 
     return {
         success: failed === 0,
@@ -409,4 +410,156 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
         errors,
         details,
     };
+}
+
+// Function to import a small batch of users (max 10 at a time)
+// This is called repeatedly from the frontend to avoid timeout
+export async function importUsersBatch(
+    items: ImportUserInput[],
+    departmentMap: Record<string, string>
+): Promise<BulkImportUsersResult> {
+    const supabase = createAdminClient();
+    let imported = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    const details: ImportUserDetail[] = [];
+
+    // Convert department map to Map object
+    const deptMap = new Map(Object.entries(departmentMap));
+
+    for (const item of items) {
+        const detail: ImportUserDetail = {
+            username: item.username || "",
+            email: item.email || "",
+            full_name: item.full_name || "",
+            status: "success",
+        };
+
+        try {
+            // Validate required fields
+            if (!item.username || !item.email || !item.password || !item.full_name) {
+                detail.status = "failed";
+                detail.error = "Data tidak lengkap";
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(item.email)) {
+                detail.status = "failed";
+                detail.error = "Format email tidak valid";
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
+            // Validate password length
+            if (item.password.length < 6) {
+                detail.status = "failed";
+                detail.error = "Password min 6 karakter";
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
+            // Determine role
+            const validRoles = ["admin", "user", "staff_it", "manager_it"];
+            const role = validRoles.includes(item.role?.toLowerCase() || "")
+                ? item.role!.toLowerCase() as "admin" | "user" | "staff_it" | "manager_it"
+                : "user";
+
+            // Find department
+            const departmentId = item.department_name
+                ? deptMap.get(item.department_name.toLowerCase()) || null
+                : null;
+
+            // Create user in auth.users
+            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                email: item.email,
+                password: item.password,
+                email_confirm: true,
+                user_metadata: {
+                    full_name: item.full_name,
+                },
+            });
+
+            if (authError) {
+                detail.status = "failed";
+                if (authError.message.includes("already") || authError.message.includes("registered")) {
+                    detail.error = "Email sudah terdaftar";
+                } else {
+                    detail.error = authError.message;
+                }
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
+            if (!authData.user) {
+                detail.status = "failed";
+                detail.error = "Gagal membuat user";
+                failed++;
+                details.push(detail);
+                continue;
+            }
+
+            // Wait for trigger
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
+            // Upsert profile
+            const { error: profileError } = await supabase
+                .from("profiles")
+                .upsert({
+                    id: authData.user.id,
+                    username: item.username.toLowerCase().replace(/\s/g, '.'),
+                    full_name: item.full_name,
+                    role: role,
+                    department_id: departmentId,
+                }, {
+                    onConflict: 'id'
+                });
+
+            if (profileError) {
+                detail.status = "failed";
+                detail.error = profileError.message;
+                failed++;
+            } else {
+                imported++;
+            }
+        } catch (error) {
+            detail.status = "failed";
+            detail.error = error instanceof Error ? error.message : "Error tidak diketahui";
+            failed++;
+        }
+
+        details.push(detail);
+    }
+
+    return {
+        success: failed === 0,
+        imported,
+        failed,
+        errors,
+        details,
+    };
+}
+
+// Get departments for batch import
+export async function getDepartmentsForImport(): Promise<Record<string, string>> {
+    const supabase = createAdminClient();
+    const { data: departments } = await supabase.from("departments").select("id, name");
+
+    const map: Record<string, string> = {};
+    departments?.forEach(d => {
+        map[d.name.toLowerCase()] = d.id;
+    });
+
+    return map;
+}
+
+// Revalidate users path - call after all batches complete
+export async function revalidateUsersPath() {
+    revalidatePath("/master/users");
 }
