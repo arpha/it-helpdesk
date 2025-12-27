@@ -7,6 +7,7 @@ import { useAssets, Asset } from "@/hooks/api/use-assets";
 import { useAllAssetCategories } from "@/hooks/api/use-asset-categories";
 import { useDepartments } from "@/hooks/api/use-departments";
 import { useAllUsers } from "@/hooks/api/use-all-users";
+import { getSpecTemplate, SpecField } from "@/lib/asset-spec-templates";
 import { DataTable, Column } from "@/components/ui/data-table";
 import {
     Dialog,
@@ -144,6 +145,7 @@ export default function AssetsClient() {
     const [formAssignedTo, setFormAssignedTo] = useState("");
     const [userPopoverOpen, setUserPopoverOpen] = useState(false);
     const [formNotes, setFormNotes] = useState("");
+    const [formSpecifications, setFormSpecifications] = useState<Record<string, string>>({});
     const [formImageFile, setFormImageFile] = useState<File | null>(null);
     const [formImagePreview, setFormImagePreview] = useState("");
     const [formImageUrl, setFormImageUrl] = useState("");
@@ -166,6 +168,7 @@ export default function AssetsClient() {
         setFormDepartmentId("");
         setFormAssignedTo("");
         setFormNotes("");
+        setFormSpecifications({});
         setFormImageFile(null);
         setFormImagePreview("");
         setFormImageUrl("");
@@ -201,6 +204,7 @@ export default function AssetsClient() {
         setFormDepartmentId(asset.department_id || "");
         setFormAssignedTo(asset.assigned_to || "");
         setFormNotes(asset.notes || "");
+        setFormSpecifications(asset.specifications || {});
         setFormImageFile(null);
         setFormImagePreview(asset.image_url || "");
         setFormImageUrl(asset.image_url || "");
@@ -263,6 +267,7 @@ export default function AssetsClient() {
                 assigned_to: formAssignedTo || undefined,
                 image_url: imageUrl || undefined,
                 notes: formNotes || undefined,
+                specifications: formSpecifications,
             });
 
             if (result.success) {
@@ -315,6 +320,7 @@ export default function AssetsClient() {
                 assigned_to: formAssignedTo || undefined,
                 image_url: imageUrl || undefined,
                 notes: formNotes || undefined,
+                specifications: formSpecifications,
             });
 
             if (result.success) {
@@ -738,6 +744,41 @@ export default function AssetsClient() {
                                 </Select>
                             </div>
                         </div>
+
+                        {/* Dynamic Specification Fields based on Category */}
+                        {formCategoryId && categories?.find(c => c.id === formCategoryId) && (
+                            <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                                <h4 className="font-medium text-sm">Spesifikasi {categories.find(c => c.id === formCategoryId)?.name}</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {getSpecTemplate(categories.find(c => c.id === formCategoryId)?.name || "").map((field: SpecField) => (
+                                        <div key={field.key} className="space-y-2">
+                                            <Label>{field.label}</Label>
+                                            {field.type === "select" ? (
+                                                <Select
+                                                    value={formSpecifications[field.key] || ""}
+                                                    onValueChange={(val) => setFormSpecifications(prev => ({ ...prev, [field.key]: val }))}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder={`Pilih ${field.label}`} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {field.options?.map(opt => (
+                                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <Input
+                                                    value={formSpecifications[field.key] || ""}
+                                                    onChange={(e) => setFormSpecifications(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                    placeholder={field.placeholder}
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Row 2: Purchase Date + Purchase Price */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

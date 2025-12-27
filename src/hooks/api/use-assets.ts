@@ -21,6 +21,7 @@ export type Asset = {
     image_url: string | null;
     qr_code_url: string | null;
     notes: string | null;
+    specifications: Record<string, string> | null;
     created_by: string | null;
     created_at: string;
     updated_at: string;

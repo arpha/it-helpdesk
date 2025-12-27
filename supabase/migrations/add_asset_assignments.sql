@@ -38,3 +38,25 @@ CREATE POLICY "asset_assignments_all" ON asset_assignments
 -- ADD OWNERSHIP STATUS COLUMN
 -- =============================================
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS ownership_status TEXT DEFAULT 'purchase' CHECK (ownership_status IN ('purchase', 'rent'));
+
+-- =============================================
+-- ADD SPECIFICATIONS JSONB COLUMN
+-- =============================================
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS specifications JSONB DEFAULT '{}';
+CREATE INDEX IF NOT EXISTS idx_assets_specs ON assets USING GIN (specifications);
+
+-- =============================================
+-- ADD ASSET CATEGORIES
+-- =============================================
+INSERT INTO asset_categories (name, description) VALUES
+  ('CPU', 'Unit CPU/Desktop'),
+  ('Komputer', 'Laptop atau All-in-One'),
+  ('Printer', 'Printer'),
+  ('Scanner', 'Scanner'),
+  ('Harddisk Eksternal', 'External Storage'),
+  ('Webcam', 'Webcam'),
+  ('Fingerprint', 'Fingerprint Scanner'),
+  ('Wacom', 'Drawing Tablet'),
+  ('Proyektor', 'Proyektor'),
+  ('Peripheral Lainnya', 'Peripheral Lainnya')
+ON CONFLICT (name) DO NOTHING;

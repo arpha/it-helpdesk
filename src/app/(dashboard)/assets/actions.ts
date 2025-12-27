@@ -20,6 +20,7 @@ type CreateAssetInput = {
     assigned_to?: string;
     image_url?: string;
     notes?: string;
+    specifications?: Record<string, string>;
 };
 
 type UpdateAssetInput = CreateAssetInput & {
@@ -61,6 +62,7 @@ export async function createAsset(input: CreateAssetInput): Promise<ActionResult
                 assigned_to: input.assigned_to || null,
                 image_url: input.image_url || null,
                 notes: input.notes || null,
+                specifications: input.specifications || {},
                 created_by: user.id,
             })
             .select("id")
@@ -102,6 +104,7 @@ export async function updateAsset(input: UpdateAssetInput): Promise<ActionResult
                 assigned_to: input.assigned_to || null,
                 image_url: input.image_url || null,
                 notes: input.notes || null,
+                specifications: input.specifications || {},
             })
             .eq("id", input.id);
 
