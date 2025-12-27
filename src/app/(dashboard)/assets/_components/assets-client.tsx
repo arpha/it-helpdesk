@@ -46,6 +46,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
     MoreHorizontal,
     Eye,
@@ -57,6 +59,8 @@ import {
     Monitor,
     Upload,
     X,
+    Check,
+    ChevronsUpDown,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createAsset, updateAsset, deleteAsset, uploadAssetImage, generateAssetCode } from "../actions";
@@ -137,6 +141,7 @@ export default function AssetsClient() {
     const [formLocation, setFormLocation] = useState("");
     const [formDepartmentId, setFormDepartmentId] = useState("");
     const [formAssignedTo, setFormAssignedTo] = useState("");
+    const [userPopoverOpen, setUserPopoverOpen] = useState(false);
     const [formNotes, setFormNotes] = useState("");
     const [formImageFile, setFormImageFile] = useState<File | null>(null);
     const [formImagePreview, setFormImagePreview] = useState("");
@@ -681,7 +686,7 @@ export default function AssetsClient() {
                                 placeholder="e.g., Laptop Dell Latitude 5520"
                             />
                         </div>
-
+                        {/* Row 1: Serial Number + Status */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Serial Number</Label>
@@ -707,7 +712,8 @@ export default function AssetsClient() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
+                        {/* Row 2: Purchase Date + Purchase Price */}
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Purchase Date</Label>
                                 <Input
@@ -725,6 +731,10 @@ export default function AssetsClient() {
                                     placeholder="0"
                                 />
                             </div>
+                        </div>
+
+                        {/* Row 3: Warranty Expiry + Useful Life */}
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Warranty Expiry</Label>
                                 <Input
@@ -732,25 +742,6 @@ export default function AssetsClient() {
                                     value={formWarrantyExpiry}
                                     onChange={(e) => setFormWarrantyExpiry(e.target.value)}
                                 />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Assigned To</Label>
-                                <Select value={formAssignedTo || "__none__"} onValueChange={(val) => setFormAssignedTo(val === "__none__" ? "" : val)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select user" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none__">None</SelectItem>
-                                        {users?.map((user) => (
-                                            <SelectItem key={user.id} value={user.id}>
-                                                {user.full_name || user.username || "Unknown User"}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label>Useful Life (years)</Label>
@@ -763,13 +754,75 @@ export default function AssetsClient() {
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Location</Label>
-                            <Input
-                                value={formLocation}
-                                onChange={(e) => setFormLocation(e.target.value)}
-                                placeholder="e.g., Room 201"
-                            />
+                        {/* Row 4: Assigned To (searchable) + Location */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Assigned To</Label>
+                                <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={userPopoverOpen}
+                                            className="w-full justify-between font-normal"
+                                        >
+                                            {formAssignedTo
+                                                ? users?.find((u) => u.id === formAssignedTo)?.full_name ||
+                                                users?.find((u) => u.id === formAssignedTo)?.username ||
+                                                "Selected User"
+                                                : "Select user..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0" align="start">
+                                        <Command>
+                                            <CommandInput placeholder="Search user..." />
+                                            <CommandList>
+                                                <CommandEmpty>No user found.</CommandEmpty>
+                                                <CommandGroup>
+                                                    <CommandItem
+                                                        value="__none__"
+                                                        onSelect={() => {
+                                                            setFormAssignedTo("");
+                                                            setUserPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={`mr-2 h-4 w-4 ${formAssignedTo === "" ? "opacity-100" : "opacity-0"
+                                                                }`}
+                                                        />
+                                                        None
+                                                    </CommandItem>
+                                                    {users?.map((user) => (
+                                                        <CommandItem
+                                                            key={user.id}
+                                                            value={user.full_name || user.username || user.id}
+                                                            onSelect={() => {
+                                                                setFormAssignedTo(user.id);
+                                                                setUserPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={`mr-2 h-4 w-4 ${formAssignedTo === user.id ? "opacity-100" : "opacity-0"
+                                                                    }`}
+                                                            />
+                                                            {user.full_name || user.username || "Unknown User"}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Location</Label>
+                                <Input
+                                    value={formLocation}
+                                    onChange={(e) => setFormLocation(e.target.value)}
+                                    placeholder="e.g., Room 201"
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">
