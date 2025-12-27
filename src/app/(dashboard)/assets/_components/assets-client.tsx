@@ -463,9 +463,9 @@ export default function AssetsClient() {
 
     return (
         <>
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-32 sm:w-40">
                         <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -478,7 +478,7 @@ export default function AssetsClient() {
                 </Select>
 
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-32 sm:w-40">
                         <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -508,11 +508,17 @@ export default function AssetsClient() {
                 emptyMessage="No assets found."
                 toolbarAction={
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={handleExportExcel}>
+                        <Button variant="outline" onClick={handleExportExcel} size="sm" className="hidden sm:flex">
                             <FileSpreadsheet className="mr-2 h-4 w-4" />Export Excel
                         </Button>
-                        <Button onClick={handleOpenAdd}>
+                        <Button variant="outline" onClick={handleExportExcel} size="icon" className="sm:hidden">
+                            <FileSpreadsheet className="h-4 w-4" />
+                        </Button>
+                        <Button onClick={handleOpenAdd} size="sm" className="hidden sm:flex">
                             <Plus className="mr-2 h-4 w-4" />Add Asset
+                        </Button>
+                        <Button onClick={handleOpenAdd} size="icon" className="sm:hidden">
+                            <Plus className="h-4 w-4" />
                         </Button>
                     </div>
                 }
@@ -652,7 +658,7 @@ export default function AssetsClient() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Asset Code *</Label>
                                 <Input
@@ -687,7 +693,7 @@ export default function AssetsClient() {
                             />
                         </div>
                         {/* Row 1: Serial Number + Status */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Serial Number</Label>
                                 <Input
@@ -713,7 +719,7 @@ export default function AssetsClient() {
                         </div>
 
                         {/* Row 2: Purchase Date + Purchase Price */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Purchase Date</Label>
                                 <Input
@@ -734,7 +740,7 @@ export default function AssetsClient() {
                         </div>
 
                         {/* Row 3: Warranty Expiry + Useful Life */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Warranty Expiry</Label>
                                 <Input
@@ -755,7 +761,7 @@ export default function AssetsClient() {
                         </div>
 
                         {/* Row 4: Assigned To (searchable) + Location */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Assigned To</Label>
                                 <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
