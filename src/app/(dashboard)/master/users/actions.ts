@@ -244,7 +244,7 @@ type ImportUserInput = {
     password: string;
     full_name: string;
     role?: string;
-    department_name?: string;
+    whatsapp_phone?: string;
 };
 
 type ImportUserDetail = {
@@ -320,11 +320,6 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
                 ? item.role!.toLowerCase() as "admin" | "user" | "staff_it" | "manager_it"
                 : "user";
 
-            // Find department
-            const departmentId = item.department_name
-                ? deptMap.get(item.department_name.toLowerCase()) || null
-                : null;
-
             // Create user in auth.users
             const { data: authData, error: authError } = await supabase.auth.admin.createUser({
                 email: item.email,
@@ -371,7 +366,7 @@ export async function bulkImportUsers(items: ImportUserInput[]): Promise<BulkImp
                     username: item.username.toLowerCase().replace(/\s/g, '.'),
                     full_name: item.full_name,
                     role: role,
-                    department_id: departmentId,
+                    whatsapp_phone: item.whatsapp_phone || null,
                 }, {
                     onConflict: 'id'
                 });
@@ -513,6 +508,7 @@ export async function importUsersBatch(
                     username: item.username.toLowerCase().replace(/\s/g, '.'),
                     full_name: item.full_name,
                     role: role,
+                    whatsapp_phone: item.whatsapp_phone || null,
                 }, {
                     onConflict: 'id'
                 });

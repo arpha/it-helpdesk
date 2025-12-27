@@ -199,6 +199,7 @@ export default function UsersClient() {
                 password: String(row["Password"] || row["password"] || ""),
                 full_name: String(row["Full Name"] || row["full_name"] || row["Nama"] || ""),
                 role: String(row["Role"] || row["role"] || "user"),
+                whatsapp_phone: String(row["WhatsApp"] || row["whatsapp"] || row["whatsapp_phone"] || ""),
             }));
 
             // Start batch processing
@@ -289,6 +290,7 @@ export default function UsersClient() {
                 Password: "password123",
                 "Full Name": "Contoh User",
                 Role: "user",
+                WhatsApp: "628123456789",
             },
         ];
 
