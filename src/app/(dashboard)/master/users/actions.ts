@@ -10,6 +10,7 @@ type CreateUserInput = {
     full_name: string;
     role: "admin" | "user" | "staff_it" | "manager_it";
     avatar_url?: string | null;
+    whatsapp_phone?: string | null;
 };
 
 type UpdateUserInput = {
@@ -108,6 +109,7 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult> 
                 full_name: input.full_name,
                 role: input.role,
                 avatar_url: input.avatar_url || null,
+                whatsapp_phone: input.whatsapp_phone || null,
             }, {
                 onConflict: 'id'
             });

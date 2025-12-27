@@ -107,6 +107,7 @@ export default function UsersClient() {
     const [addRole, setAddRole] = useState<string>("user");
     const [addAvatarFile, setAddAvatarFile] = useState<File | null>(null);
     const [addAvatarPreview, setAddAvatarPreview] = useState<string>("");
+    const [addWhatsapp, setAddWhatsapp] = useState<string>("");
     const [addMessage, setAddMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Import states
@@ -322,6 +323,7 @@ export default function UsersClient() {
         setAddRole("user");
         setAddAvatarFile(null);
         setAddAvatarPreview("");
+        setAddWhatsapp("");
         setAddMessage(null);
         setIsAddOpen(true);
     };
@@ -358,6 +360,7 @@ export default function UsersClient() {
                 full_name: addFullName,
                 role: addRole as "admin" | "user" | "staff_it" | "manager_it",
                 avatar_url: avatarUrl,
+                whatsapp_phone: addWhatsapp || null,
             });
 
             if (result.success) {
@@ -695,6 +698,17 @@ export default function UsersClient() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="add_whatsapp">WhatsApp</Label>
+                            <Input
+                                id="add_whatsapp"
+                                value={addWhatsapp}
+                                onChange={(e) => setAddWhatsapp(e.target.value)}
+                                placeholder="628123456789"
+                            />
+                            <p className="text-xs text-muted-foreground">Format: 628xxx (tanpa + atau spasi)</p>
                         </div>
 
                         <div className="flex justify-end gap-2 pt-4">
