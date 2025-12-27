@@ -28,6 +28,32 @@ export const ASSET_SPEC_TEMPLATES: CategorySpecs = {
         { key: "vga", label: "VGA", type: "text", placeholder: "Intel Iris Xe" },
         { key: "os", label: "OS", type: "text", placeholder: "Windows 11 Pro" },
     ],
+    "Laptop": [
+        { key: "processor", label: "Processor", type: "text", placeholder: "Intel Core i5-1235U" },
+        { key: "ram", label: "RAM", type: "text", placeholder: "16GB DDR4" },
+        { key: "storage", label: "Storage", type: "text", placeholder: "512GB SSD" },
+        { key: "vga", label: "VGA", type: "text", placeholder: "Intel Iris Xe" },
+        { key: "layar", label: "Layar", type: "text", placeholder: "14 inch FHD" },
+        { key: "os", label: "OS", type: "text", placeholder: "Windows 11 Pro" },
+    ],
+    "Monitor": [
+        { key: "ukuran", label: "Ukuran", type: "text", placeholder: "24 inch" },
+        { key: "resolusi", label: "Resolusi", type: "text", placeholder: "1920x1080 Full HD" },
+        { key: "panel", label: "Panel", type: "select", options: ["IPS", "VA", "TN", "OLED"] },
+        { key: "refresh_rate", label: "Refresh Rate", type: "text", placeholder: "60Hz" },
+    ],
+    "Server": [
+        { key: "processor", label: "Processor", type: "text", placeholder: "Intel Xeon E-2234" },
+        { key: "ram", label: "RAM", type: "text", placeholder: "32GB ECC DDR4" },
+        { key: "storage", label: "Storage", type: "text", placeholder: "2x 1TB SAS RAID1" },
+        { key: "form_factor", label: "Form Factor", type: "select", options: ["Rack 1U", "Rack 2U", "Tower"] },
+        { key: "os", label: "OS", type: "text", placeholder: "Windows Server 2022" },
+    ],
+    "UPS": [
+        { key: "kapasitas", label: "Kapasitas", type: "text", placeholder: "1500VA / 900W" },
+        { key: "tipe", label: "Tipe", type: "select", options: ["Standby", "Line Interactive", "Online"] },
+        { key: "outlet", label: "Jumlah Outlet", type: "text", placeholder: "6" },
+    ],
     "Printer": [
         { key: "tipe", label: "Tipe", type: "select", options: ["Laser", "Tank", "Suntik"] },
         { key: "ppm", label: "PPM", type: "text", placeholder: "30" },

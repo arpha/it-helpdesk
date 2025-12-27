@@ -48,9 +48,22 @@ CREATE INDEX IF NOT EXISTS idx_assets_specs ON assets USING GIN (specifications)
 -- =============================================
 -- ADD ASSET CATEGORIES
 -- =============================================
+-- First add unique constraint on name if not exists
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'asset_categories_name_key') THEN
+        ALTER TABLE asset_categories ADD CONSTRAINT asset_categories_name_key UNIQUE (name);
+    END IF;
+END $$;
+
+-- Insert categories (skip if already exists)
 INSERT INTO asset_categories (name, description) VALUES
   ('CPU', 'Unit CPU/Desktop'),
   ('Komputer', 'Laptop atau All-in-One'),
+  ('Laptop', 'Laptop'),
+  ('Monitor', 'Monitor'),
+  ('Server', 'Server'),
+  ('UPS', 'Uninterruptible Power Supply'),
   ('Printer', 'Printer'),
   ('Scanner', 'Scanner'),
   ('Harddisk Eksternal', 'External Storage'),
