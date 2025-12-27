@@ -73,3 +73,12 @@ INSERT INTO asset_categories (name, description) VALUES
   ('Proyektor', 'Proyektor'),
   ('Peripheral Lainnya', 'Peripheral Lainnya')
 ON CONFLICT (name) DO NOTHING;
+
+-- =============================================
+-- REMOVE DEPARTMENT FROM USERS (PROFILES)
+-- =============================================
+-- Drop the foreign key constraint first (if exists)
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_department_id_fkey;
+
+-- Drop the department_id column from profiles
+ALTER TABLE profiles DROP COLUMN IF EXISTS department_id;
