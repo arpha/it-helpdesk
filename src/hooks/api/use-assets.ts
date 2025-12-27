@@ -8,15 +8,12 @@ export type Asset = {
     asset_code: string;
     category_id: string | null;
     name: string;
-    brand: string | null;
-    model: string | null;
     serial_number: string | null;
     purchase_date: string | null;
     purchase_price: number;
     warranty_expiry: string | null;
     useful_life_years: number;
     status: "active" | "maintenance" | "damage" | "disposed";
-    condition: "good" | "fair" | "poor";
     location: string | null;
     department_id: string | null;
     assigned_to: string | null;
@@ -33,7 +30,9 @@ export type Asset = {
         name: string;
     } | null;
     profiles: {
-        full_name: string;
+        id: string;
+        full_name: string | null;
+        username: string | null;
     } | null;
 };
 
@@ -64,7 +63,7 @@ async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
             *,
             asset_categories(name),
             departments(name),
-            profiles:assigned_to(full_name)
+            profiles:assigned_to(id, full_name, username)
         `,
             { count: "exact" }
         );

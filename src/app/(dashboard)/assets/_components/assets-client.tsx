@@ -6,6 +6,7 @@ import { useDataTable } from "@/hooks/use-data-table";
 import { useAssets, Asset } from "@/hooks/api/use-assets";
 import { useAllAssetCategories } from "@/hooks/api/use-asset-categories";
 import { useDepartments } from "@/hooks/api/use-departments";
+import { useAllUsers } from "@/hooks/api/use-all-users";
 import { DataTable, Column } from "@/components/ui/data-table";
 import {
     Dialog,
@@ -114,6 +115,7 @@ export default function AssetsClient() {
     const { data: assetsData, isLoading } = useAssets({ page, limit, search, status: statusFilter, categoryId: categoryFilter });
     const { data: categories } = useAllAssetCategories();
     const { data: departments } = useDepartments();
+    const { data: users } = useAllUsers();
 
     // Modal states
     const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -126,17 +128,15 @@ export default function AssetsClient() {
     const [formAssetCode, setFormAssetCode] = useState("");
     const [formName, setFormName] = useState("");
     const [formCategoryId, setFormCategoryId] = useState("");
-    const [formBrand, setFormBrand] = useState("");
-    const [formModel, setFormModel] = useState("");
     const [formSerialNumber, setFormSerialNumber] = useState("");
     const [formPurchaseDate, setFormPurchaseDate] = useState("");
     const [formPurchasePrice, setFormPurchasePrice] = useState("");
     const [formWarrantyExpiry, setFormWarrantyExpiry] = useState("");
     const [formUsefulLife, setFormUsefulLife] = useState("5");
     const [formStatus, setFormStatus] = useState("active");
-    const [formCondition, setFormCondition] = useState("good");
     const [formLocation, setFormLocation] = useState("");
     const [formDepartmentId, setFormDepartmentId] = useState("");
+    const [formAssignedTo, setFormAssignedTo] = useState("");
     const [formNotes, setFormNotes] = useState("");
     const [formImageFile, setFormImageFile] = useState<File | null>(null);
     const [formImagePreview, setFormImagePreview] = useState("");
@@ -149,17 +149,15 @@ export default function AssetsClient() {
         setFormAssetCode("");
         setFormName("");
         setFormCategoryId("");
-        setFormBrand("");
-        setFormModel("");
         setFormSerialNumber("");
         setFormPurchaseDate("");
         setFormPurchasePrice("");
         setFormWarrantyExpiry("");
         setFormUsefulLife("5");
         setFormStatus("active");
-        setFormCondition("good");
         setFormLocation("");
         setFormDepartmentId("");
+        setFormAssignedTo("");
         setFormNotes("");
         setFormImageFile(null);
         setFormImagePreview("");
@@ -185,17 +183,15 @@ export default function AssetsClient() {
         setFormAssetCode(asset.asset_code);
         setFormName(asset.name);
         setFormCategoryId(asset.category_id || "");
-        setFormBrand(asset.brand || "");
-        setFormModel(asset.model || "");
         setFormSerialNumber(asset.serial_number || "");
         setFormPurchaseDate(asset.purchase_date || "");
         setFormPurchasePrice(asset.purchase_price.toString());
         setFormWarrantyExpiry(asset.warranty_expiry || "");
         setFormUsefulLife(asset.useful_life_years.toString());
         setFormStatus(asset.status);
-        setFormCondition(asset.condition);
         setFormLocation(asset.location || "");
         setFormDepartmentId(asset.department_id || "");
+        setFormAssignedTo(asset.assigned_to || "");
         setFormNotes(asset.notes || "");
         setFormImageFile(null);
         setFormImagePreview(asset.image_url || "");
@@ -247,17 +243,15 @@ export default function AssetsClient() {
                 asset_code: formAssetCode,
                 name: formName,
                 category_id: formCategoryId || undefined,
-                brand: formBrand || undefined,
-                model: formModel || undefined,
                 serial_number: formSerialNumber || undefined,
                 purchase_date: formPurchaseDate || undefined,
                 purchase_price: parseFloat(formPurchasePrice) || 0,
                 warranty_expiry: formWarrantyExpiry || undefined,
                 useful_life_years: parseInt(formUsefulLife) || 5,
                 status: formStatus,
-                condition: formCondition,
                 location: formLocation || undefined,
                 department_id: formDepartmentId || undefined,
+                assigned_to: formAssignedTo || undefined,
                 image_url: imageUrl || undefined,
                 notes: formNotes || undefined,
             });
@@ -300,17 +294,15 @@ export default function AssetsClient() {
                 asset_code: formAssetCode,
                 name: formName,
                 category_id: formCategoryId || undefined,
-                brand: formBrand || undefined,
-                model: formModel || undefined,
                 serial_number: formSerialNumber || undefined,
                 purchase_date: formPurchaseDate || undefined,
                 purchase_price: parseFloat(formPurchasePrice) || 0,
                 warranty_expiry: formWarrantyExpiry || undefined,
                 useful_life_years: parseInt(formUsefulLife) || 5,
                 status: formStatus,
-                condition: formCondition,
                 location: formLocation || undefined,
                 department_id: formDepartmentId || undefined,
+                assigned_to: formAssignedTo || undefined,
                 image_url: imageUrl || undefined,
                 notes: formNotes || undefined,
             });
@@ -350,13 +342,11 @@ export default function AssetsClient() {
                 "Asset Code": asset.asset_code,
                 Name: asset.name,
                 Category: asset.asset_categories?.name || "-",
-                Brand: asset.brand || "-",
-                Model: asset.model || "-",
                 "Serial Number": asset.serial_number || "-",
                 Status: statusLabels[asset.status],
-                Condition: conditionLabels[asset.condition],
                 Location: asset.location || "-",
                 Department: asset.departments?.name || "-",
+                "Assigned To": asset.profiles?.full_name || "-",
                 "Purchase Date": asset.purchase_date || "-",
                 "Purchase Price": asset.purchase_price,
                 "Current Value": Math.round(currentValue),
@@ -554,16 +544,12 @@ export default function AssetsClient() {
                                     <p className="font-medium">{selectedAsset.asset_categories?.name || "-"}</p>
                                 </div>
                                 <div>
-                                    <span className="text-muted-foreground">Brand / Model</span>
-                                    <p className="font-medium">{selectedAsset.brand} {selectedAsset.model}</p>
-                                </div>
-                                <div>
                                     <span className="text-muted-foreground">Serial Number</span>
                                     <p className="font-medium">{selectedAsset.serial_number || "-"}</p>
                                 </div>
                                 <div>
-                                    <span className="text-muted-foreground">Condition</span>
-                                    <p className="font-medium">{conditionLabels[selectedAsset.condition]}</p>
+                                    <span className="text-muted-foreground">Assigned To</span>
+                                    <p className="font-medium">{selectedAsset.profiles?.full_name || "-"}</p>
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Location</span>
@@ -696,23 +682,7 @@ export default function AssetsClient() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label>Brand</Label>
-                                <Input
-                                    value={formBrand}
-                                    onChange={(e) => setFormBrand(e.target.value)}
-                                    placeholder="e.g., Dell"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Model</Label>
-                                <Input
-                                    value={formModel}
-                                    onChange={(e) => setFormModel(e.target.value)}
-                                    placeholder="e.g., Latitude 5520"
-                                />
-                            </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Serial Number</Label>
                                 <Input
@@ -720,6 +690,20 @@ export default function AssetsClient() {
                                     onChange={(e) => setFormSerialNumber(e.target.value)}
                                     placeholder="S/N"
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Status</Label>
+                                <Select value={formStatus} onValueChange={setFormStatus}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="active">Active</SelectItem>
+                                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                                        <SelectItem value="damage">Damage</SelectItem>
+                                        <SelectItem value="disposed">Disposed</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
@@ -751,31 +735,20 @@ export default function AssetsClient() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Status</Label>
-                                <Select value={formStatus} onValueChange={setFormStatus}>
+                                <Label>Assigned To</Label>
+                                <Select value={formAssignedTo} onValueChange={setFormAssignedTo}>
                                     <SelectTrigger>
-                                        <SelectValue />
+                                        <SelectValue placeholder="Select user" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="active">Active</SelectItem>
-                                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                                        <SelectItem value="damage">Damage</SelectItem>
-                                        <SelectItem value="disposed">Disposed</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Condition</Label>
-                                <Select value={formCondition} onValueChange={setFormCondition}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="good">Good</SelectItem>
-                                        <SelectItem value="fair">Fair</SelectItem>
-                                        <SelectItem value="poor">Poor</SelectItem>
+                                        <SelectItem value="">None</SelectItem>
+                                        {users?.map((user) => (
+                                            <SelectItem key={user.id} value={user.id}>
+                                                {user.full_name || user.username || user.email}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>

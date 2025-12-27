@@ -8,15 +8,12 @@ type CreateAssetInput = {
     asset_code: string;
     category_id?: string;
     name: string;
-    brand?: string;
-    model?: string;
     serial_number?: string;
     purchase_date?: string;
     purchase_price?: number;
     warranty_expiry?: string;
     useful_life_years?: number;
     status?: string;
-    condition?: string;
     location?: string;
     department_id?: string;
     assigned_to?: string;
@@ -51,15 +48,12 @@ export async function createAsset(input: CreateAssetInput): Promise<ActionResult
                 asset_code: input.asset_code,
                 category_id: input.category_id || null,
                 name: input.name,
-                brand: input.brand || null,
-                model: input.model || null,
                 serial_number: input.serial_number || null,
                 purchase_date: input.purchase_date || null,
                 purchase_price: input.purchase_price || 0,
                 warranty_expiry: input.warranty_expiry || null,
                 useful_life_years: input.useful_life_years || 5,
                 status: input.status || "active",
-                condition: input.condition || "good",
                 location: input.location || null,
                 department_id: input.department_id || null,
                 assigned_to: input.assigned_to || null,
@@ -94,15 +88,12 @@ export async function updateAsset(input: UpdateAssetInput): Promise<ActionResult
                 asset_code: input.asset_code,
                 category_id: input.category_id || null,
                 name: input.name,
-                brand: input.brand || null,
-                model: input.model || null,
                 serial_number: input.serial_number || null,
                 purchase_date: input.purchase_date || null,
                 purchase_price: input.purchase_price || 0,
                 warranty_expiry: input.warranty_expiry || null,
                 useful_life_years: input.useful_life_years || 5,
                 status: input.status || "active",
-                condition: input.condition || "good",
                 location: input.location || null,
                 department_id: input.department_id || null,
                 assigned_to: input.assigned_to || null,
@@ -207,4 +198,103 @@ export async function generateAssetCode(categoryPrefix: string): Promise<string>
     }
 
     return `${prefix}-0001`;
+}
+
+// Assign asset to user and record in history
+export async function assignAssetToUser(
+    assetId: string,
+    userId: string | null,
+    notes?: string
+): Promise<ActionResult> {
+    try {
+        const supabase = createAdminClient();
+        const authClient = await createClient();
+        const { data: { user } } = await authClient.auth.getUser();
+
+        if (!user) {
+            return { success: false, error: "Not authenticated" };
+        }
+
+        // Close previous assignment if exists
+        await supabase
+            .from("asset_assignments")
+            .update({ returned_at: new Date().toISOString() })
+            .eq("asset_id", assetId)
+            .is("returned_at", null);
+
+        // Create new assignment if userId provided
+        if (userId) {
+            const { error: assignError } = await supabase
+                .from("asset_assignments")
+                .insert({
+                    asset_id: assetId,
+                    user_id: userId,
+                    notes: notes || null,
+                    assigned_by: user.id,
+                });
+
+            if (assignError) {
+                return { success: false, error: assignError.message };
+            }
+        }
+
+        // Update asset's assigned_to field
+        const { error } = await supabase
+            .from("assets")
+            .update({ assigned_to: userId })
+            .eq("id", assetId);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        revalidatePath("/assets");
+        return { success: true };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
+}
+
+// Get asset assignment history
+export type AssetAssignment = {
+    id: string;
+    asset_id: string;
+    user_id: string | null;
+    assigned_at: string;
+    returned_at: string | null;
+    notes: string | null;
+    assigned_by: string | null;
+    user?: {
+        id: string;
+        full_name: string | null;
+        username: string | null;
+    } | null;
+    assigner?: {
+        id: string;
+        full_name: string | null;
+    } | null;
+};
+
+export async function getAssetAssignmentHistory(assetId: string): Promise<AssetAssignment[]> {
+    const supabase = createAdminClient();
+
+    const { data, error } = await supabase
+        .from("asset_assignments")
+        .select(`
+            *,
+            user:profiles!asset_assignments_user_id_fkey(id, full_name, username),
+            assigner:profiles!asset_assignments_assigned_by_fkey(id, full_name)
+        `)
+        .eq("asset_id", assetId)
+        .order("assigned_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching assignment history:", error);
+        return [];
+    }
+
+    return data || [];
 }
