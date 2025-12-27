@@ -95,6 +95,7 @@ export default function UsersClient() {
     const [editAvatarUrl, setEditAvatarUrl] = useState<string>("");
     const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null);
     const [editAvatarPreview, setEditAvatarPreview] = useState<string>("");
+    const [editWhatsapp, setEditWhatsapp] = useState<string>("");
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -163,6 +164,7 @@ export default function UsersClient() {
         setEditAvatarUrl(user.avatar_url || "");
         setEditAvatarFile(null);
         setEditAvatarPreview(user.avatar_url || "");
+        setEditWhatsapp(user.whatsapp_phone || "");
         setMessage(null);
         setIsEditOpen(true);
     };
@@ -397,6 +399,7 @@ export default function UsersClient() {
                 full_name: editFullName,
                 role: editRole as "admin" | "user" | "staff_it" | "manager_it",
                 avatar_url: avatarUrl,
+                whatsapp_phone: editWhatsapp || null,
             });
 
             if (result.success) {
@@ -881,6 +884,17 @@ export default function UsersClient() {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_whatsapp">WhatsApp</Label>
+                                <Input
+                                    id="edit_whatsapp"
+                                    value={editWhatsapp}
+                                    onChange={(e) => setEditWhatsapp(e.target.value)}
+                                    placeholder="628123456789"
+                                />
+                                <p className="text-xs text-muted-foreground">Format: 628xxx (tanpa + atau spasi)</p>
                             </div>
 
                             <div className="flex justify-end gap-2 pt-4">

@@ -18,6 +18,7 @@ type UpdateUserInput = {
     full_name: string;
     role: "admin" | "user" | "staff_it" | "manager_it";
     avatar_url?: string | null;
+    whatsapp_phone?: string | null;
 };
 
 type ActionResult = {
@@ -158,6 +159,11 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
         // Only update avatar_url if provided
         if (input.avatar_url !== undefined) {
             updateData.avatar_url = input.avatar_url || null;
+        }
+
+        // Only update whatsapp_phone if provided
+        if (input.whatsapp_phone !== undefined) {
+            updateData.whatsapp_phone = input.whatsapp_phone || null;
         }
 
         const { error } = await supabase
