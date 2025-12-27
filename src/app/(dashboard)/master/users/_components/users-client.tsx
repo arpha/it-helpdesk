@@ -148,7 +148,7 @@ export default function UsersClient() {
 
     const handleEdit = (user: UserProfile) => {
         setSelectedUser(user);
-        setEditFullName(user.full_name);
+        setEditFullName(user.full_name || "");
         setEditUsername(user.username || "");
         setEditRole(user.role);
         setEditDepartment(user.department_id || "");
@@ -385,10 +385,10 @@ export default function UsersClient() {
                     <Avatar className="h-8 w-8">
                         <AvatarImage src={row.avatar_url || undefined} />
                         <AvatarFallback className="text-xs">
-                            {getInitials(row.full_name)}
+                            {getInitials(row.full_name || "")}
                         </AvatarFallback>
                     </Avatar>
-                    <span className="font-medium">{row.full_name}</span>
+                    <span className="font-medium">{row.full_name || "-"}</span>
                 </div>
             ),
         },
@@ -686,11 +686,11 @@ export default function UsersClient() {
                                 <Avatar className="h-16 w-16">
                                     <AvatarImage src={selectedUser.avatar_url || undefined} />
                                     <AvatarFallback className="text-lg">
-                                        {getInitials(selectedUser.full_name)}
+                                        {getInitials(selectedUser.full_name || "")}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <p className="font-medium text-lg">{selectedUser.full_name}</p>
+                                    <p className="font-medium text-lg">{selectedUser.full_name || "-"}</p>
                                     <Badge variant="secondary" className={roleColors[selectedUser.role]}>
                                         {roleLabels[selectedUser.role]}
                                     </Badge>
@@ -744,7 +744,7 @@ export default function UsersClient() {
                                     <Avatar className="h-16 w-16">
                                         <AvatarImage src={editAvatarPreview || undefined} />
                                         <AvatarFallback className="text-lg">
-                                            {getInitials(editFullName || selectedUser.full_name)}
+                                            {getInitials(editFullName || selectedUser.full_name || "")}
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className="flex gap-2">
