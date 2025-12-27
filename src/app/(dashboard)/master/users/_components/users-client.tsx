@@ -434,6 +434,24 @@ export default function UsersClient() {
             ),
         },
         {
+            key: "username",
+            header: "Username",
+            cell: (row) => (
+                <span className="text-muted-foreground">
+                    {row.username || "-"}
+                </span>
+            ),
+        },
+        {
+            key: "whatsapp",
+            header: "WhatsApp",
+            cell: (row) => (
+                <span className="text-muted-foreground">
+                    {row.whatsapp_phone || "-"}
+                </span>
+            ),
+        },
+        {
             key: "role",
             header: "Role",
             cell: (row) => (

@@ -9,6 +9,7 @@ export type UserProfile = {
     full_name: string | null;
     role: "admin" | "user" | "staff_it" | "manager_it";
     avatar_url: string | null;
+    whatsapp_phone: string | null;
     created_at: string;
     updated_at: string;
 };
