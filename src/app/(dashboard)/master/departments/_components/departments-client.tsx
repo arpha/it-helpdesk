@@ -222,13 +222,21 @@ export default function DepartmentsClient() {
 
     return (
         <>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
+                <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-sm sm:ml-auto">
+                    <Input
+                        placeholder="Search departments..."
+                        value={searchInput}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full"
+                    />
+                </div>
+            </div>
+
             <DataTable
                 columns={columns}
                 data={departmentsData?.data || []}
                 isLoading={isLoading}
-                searchValue={searchInput}
-                onSearchChange={setSearch}
-                searchPlaceholder="Search departments..."
                 page={page}
                 totalPages={departmentsData?.totalPages || 1}
                 totalItems={departmentsData?.totalItems}
@@ -236,10 +244,13 @@ export default function DepartmentsClient() {
                 limit={limit}
                 onLimitChange={setLimit}
                 emptyMessage="No departments found."
+                searchValue={searchInput}
+                onSearchChange={setSearch}
+                hideSearch={true}
                 toolbarAction={
-                    <Button onClick={handleOpenAdd}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Department
+                    <Button onClick={handleOpenAdd} size="sm">
+                        <Plus className="h-4 w-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Add Department</span>
                     </Button>
                 }
             />
@@ -255,8 +266,8 @@ export default function DepartmentsClient() {
                         {addMessage && (
                             <div
                                 className={`rounded-md p-3 text-sm ${addMessage.type === "success"
-                                        ? "bg-green-500/10 text-green-600"
-                                        : "bg-destructive/10 text-destructive"
+                                    ? "bg-green-500/10 text-green-600"
+                                    : "bg-destructive/10 text-destructive"
                                     }`}
                             >
                                 {addMessage.text}
@@ -354,8 +365,8 @@ export default function DepartmentsClient() {
                             {message && (
                                 <div
                                     className={`rounded-md p-3 text-sm ${message.type === "success"
-                                            ? "bg-green-500/10 text-green-600"
-                                            : "bg-destructive/10 text-destructive"
+                                        ? "bg-green-500/10 text-green-600"
+                                        : "bg-destructive/10 text-destructive"
                                         }`}
                                 >
                                     {message.text}
