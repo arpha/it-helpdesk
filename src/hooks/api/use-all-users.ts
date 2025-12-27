@@ -7,7 +7,6 @@ export type SimpleUser = {
     id: string;
     full_name: string | null;
     username: string | null;
-    email: string;
 };
 
 async function fetchAllUsers(): Promise<SimpleUser[]> {
@@ -15,14 +14,15 @@ async function fetchAllUsers(): Promise<SimpleUser[]> {
 
     const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, username, email")
+        .select("id, full_name, username")
         .order("full_name", { ascending: true });
 
     if (error) {
-        throw new Error(error.message);
+        console.error("Error fetching users:", error);
+        return [];
     }
 
-    return (data as unknown as SimpleUser[]) || [];
+    return (data as SimpleUser[]) || [];
 }
 
 export function useAllUsers() {

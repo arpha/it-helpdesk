@@ -746,7 +746,7 @@ export default function AssetsClient() {
                                         <SelectItem value="__none__">None</SelectItem>
                                         {users?.map((user) => (
                                             <SelectItem key={user.id} value={user.id}>
-                                                {user.full_name || user.username || user.email}
+                                                {user.full_name || user.username || "Unknown User"}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -763,30 +763,13 @@ export default function AssetsClient() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Location</Label>
-                                <Input
-                                    value={formLocation}
-                                    onChange={(e) => setFormLocation(e.target.value)}
-                                    placeholder="e.g., Room 201"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Department</Label>
-                                <Select value={formDepartmentId} onValueChange={setFormDepartmentId}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select department" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {departments?.map((dept) => (
-                                            <SelectItem key={dept.id} value={dept.id}>
-                                                {dept.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div className="space-y-2">
+                            <Label>Location</Label>
+                            <Input
+                                value={formLocation}
+                                onChange={(e) => setFormLocation(e.target.value)}
+                                placeholder="e.g., Room 201"
+                            />
                         </div>
 
                         <div className="space-y-2">
