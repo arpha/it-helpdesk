@@ -14,6 +14,7 @@ export type Asset = {
     warranty_expiry: string | null;
     useful_life_years: number;
     status: "active" | "maintenance" | "damage" | "disposed";
+    ownership_status: "purchase" | "rent";
     location: string | null;
     department_id: string | null;
     assigned_to: string | null;

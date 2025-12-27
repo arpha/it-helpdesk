@@ -33,3 +33,8 @@ CREATE POLICY "asset_assignments_all" ON asset_assignments
 -- ALTER TABLE assets DROP COLUMN IF EXISTS brand;
 -- ALTER TABLE assets DROP COLUMN IF EXISTS model;
 -- ALTER TABLE assets DROP COLUMN IF EXISTS condition;
+
+-- =============================================
+-- ADD OWNERSHIP STATUS COLUMN
+-- =============================================
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS ownership_status TEXT DEFAULT 'purchase' CHECK (ownership_status IN ('purchase', 'rent'));

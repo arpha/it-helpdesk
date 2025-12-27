@@ -138,6 +138,7 @@ export default function AssetsClient() {
     const [formWarrantyExpiry, setFormWarrantyExpiry] = useState("");
     const [formUsefulLife, setFormUsefulLife] = useState("5");
     const [formStatus, setFormStatus] = useState("active");
+    const [formOwnershipStatus, setFormOwnershipStatus] = useState("purchase");
     const [formLocation, setFormLocation] = useState("");
     const [formDepartmentId, setFormDepartmentId] = useState("");
     const [formAssignedTo, setFormAssignedTo] = useState("");
@@ -160,6 +161,7 @@ export default function AssetsClient() {
         setFormWarrantyExpiry("");
         setFormUsefulLife("5");
         setFormStatus("active");
+        setFormOwnershipStatus("purchase");
         setFormLocation("");
         setFormDepartmentId("");
         setFormAssignedTo("");
@@ -194,6 +196,7 @@ export default function AssetsClient() {
         setFormWarrantyExpiry(asset.warranty_expiry || "");
         setFormUsefulLife(asset.useful_life_years.toString());
         setFormStatus(asset.status);
+        setFormOwnershipStatus(asset.ownership_status || "purchase");
         setFormLocation(asset.location || "");
         setFormDepartmentId(asset.department_id || "");
         setFormAssignedTo(asset.assigned_to || "");
@@ -254,6 +257,7 @@ export default function AssetsClient() {
                 warranty_expiry: formWarrantyExpiry || undefined,
                 useful_life_years: parseInt(formUsefulLife) || 5,
                 status: formStatus,
+                ownership_status: formOwnershipStatus,
                 location: formLocation || undefined,
                 department_id: formDepartmentId || undefined,
                 assigned_to: formAssignedTo || undefined,
@@ -305,6 +309,7 @@ export default function AssetsClient() {
                 warranty_expiry: formWarrantyExpiry || undefined,
                 useful_life_years: parseInt(formUsefulLife) || 5,
                 status: formStatus,
+                ownership_status: formOwnershipStatus,
                 location: formLocation || undefined,
                 department_id: formDepartmentId || undefined,
                 assigned_to: formAssignedTo || undefined,
@@ -713,6 +718,22 @@ export default function AssetsClient() {
                                         <SelectItem value="maintenance">Maintenance</SelectItem>
                                         <SelectItem value="damage">Damage</SelectItem>
                                         <SelectItem value="disposed">Disposed</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* Row 1.5: Ownership Status */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Status Kepemilikan</Label>
+                                <Select value={formOwnershipStatus} onValueChange={setFormOwnershipStatus}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="purchase">Beli</SelectItem>
+                                        <SelectItem value="rent">Sewa</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

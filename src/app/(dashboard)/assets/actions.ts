@@ -14,6 +14,7 @@ type CreateAssetInput = {
     warranty_expiry?: string;
     useful_life_years?: number;
     status?: string;
+    ownership_status?: string;
     location?: string;
     department_id?: string;
     assigned_to?: string;
@@ -54,6 +55,7 @@ export async function createAsset(input: CreateAssetInput): Promise<ActionResult
                 warranty_expiry: input.warranty_expiry || null,
                 useful_life_years: input.useful_life_years || 5,
                 status: input.status || "active",
+                ownership_status: input.ownership_status || "purchase",
                 location: input.location || null,
                 department_id: input.department_id || null,
                 assigned_to: input.assigned_to || null,
@@ -94,6 +96,7 @@ export async function updateAsset(input: UpdateAssetInput): Promise<ActionResult
                 warranty_expiry: input.warranty_expiry || null,
                 useful_life_years: input.useful_life_years || 5,
                 status: input.status || "active",
+                ownership_status: input.ownership_status || "purchase",
                 location: input.location || null,
                 department_id: input.department_id || null,
                 assigned_to: input.assigned_to || null,
