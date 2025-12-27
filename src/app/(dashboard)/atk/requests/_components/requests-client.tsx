@@ -438,7 +438,7 @@ export default function RequestsClient() {
                                 <SelectContent>
                                     {usersData?.data.map((u) => (
                                         <SelectItem key={u.id} value={u.id}>
-                                            {u.full_name} {u.departments?.name ? `(${u.departments.name})` : ""}
+                                            {u.full_name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

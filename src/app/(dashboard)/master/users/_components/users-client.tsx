@@ -443,15 +443,6 @@ export default function UsersClient() {
             ),
         },
         {
-            key: "department",
-            header: "Department",
-            cell: (row) => (
-                <span className="text-muted-foreground">
-                    {row.departments?.name || "-"}
-                </span>
-            ),
-        },
-        {
             key: "created_at",
             header: "Created At",
             cell: (row) => (
@@ -722,10 +713,6 @@ export default function UsersClient() {
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Department</span>
-                                    <span>{selectedUser.departments?.name || "-"}</span>
-                                </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Created At</span>
                                     <span>

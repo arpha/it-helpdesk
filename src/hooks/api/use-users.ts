@@ -8,14 +8,9 @@ export type UserProfile = {
     username: string | null;
     full_name: string | null;
     role: "admin" | "user" | "staff_it" | "manager_it";
-    department_id: string | null;
     avatar_url: string | null;
     created_at: string;
     updated_at: string;
-    departments?: {
-        id: string;
-        name: string;
-    } | null;
 };
 
 type UseUsersParams = {
@@ -41,7 +36,7 @@ async function fetchUsers({
 
     let query = supabase
         .from("profiles")
-        .select("*, departments(id, name)", { count: "exact" });
+        .select("*", { count: "exact" });
 
     // Apply search filter
     if (search) {
