@@ -551,3 +551,20 @@ export async function getDepartmentsForImport(): Promise<Record<string, string>>
 export async function revalidateUsersPath() {
     revalidatePath("/master/users");
 }
+
+// Get user email from auth.users
+export async function getUserEmail(userId: string): Promise<string | null> {
+    try {
+        const supabase = createAdminClient();
+
+        const { data, error } = await supabase.auth.admin.getUserById(userId);
+
+        if (error || !data?.user) {
+            return null;
+        }
+
+        return data.user.email || null;
+    } catch {
+        return null;
+    }
+}

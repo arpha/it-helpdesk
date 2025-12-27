@@ -43,7 +43,7 @@ import { Label } from "@/components/ui/label";
 import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Download, Search } from "lucide-react";
 import { useState, useTransition, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createUser, updateUser, deleteUser, uploadAvatar, importUsersBatch, revalidateUsersPath, BulkImportUsersResult } from "../actions";
+import { createUser, updateUser, deleteUser, uploadAvatar, importUsersBatch, revalidateUsersPath, getUserEmail, BulkImportUsersResult } from "../actions";
 import * as XLSX from "xlsx";
 import { Progress } from "@/components/ui/progress";
 
@@ -85,6 +85,8 @@ export default function UsersClient() {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [viewEmail, setViewEmail] = useState<string | null>(null);
+    const [isLoadingEmail, setIsLoadingEmail] = useState(false);
 
     // Form state
     const [editFullName, setEditFullName] = useState("");
@@ -141,9 +143,16 @@ export default function UsersClient() {
         }
     };
 
-    const handleView = (user: UserProfile) => {
+    const handleView = async (user: UserProfile) => {
         setSelectedUser(user);
+        setViewEmail(null);
+        setIsLoadingEmail(true);
         setIsViewOpen(true);
+
+        // Fetch email from auth.users
+        const email = await getUserEmail(user.id);
+        setViewEmail(email);
+        setIsLoadingEmail(false);
     };
 
     const handleEdit = (user: UserProfile) => {
@@ -730,11 +739,39 @@ export default function UsersClient() {
                                     </Badge>
                                 </div>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-3 bg-muted/30 rounded-lg p-4">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Username</span>
+                                    <span className="font-medium">{selectedUser.username || "-"}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Email</span>
+                                    <span className="font-medium">
+                                        {isLoadingEmail ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            viewEmail || "-"
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">WhatsApp</span>
+                                    <span className="font-medium">{selectedUser.whatsapp_phone || "-"}</span>
+                                </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Created At</span>
                                     <span>
                                         {new Date(selectedUser.created_at).toLocaleDateString("id-ID", {
+                                            day: "numeric",
+                                            month: "long",
+                                            year: "numeric",
+                                        })}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Updated At</span>
+                                    <span>
+                                        {new Date(selectedUser.updated_at).toLocaleDateString("id-ID", {
                                             day: "numeric",
                                             month: "long",
                                             year: "numeric",
