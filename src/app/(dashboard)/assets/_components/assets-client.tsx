@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useAssets, Asset } from "@/hooks/api/use-assets";
 import { useAllAssetCategories } from "@/hooks/api/use-asset-categories";
-import { useDepartments } from "@/hooks/api/use-departments";
+import { useLocations } from "@/hooks/api/use-locations";
 import { useAllUsers } from "@/hooks/api/use-all-users";
 import { getSpecTemplate, SpecField } from "@/lib/asset-spec-templates";
 import { DataTable, Column } from "@/components/ui/data-table";
@@ -94,21 +94,18 @@ function formatCurrency(amount: number): string {
     }).format(amount);
 }
 
-function calculateDepreciation(purchasePrice: number, purchaseDate: string | null, usefulLifeYears: number): { currentValue: number; depreciationPercent: number } {
-    if (!purchaseDate || purchasePrice <= 0) {
-        return { currentValue: purchasePrice, depreciationPercent: 0 };
+function calculateRefreshCycle(purchaseDate: string | null, refreshCycleYears: number): { yearsRemaining: number; percentRemaining: number } {
+    if (!purchaseDate || refreshCycleYears <= 0) {
+        return { yearsRemaining: 0, percentRemaining: 0 };
     }
 
     const purchaseDateObj = new Date(purchaseDate);
     const now = new Date();
     const yearsUsed = (now.getTime() - purchaseDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365);
+    const yearsRemaining = Math.max(0, refreshCycleYears - yearsUsed);
+    const percentRemaining = Math.max(0, Math.min(100, (yearsRemaining / refreshCycleYears) * 100));
 
-    const annualDepreciation = purchasePrice / usefulLifeYears;
-    const totalDepreciation = Math.min(annualDepreciation * yearsUsed, purchasePrice);
-    const currentValue = Math.max(0, purchasePrice - totalDepreciation);
-    const depreciationPercent = (totalDepreciation / purchasePrice) * 100;
-
-    return { currentValue, depreciationPercent: Math.min(depreciationPercent, 100) };
+    return { yearsRemaining, percentRemaining };
 }
 
 export default function AssetsClient() {
@@ -119,7 +116,7 @@ export default function AssetsClient() {
 
     const { data: assetsData, isLoading } = useAssets({ page, limit, search, status: statusFilter, categoryId: categoryFilter });
     const { data: categories } = useAllAssetCategories();
-    const { data: departments } = useDepartments();
+    const { data: locations } = useLocations();
     const { data: users } = useAllUsers();
 
     // Modal states
@@ -135,15 +132,14 @@ export default function AssetsClient() {
     const [formCategoryId, setFormCategoryId] = useState("");
     const [formSerialNumber, setFormSerialNumber] = useState("");
     const [formPurchaseDate, setFormPurchaseDate] = useState("");
-    const [formPurchasePrice, setFormPurchasePrice] = useState("");
     const [formWarrantyExpiry, setFormWarrantyExpiry] = useState("");
     const [formUsefulLife, setFormUsefulLife] = useState("5");
     const [formStatus, setFormStatus] = useState("active");
     const [formOwnershipStatus, setFormOwnershipStatus] = useState("purchase");
-    const [formLocation, setFormLocation] = useState("");
-    const [formDepartmentId, setFormDepartmentId] = useState("");
+    const [formLocationId, setFormLocationId] = useState("");
     const [formAssignedTo, setFormAssignedTo] = useState("");
     const [userPopoverOpen, setUserPopoverOpen] = useState(false);
+    const [locationPopoverOpen, setLocationPopoverOpen] = useState(false);
     const [formNotes, setFormNotes] = useState("");
     const [formSpecifications, setFormSpecifications] = useState<Record<string, string>>({});
     const [formImageFile, setFormImageFile] = useState<File | null>(null);
@@ -159,13 +155,11 @@ export default function AssetsClient() {
         setFormCategoryId("");
         setFormSerialNumber("");
         setFormPurchaseDate("");
-        setFormPurchasePrice("");
         setFormWarrantyExpiry("");
         setFormUsefulLife("5");
         setFormStatus("active");
         setFormOwnershipStatus("purchase");
-        setFormLocation("");
-        setFormDepartmentId("");
+        setFormLocationId("");
         setFormAssignedTo("");
         setFormNotes("");
         setFormSpecifications({});
@@ -195,13 +189,11 @@ export default function AssetsClient() {
         setFormCategoryId(asset.category_id || "");
         setFormSerialNumber(asset.serial_number || "");
         setFormPurchaseDate(asset.purchase_date || "");
-        setFormPurchasePrice(asset.purchase_price.toString());
         setFormWarrantyExpiry(asset.warranty_expiry || "");
         setFormUsefulLife(asset.useful_life_years.toString());
         setFormStatus(asset.status);
         setFormOwnershipStatus(asset.ownership_status || "purchase");
-        setFormLocation(asset.location || "");
-        setFormDepartmentId(asset.department_id || "");
+        setFormLocationId(asset.location_id || "");
         setFormAssignedTo(asset.assigned_to || "");
         setFormNotes(asset.notes || "");
         setFormSpecifications(asset.specifications || {});
@@ -257,13 +249,11 @@ export default function AssetsClient() {
                 category_id: formCategoryId || undefined,
                 serial_number: formSerialNumber || undefined,
                 purchase_date: formPurchaseDate || undefined,
-                purchase_price: parseFloat(formPurchasePrice) || 0,
                 warranty_expiry: formWarrantyExpiry || undefined,
                 useful_life_years: parseInt(formUsefulLife) || 5,
                 status: formStatus,
                 ownership_status: formOwnershipStatus,
-                location: formLocation || undefined,
-                department_id: formDepartmentId || undefined,
+                location_id: formLocationId || undefined,
                 assigned_to: formAssignedTo || undefined,
                 image_url: imageUrl || undefined,
                 notes: formNotes || undefined,
@@ -310,13 +300,11 @@ export default function AssetsClient() {
                 category_id: formCategoryId || undefined,
                 serial_number: formSerialNumber || undefined,
                 purchase_date: formPurchaseDate || undefined,
-                purchase_price: parseFloat(formPurchasePrice) || 0,
                 warranty_expiry: formWarrantyExpiry || undefined,
                 useful_life_years: parseInt(formUsefulLife) || 5,
                 status: formStatus,
                 ownership_status: formOwnershipStatus,
-                location: formLocation || undefined,
-                department_id: formDepartmentId || undefined,
+                location_id: formLocationId || undefined,
                 assigned_to: formAssignedTo || undefined,
                 image_url: imageUrl || undefined,
                 notes: formNotes || undefined,
@@ -348,8 +336,7 @@ export default function AssetsClient() {
         if (!assetsData?.data || assetsData.data.length === 0) return;
 
         const data = assetsData.data.map((asset, index) => {
-            const { currentValue, depreciationPercent } = calculateDepreciation(
-                asset.purchase_price,
+            const { yearsRemaining, percentRemaining } = calculateRefreshCycle(
                 asset.purchase_date,
                 asset.useful_life_years
             );
@@ -360,13 +347,12 @@ export default function AssetsClient() {
                 Category: asset.asset_categories?.name || "-",
                 "Serial Number": asset.serial_number || "-",
                 Status: statusLabels[asset.status],
-                Location: asset.location || "-",
-                Department: asset.departments?.name || "-",
+                Location: asset.locations?.name || "-",
                 "Assigned To": asset.profiles?.full_name || "-",
                 "Purchase Date": asset.purchase_date || "-",
-                "Purchase Price": asset.purchase_price,
-                "Current Value": Math.round(currentValue),
-                "Depreciation %": Math.round(depreciationPercent),
+                "Refresh Cycle Years": asset.useful_life_years,
+                "Years Remaining": yearsRemaining.toFixed(1),
+                "Cycle Remaining %": Math.round(percentRemaining),
             };
         });
 
@@ -415,23 +401,30 @@ export default function AssetsClient() {
             key: "location",
             header: "Location",
             cell: (asset) => (
-                <span className="text-muted-foreground">{asset.location || "-"}</span>
+                <span className="text-muted-foreground">{asset.locations?.name || "-"}</span>
             ),
         },
         {
-            key: "value",
-            header: "Value",
+            key: "refresh_cycle",
+            header: "Refresh Cycle",
             cell: (asset) => {
-                const { currentValue, depreciationPercent } = calculateDepreciation(
-                    asset.purchase_price,
+                const { yearsRemaining, percentRemaining } = calculateRefreshCycle(
                     asset.purchase_date,
                     asset.useful_life_years
                 );
+                const filledBlocks = Math.round(percentRemaining / 10);
+                const emptyBlocks = 10 - filledBlocks;
+                const progressBar = "█".repeat(filledBlocks) + "░".repeat(emptyBlocks);
+
                 return (
                     <div>
-                        <p className="font-medium">{formatCurrency(currentValue)}</p>
-                        <p className="text-xs text-muted-foreground">
-                            -{Math.round(depreciationPercent)}% depreciated
+                        <p className="text-sm font-medium">
+                            {yearsRemaining > 0
+                                ? `${yearsRemaining.toFixed(1)} years left`
+                                : "Needs refresh"}
+                        </p>
+                        <p className="text-xs font-mono text-muted-foreground">
+                            [{progressBar}] {Math.round(percentRemaining)}%
                         </p>
                     </div>
                 );
@@ -575,11 +568,7 @@ export default function AssetsClient() {
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Location</span>
-                                    <p className="font-medium">{selectedAsset.location || "-"}</p>
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Department</span>
-                                    <p className="font-medium">{selectedAsset.departments?.name || "-"}</p>
+                                    <p className="font-medium">{selectedAsset.locations?.name || "-"}</p>
                                 </div>
                             </div>
 
@@ -595,31 +584,23 @@ export default function AssetsClient() {
                                         </p>
                                     </div>
                                     <div>
-                                        <span className="text-muted-foreground">Purchase Price</span>
-                                        <p className="font-medium">{formatCurrency(selectedAsset.purchase_price)}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-muted-foreground">Current Value</span>
-                                        <p className="font-medium text-green-600">
-                                            {formatCurrency(
-                                                calculateDepreciation(
-                                                    selectedAsset.purchase_price,
-                                                    selectedAsset.purchase_date,
-                                                    selectedAsset.useful_life_years
-                                                ).currentValue
-                                            )}
+                                        <span className="text-muted-foreground">Refresh Cycle</span>
+                                        <p className="font-medium">
+                                            {selectedAsset.useful_life_years} years
                                         </p>
                                     </div>
                                     <div>
-                                        <span className="text-muted-foreground">Depreciation</span>
-                                        <p className="font-medium text-red-500">
-                                            {Math.round(
-                                                calculateDepreciation(
-                                                    selectedAsset.purchase_price,
+                                        <span className="text-muted-foreground">Cycle Remaining</span>
+                                        <p className="font-medium text-green-600">
+                                            {calculateRefreshCycle(
+                                                selectedAsset.purchase_date,
+                                                selectedAsset.useful_life_years
+                                            ).yearsRemaining.toFixed(1)} years ({Math.round(
+                                                calculateRefreshCycle(
                                                     selectedAsset.purchase_date,
                                                     selectedAsset.useful_life_years
-                                                ).depreciationPercent
-                                            )}%
+                                                ).percentRemaining
+                                            )}%)
                                         </p>
                                     </div>
                                     <div>
@@ -790,15 +771,6 @@ export default function AssetsClient() {
                                     onChange={(e) => setFormPurchaseDate(e.target.value)}
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Purchase Price</Label>
-                                <Input
-                                    type="number"
-                                    value={formPurchasePrice}
-                                    onChange={(e) => setFormPurchasePrice(e.target.value)}
-                                    placeholder="0"
-                                />
-                            </div>
                         </div>
 
                         {/* Row 3: Warranty Expiry + Useful Life */}
@@ -885,11 +857,61 @@ export default function AssetsClient() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Location</Label>
-                                <Input
-                                    value={formLocation}
-                                    onChange={(e) => setFormLocation(e.target.value)}
-                                    placeholder="e.g., Room 201"
-                                />
+                                <Popover open={locationPopoverOpen} onOpenChange={setLocationPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={locationPopoverOpen}
+                                            className="w-full justify-between font-normal"
+                                        >
+                                            {formLocationId
+                                                ? locations?.find((l) => l.id === formLocationId)?.name ||
+                                                "Selected Location"
+                                                : "Select location..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0" align="start">
+                                        <Command>
+                                            <CommandInput placeholder="Search location..." />
+                                            <CommandList className="max-h-48 overflow-y-auto">
+                                                <CommandEmpty>No location found.</CommandEmpty>
+                                                <CommandGroup>
+                                                    <CommandItem
+                                                        value="__none__"
+                                                        onSelect={() => {
+                                                            setFormLocationId("");
+                                                            setLocationPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={`mr-2 h-4 w-4 ${formLocationId === "" ? "opacity-100" : "opacity-0"
+                                                                }`}
+                                                        />
+                                                        None
+                                                    </CommandItem>
+                                                    {locations?.map((loc) => (
+                                                        <CommandItem
+                                                            key={loc.id}
+                                                            value={loc.name}
+                                                            onSelect={() => {
+                                                                setFormLocationId(loc.id);
+                                                                setLocationPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={`mr-2 h-4 w-4 ${formLocationId === loc.id ? "opacity-100" : "opacity-0"
+                                                                    }`}
+                                                            />
+                                                            {loc.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                         </div>
 

@@ -2,7 +2,7 @@
 
 import { DataTable, Column } from "@/components/ui/data-table";
 import { useDataTable } from "@/hooks/use-data-table";
-import { useDepartmentsPage, Department } from "@/hooks/api/use-departments-page";
+import { useLocationsPage, Location } from "@/hooks/api/use-locations-page";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -35,17 +35,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createDepartment, updateDepartment, deleteDepartment } from "../actions";
+import { createLocation, updateLocation, deleteLocation } from "../actions";
 
-export default function DepartmentsClient() {
+export default function LocationsClient() {
     const { page, limit, search, searchInput, setPage, setLimit, setSearch } =
         useDataTable();
     const queryClient = useQueryClient();
 
-    const { data: departmentsData, isLoading } = useDepartmentsPage({ page, limit, search });
+    const { data: locationsData, isLoading } = useLocationsPage({ page, limit, search });
 
     // Modal states
-    const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
+    const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -62,21 +62,21 @@ export default function DepartmentsClient() {
     const [addDescription, setAddDescription] = useState("");
     const [addMessage, setAddMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-    const handleView = (dept: Department) => {
-        setSelectedDepartment(dept);
+    const handleView = (loc: Location) => {
+        setSelectedLocation(loc);
         setIsViewOpen(true);
     };
 
-    const handleEdit = (dept: Department) => {
-        setSelectedDepartment(dept);
-        setEditName(dept.name);
-        setEditDescription(dept.description || "");
+    const handleEdit = (loc: Location) => {
+        setSelectedLocation(loc);
+        setEditName(loc.name);
+        setEditDescription(loc.description || "");
         setMessage(null);
         setIsEditOpen(true);
     };
 
-    const handleDelete = (dept: Department) => {
-        setSelectedDepartment(dept);
+    const handleDelete = (loc: Location) => {
+        setSelectedLocation(loc);
         setIsDeleteOpen(true);
     };
 
@@ -91,72 +91,72 @@ export default function DepartmentsClient() {
         setAddMessage(null);
 
         if (!addName) {
-            setAddMessage({ type: "error", text: "Department name is required" });
+            setAddMessage({ type: "error", text: "Location name is required" });
             return;
         }
 
         startTransition(async () => {
-            const result = await createDepartment({
+            const result = await createLocation({
                 name: addName,
                 description: addDescription || null,
             });
 
             if (result.success) {
-                setAddMessage({ type: "success", text: "Department created successfully!" });
-                queryClient.invalidateQueries({ queryKey: ["departments"] });
+                setAddMessage({ type: "success", text: "Location created successfully!" });
+                queryClient.invalidateQueries({ queryKey: ["locations"] });
                 setTimeout(() => {
                     setIsAddOpen(false);
                 }, 1000);
             } else {
-                setAddMessage({ type: "error", text: result.error || "Failed to create department" });
+                setAddMessage({ type: "error", text: result.error || "Failed to create location" });
             }
         });
     };
 
     const handleSaveEdit = () => {
-        if (!selectedDepartment) return;
+        if (!selectedLocation) return;
         setMessage(null);
 
         if (!editName) {
-            setMessage({ type: "error", text: "Department name is required" });
+            setMessage({ type: "error", text: "Location name is required" });
             return;
         }
 
         startTransition(async () => {
-            const result = await updateDepartment({
-                id: selectedDepartment.id,
+            const result = await updateLocation({
+                id: selectedLocation.id,
                 name: editName,
                 description: editDescription || null,
             });
 
             if (result.success) {
-                setMessage({ type: "success", text: "Department updated successfully!" });
-                queryClient.invalidateQueries({ queryKey: ["departments"] });
+                setMessage({ type: "success", text: "Location updated successfully!" });
+                queryClient.invalidateQueries({ queryKey: ["locations"] });
                 setTimeout(() => {
                     setIsEditOpen(false);
                 }, 1000);
             } else {
-                setMessage({ type: "error", text: result.error || "Failed to update department" });
+                setMessage({ type: "error", text: result.error || "Failed to update location" });
             }
         });
     };
 
     const handleConfirmDelete = () => {
-        if (!selectedDepartment) return;
+        if (!selectedLocation) return;
 
         startTransition(async () => {
-            const result = await deleteDepartment(selectedDepartment.id);
+            const result = await deleteLocation(selectedLocation.id);
 
             if (result.success) {
-                queryClient.invalidateQueries({ queryKey: ["departments"] });
+                queryClient.invalidateQueries({ queryKey: ["locations"] });
                 setIsDeleteOpen(false);
             } else {
-                alert(result.error || "Failed to delete department");
+                alert(result.error || "Failed to delete location");
             }
         });
     };
 
-    const columns: Column<Department>[] = [
+    const columns: Column<Location>[] = [
         {
             key: "name",
             header: "Name",
@@ -225,7 +225,7 @@ export default function DepartmentsClient() {
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
                 <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-sm sm:ml-auto">
                     <Input
-                        placeholder="Search departments..."
+                        placeholder="Search locations..."
                         value={searchInput}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full"
@@ -235,32 +235,32 @@ export default function DepartmentsClient() {
 
             <DataTable
                 columns={columns}
-                data={departmentsData?.data || []}
+                data={locationsData?.data || []}
                 isLoading={isLoading}
                 page={page}
-                totalPages={departmentsData?.totalPages || 1}
-                totalItems={departmentsData?.totalItems}
+                totalPages={locationsData?.totalPages || 1}
+                totalItems={locationsData?.totalItems}
                 onPageChange={setPage}
                 limit={limit}
                 onLimitChange={setLimit}
-                emptyMessage="No departments found."
+                emptyMessage="No locations found."
                 searchValue={searchInput}
                 onSearchChange={setSearch}
                 hideSearch={true}
                 toolbarAction={
                     <Button onClick={handleOpenAdd} size="sm">
                         <Plus className="h-4 w-4 sm:mr-2" />
-                        <span className="hidden sm:inline">Add Department</span>
+                        <span className="hidden sm:inline">Add Location</span>
                     </Button>
                 }
             />
 
-            {/* Add Department Modal */}
+            {/* Add Location Modal */}
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Add New Department</DialogTitle>
-                        <DialogDescription>Create a new department</DialogDescription>
+                        <DialogTitle>Add New Location</DialogTitle>
+                        <DialogDescription>Create a new location</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         {addMessage && (
@@ -280,7 +280,7 @@ export default function DepartmentsClient() {
                                 id="add_name"
                                 value={addName}
                                 onChange={(e) => setAddName(e.target.value)}
-                                placeholder="Department name"
+                                placeholder="Location name"
                             />
                         </div>
 
@@ -290,7 +290,7 @@ export default function DepartmentsClient() {
                                 id="add_description"
                                 value={addDescription}
                                 onChange={(e) => setAddDescription(e.target.value)}
-                                placeholder="Department description (optional)"
+                                placeholder="Location description (optional)"
                                 rows={3}
                             />
                         </div>
@@ -308,7 +308,7 @@ export default function DepartmentsClient() {
                                 ) : (
                                     <>
                                         <Plus className="mr-2 h-4 w-4" />
-                                        Create Department
+                                        Create Location
                                     </>
                                 )}
                             </Button>
@@ -321,26 +321,26 @@ export default function DepartmentsClient() {
             <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Department Details</DialogTitle>
-                        <DialogDescription>View department information</DialogDescription>
+                        <DialogTitle>Location Details</DialogTitle>
+                        <DialogDescription>View location information</DialogDescription>
                     </DialogHeader>
-                    {selectedDepartment && (
+                    {selectedLocation && (
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Name</span>
-                                    <span className="font-medium">{selectedDepartment.name}</span>
+                                    <span className="font-medium">{selectedLocation.name}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Description</span>
                                     <span className="text-right max-w-[200px]">
-                                        {selectedDepartment.description || "-"}
+                                        {selectedLocation.description || "-"}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Created At</span>
                                     <span>
-                                        {new Date(selectedDepartment.created_at).toLocaleDateString("id-ID", {
+                                        {new Date(selectedLocation.created_at).toLocaleDateString("id-ID", {
                                             day: "numeric",
                                             month: "long",
                                             year: "numeric",
@@ -357,10 +357,10 @@ export default function DepartmentsClient() {
             <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Edit Department</DialogTitle>
-                        <DialogDescription>Update department information</DialogDescription>
+                        <DialogTitle>Edit Location</DialogTitle>
+                        <DialogDescription>Update location information</DialogDescription>
                     </DialogHeader>
-                    {selectedDepartment && (
+                    {selectedLocation && (
                         <div className="space-y-4 py-4">
                             {message && (
                                 <div
@@ -419,9 +419,9 @@ export default function DepartmentsClient() {
             <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Department</AlertDialogTitle>
+                        <AlertDialogTitle>Delete Location</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete <strong>{selectedDepartment?.name}</strong>?
+                            Are you sure you want to delete <strong>{selectedLocation?.name}</strong>?
                             This action cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>

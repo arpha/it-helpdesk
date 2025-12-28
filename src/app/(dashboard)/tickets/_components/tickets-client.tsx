@@ -6,7 +6,7 @@ import { useDataTable } from "@/hooks/use-data-table";
 import { useTickets, Ticket, useTicketsRealtime } from "@/hooks/api/use-tickets";
 import { useATKItems } from "@/hooks/api/use-atk-items";
 import { useAssets } from "@/hooks/api/use-assets";
-import { useDepartments } from "@/hooks/api/use-departments";
+import { useLocations } from "@/hooks/api/use-locations";
 import { useUsers } from "@/hooks/api/use-users";
 import { useAuthStore } from "@/stores/auth-store";
 import { DataTable, Column } from "@/components/ui/data-table";
@@ -71,11 +71,13 @@ import {
     Wrench,
     ChevronsUpDown,
     Check,
+    RefreshCw,
 } from "lucide-react";
 import {
     createTicket,
     updateTicket,
     assignTicket,
+    reassignTicket,
     completeTicket,
     deleteTicket,
 } from "../actions";
@@ -131,14 +133,15 @@ export function TicketsClient() {
 
     const { data: itemsData } = useATKItems({ page: 1, limit: 100 });
     const { data: assetsData } = useAssets({ page: 1, limit: 100 });
-    const { data: departments } = useDepartments();
-    const { data: usersData } = useUsers({ page: 1, limit: 100 });
+    const { data: locations } = useLocations();
+    const { data: usersData } = useUsers({ page: 1, limit: 100, roles: ["staff_it", "admin"] });
 
     // Modal states
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [isCompleteOpen, setIsCompleteOpen] = useState(false);
     const [isAssignOpen, setIsAssignOpen] = useState(false);
+    const [isReassignOpen, setIsReassignOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
@@ -195,6 +198,20 @@ export function TicketsClient() {
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
                 setIsAssignOpen(false);
                 setSelectedTicket(null);
+            }
+        });
+    };
+
+    const handleReassign = () => {
+        if (!selectedTicket || !formAssignee) return;
+
+        startTransition(async () => {
+            const result = await reassignTicket(selectedTicket.id, formAssignee);
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["tickets"] });
+                setIsReassignOpen(false);
+                setSelectedTicket(null);
+                setFormAssignee("");
             }
         });
     };
@@ -312,13 +329,22 @@ export function TicketsClient() {
                             </DropdownMenuItem>
                         )}
                         {isStaff && ticket.status === "in_progress" && (
-                            <DropdownMenuItem onClick={() => {
-                                setSelectedTicket(ticket);
-                                setFormAssetId(ticket.asset_id || "");
-                                setIsCompleteOpen(true);
-                            }}>
-                                <CheckCircle className="mr-2 h-4 w-4" /> Complete
-                            </DropdownMenuItem>
+                            <>
+                                <DropdownMenuItem onClick={() => {
+                                    setSelectedTicket(ticket);
+                                    setFormAssignee("");
+                                    setIsReassignOpen(true);
+                                }}>
+                                    <RefreshCw className="mr-2 h-4 w-4" /> Reassign
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                    setSelectedTicket(ticket);
+                                    setFormAssetId(ticket.asset_id || "");
+                                    setIsCompleteOpen(true);
+                                }}>
+                                    <CheckCircle className="mr-2 h-4 w-4" /> Complete
+                                </DropdownMenuItem>
+                            </>
                         )}
                         {(ticket.status !== "resolved" || user?.role === "admin") && (
                             <>
@@ -458,9 +484,9 @@ export function TicketsClient() {
                                                 <span className="truncate">
                                                     {assetsData?.data?.find((a) => a.id === formAssetId)?.name} ({assetsData?.data?.find((a) => a.id === formAssetId)?.asset_code})
                                                 </span>
-                                                {assetsData?.data?.find((a) => a.id === formAssetId)?.departments?.name && (
+                                                {assetsData?.data?.find((a) => a.id === formAssetId)?.locations?.name && (
                                                     <span className="text-xs text-muted-foreground">
-                                                        {assetsData?.data?.find((a) => a.id === formAssetId)?.departments?.name}
+                                                        {assetsData?.data?.find((a) => a.id === formAssetId)?.locations?.name}
                                                     </span>
                                                 )}
                                             </div>
@@ -479,7 +505,7 @@ export function TicketsClient() {
                                                 {assetsData?.data?.map((asset) => (
                                                     <CommandItem
                                                         key={asset.id}
-                                                        value={`${asset.name} ${asset.asset_code} ${asset.departments?.name || ""}`}
+                                                        value={`${asset.name} ${asset.asset_code} ${asset.locations?.name || ""}`}
                                                         onSelect={() => {
                                                             setFormAssetId(asset.id === formAssetId ? "" : asset.id);
                                                             setAssetPopoverOpen(false);
@@ -490,9 +516,9 @@ export function TicketsClient() {
                                                         />
                                                         <div className="flex flex-col">
                                                             <span>{asset.name} ({asset.asset_code})</span>
-                                                            {asset.departments?.name && (
+                                                            {asset.locations?.name && (
                                                                 <span className="text-xs text-muted-foreground">
-                                                                    {asset.departments.name}
+                                                                    {asset.locations.name}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -574,11 +600,9 @@ export function TicketsClient() {
                         <Select value={formAssignee} onValueChange={setFormAssignee}>
                             <SelectTrigger><SelectValue placeholder="Select technician..." /></SelectTrigger>
                             <SelectContent>
-                                {usersData?.data?.filter(u =>
-                                    u.role === "staff_it" || u.role === "manager_it" || u.role === "admin"
-                                ).map((user) => (
+                                {usersData?.data?.map((user) => (
                                     <SelectItem key={user.id} value={user.id}>
-                                        {user.full_name}
+                                        {user.full_name || user.username || "Unknown"}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -588,6 +612,38 @@ export function TicketsClient() {
                             <Button onClick={handleAssign} disabled={isPending || !formAssignee}>
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Assign
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Reassign Dialog */}
+            <Dialog open={isReassignOpen} onOpenChange={setIsReassignOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reassign Ticket</DialogTitle>
+                        <DialogDescription>Dialihkan ticket ke teknisi lain. Teknisi sebelumnya akan mendapat notifikasi.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="text-sm text-muted-foreground">
+                            <p>Teknisi saat ini: <strong>{selectedTicket?.assignee?.full_name || "-"}</strong></p>
+                        </div>
+                        <Select value={formAssignee} onValueChange={setFormAssignee}>
+                            <SelectTrigger><SelectValue placeholder="Pilih teknisi baru..." /></SelectTrigger>
+                            <SelectContent>
+                                {usersData?.data?.filter(u => u.id !== selectedTicket?.assigned_to).map((user) => (
+                                    <SelectItem key={user.id} value={user.id}>
+                                        {user.full_name || user.username || "Unknown"}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setIsReassignOpen(false)}>Cancel</Button>
+                            <Button onClick={handleReassign} disabled={isPending || !formAssignee}>
+                                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                Reassign
                             </Button>
                         </div>
                     </div>
@@ -649,9 +705,9 @@ export function TicketsClient() {
                                                     <span className="truncate">
                                                         {assetsData?.data?.find((a) => a.id === formAssetId)?.name} ({assetsData?.data?.find((a) => a.id === formAssetId)?.asset_code})
                                                     </span>
-                                                    {assetsData?.data?.find((a) => a.id === formAssetId)?.departments?.name && (
+                                                    {assetsData?.data?.find((a) => a.id === formAssetId)?.locations?.name && (
                                                         <span className="text-xs text-muted-foreground">
-                                                            {assetsData?.data?.find((a) => a.id === formAssetId)?.departments?.name}
+                                                            {assetsData?.data?.find((a) => a.id === formAssetId)?.locations?.name}
                                                         </span>
                                                     )}
                                                 </div>
@@ -670,7 +726,7 @@ export function TicketsClient() {
                                                     {assetsData?.data?.map((asset) => (
                                                         <CommandItem
                                                             key={asset.id}
-                                                            value={`${asset.name} ${asset.asset_code} ${asset.departments?.name || ""}`}
+                                                            value={`${asset.name} ${asset.asset_code} ${asset.locations?.name || ""}`}
                                                             onSelect={() => {
                                                                 setFormAssetId(asset.id === formAssetId ? "" : asset.id);
                                                                 setAssetPopoverOpen(false);
@@ -681,9 +737,9 @@ export function TicketsClient() {
                                                             />
                                                             <div className="flex flex-col">
                                                                 <span>{asset.name} ({asset.asset_code})</span>
-                                                                {asset.departments?.name && (
+                                                                {asset.locations?.name && (
                                                                     <span className="text-xs text-muted-foreground">
-                                                                        {asset.departments.name}
+                                                                        {asset.locations.name}
                                                                     </span>
                                                                 )}
                                                             </div>

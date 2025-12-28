@@ -9,7 +9,7 @@ type CreateTicketInput = {
     description?: string;
     category: string;
     priority: string;
-    department_id?: string;
+    location_id?: string;
     asset_id?: string;
 };
 
@@ -38,6 +38,50 @@ type ActionResult = {
     id?: string;
 };
 
+// Get least busy technician (staff_it or admin with fewest active tickets)
+async function getLeastBusyTechnician(): Promise<string | null> {
+    const supabase = createAdminClient();
+
+    // Get all technicians (staff_it and admin)
+    const { data: technicians } = await supabase
+        .from("profiles")
+        .select("id")
+        .in("role", ["staff_it", "admin"]);
+
+    if (!technicians || technicians.length === 0) {
+        return null;
+    }
+
+    // Count active tickets per technician
+    const { data: ticketCounts } = await supabase
+        .from("tickets")
+        .select("assigned_to")
+        .in("status", ["open", "in_progress"])
+        .not("assigned_to", "is", null);
+
+    // Create count map
+    const countMap = new Map<string, number>();
+    technicians.forEach(t => countMap.set(t.id, 0));
+    ticketCounts?.forEach(t => {
+        if (t.assigned_to && countMap.has(t.assigned_to)) {
+            countMap.set(t.assigned_to, (countMap.get(t.assigned_to) || 0) + 1);
+        }
+    });
+
+    // Find technician with least tickets
+    let minCount = Infinity;
+    let leastBusyId: string | null = null;
+
+    for (const [id, count] of countMap) {
+        if (count < minCount) {
+            minCount = count;
+            leastBusyId = id;
+        }
+    }
+
+    return leastBusyId;
+}
+
 export async function createTicket(input: CreateTicketInput): Promise<ActionResult> {
     try {
         const supabase = createAdminClient();
@@ -48,12 +92,15 @@ export async function createTicket(input: CreateTicketInput): Promise<ActionResu
             return { success: false, error: "Not authenticated" };
         }
 
-        // Get user's department
+        // Get user's location
         const { data: profile } = await supabase
             .from("profiles")
-            .select("department_id")
+            .select("location_id")
             .eq("id", user.id)
             .single();
+
+        // Get least busy technician for auto-assign
+        const assigneeId = await getLeastBusyTechnician();
 
         const { data, error } = await supabase
             .from("tickets")
@@ -62,16 +109,49 @@ export async function createTicket(input: CreateTicketInput): Promise<ActionResu
                 description: input.description,
                 category: input.category,
                 priority: input.priority,
-                status: "open",
+                status: assigneeId ? "in_progress" : "open",
                 created_by: user.id,
-                department_id: input.department_id || profile?.department_id,
+                assigned_to: assigneeId,
+                location_id: input.location_id || profile?.location_id,
                 asset_id: input.asset_id || null,
             })
-            .select("id")
+            .select("id, title, category, priority")
             .single();
 
         if (error) {
             return { success: false, error: error.message };
+        }
+
+        // Send WhatsApp notification to assigned technician
+        if (assigneeId && data) {
+            const { data: assignee } = await supabase
+                .from("profiles")
+                .select("full_name, whatsapp_phone")
+                .eq("id", assigneeId)
+                .single();
+
+            const { data: creator } = await supabase
+                .from("profiles")
+                .select("full_name")
+                .eq("id", user.id)
+                .single();
+
+            if (assignee?.whatsapp_phone) {
+                const { sendWhatsAppMessage, formatPhoneNumber } = await import("@/lib/fonnte/client");
+
+                await sendWhatsAppMessage({
+                    target: formatPhoneNumber(assignee.whatsapp_phone),
+                    message: `🎫 *TICKET BARU UNTUK ANDA*
+
+📋 *Judul:* ${data.title}
+📂 *Kategori:* ${data.category}
+⚡ *Prioritas:* ${data.priority?.toUpperCase()}
+👤 *Pelapor:* ${creator?.full_name || "User"}
+
+Anda telah di-assign otomatis ke tiket ini.
+Silakan login ke IT Helpdesk untuk detail lebih lanjut.`,
+                });
+            }
         }
 
         revalidatePath("/tickets");
@@ -120,10 +200,10 @@ export async function assignTicket(ticketId: string, assigneeId: string): Promis
     try {
         const supabase = createAdminClient();
 
-        // Get ticket details with department
+        // Get ticket details with location
         const { data: ticket } = await supabase
             .from("tickets")
-            .select("title, category, priority, created_by, profiles:created_by(full_name), departments:department_id(name)")
+            .select("title, category, priority, created_by, profiles:created_by(full_name), locations:location_id(name)")
             .eq("id", ticketId)
             .single();
 
@@ -151,9 +231,9 @@ export async function assignTicket(ticketId: string, assigneeId: string): Promis
             const creatorName = Array.isArray(ticket.profiles)
                 ? ticket.profiles[0]?.full_name
                 : (ticket.profiles as { full_name: string } | null)?.full_name || "User";
-            const deptName = Array.isArray(ticket.departments)
-                ? ticket.departments[0]?.name
-                : (ticket.departments as { name: string } | null)?.name || "-";
+            const deptName = Array.isArray(ticket.locations)
+                ? ticket.locations[0]?.name
+                : (ticket.locations as { name: string } | null)?.name || "-";
 
             await sendWhatsAppMessage({
                 target: formatPhoneNumber(assignee.whatsapp_phone),
@@ -165,6 +245,92 @@ export async function assignTicket(ticketId: string, assigneeId: string): Promis
 👤 *Pelapor:* ${creatorName}
 🏢 *Departemen:* ${deptName}
 
+Silakan login ke IT Helpdesk untuk detail lebih lanjut.`,
+            });
+        }
+
+        revalidatePath("/tickets");
+        return { success: true };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
+}
+
+export async function reassignTicket(ticketId: string, newAssigneeId: string): Promise<ActionResult> {
+    try {
+        const supabase = createAdminClient();
+
+        // Get ticket details with current assignee
+        const { data: ticket } = await supabase
+            .from("tickets")
+            .select("title, category, priority, assigned_to, created_by, profiles:created_by(full_name)")
+            .eq("id", ticketId)
+            .single();
+
+        if (!ticket) {
+            return { success: false, error: "Ticket not found" };
+        }
+
+        const previousAssigneeId = ticket.assigned_to;
+
+        // Update ticket with new assignee
+        const { error } = await supabase
+            .from("tickets")
+            .update({ assigned_to: newAssigneeId })
+            .eq("id", ticketId);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        const { sendWhatsAppMessage, formatPhoneNumber } = await import("@/lib/fonnte/client");
+        const creatorName = Array.isArray(ticket.profiles)
+            ? ticket.profiles[0]?.full_name
+            : (ticket.profiles as { full_name: string } | null)?.full_name || "User";
+
+        // Notify previous technician
+        if (previousAssigneeId) {
+            const { data: prevAssignee } = await supabase
+                .from("profiles")
+                .select("full_name, whatsapp_phone")
+                .eq("id", previousAssigneeId)
+                .single();
+
+            if (prevAssignee?.whatsapp_phone) {
+                await sendWhatsAppMessage({
+                    target: formatPhoneNumber(prevAssignee.whatsapp_phone),
+                    message: `🔄 *TICKET DIALIHKAN*
+
+📋 *Judul:* ${ticket.title}
+📂 *Kategori:* ${ticket.category}
+
+Ticket ini telah dialihkan ke teknisi lain.
+Terima kasih atas kerjasamanya.`,
+                });
+            }
+        }
+
+        // Notify new technician
+        const { data: newAssignee } = await supabase
+            .from("profiles")
+            .select("full_name, whatsapp_phone")
+            .eq("id", newAssigneeId)
+            .single();
+
+        if (newAssignee?.whatsapp_phone) {
+            await sendWhatsAppMessage({
+                target: formatPhoneNumber(newAssignee.whatsapp_phone),
+                message: `🔄 *TICKET DIALIHKAN KEPADA ANDA*
+
+📋 *Judul:* ${ticket.title}
+📂 *Kategori:* ${ticket.category}
+⚡ *Prioritas:* ${ticket.priority?.toUpperCase()}
+👤 *Pelapor:* ${creatorName}
+
+Ticket ini dialihkan dari teknisi lain kepada Anda.
 Silakan login ke IT Helpdesk untuk detail lebih lanjut.`,
             });
         }

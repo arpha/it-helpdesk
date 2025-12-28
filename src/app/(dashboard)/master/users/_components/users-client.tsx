@@ -1,6 +1,6 @@
 "use client";
 
-import { DataTable, Column } from "@/components/ui/data-table";
+import { DataTable, Column, SortDirection } from "@/components/ui/data-table";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useUsers, UserProfile } from "@/hooks/api/use-users";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +41,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Download, Search } from "lucide-react";
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createUser, updateUser, deleteUser, uploadAvatar, importUsersBatch, revalidateUsersPath, getUserEmail, BulkImportUsersResult } from "../actions";
 import * as XLSX from "xlsx";
@@ -78,6 +78,10 @@ export default function UsersClient() {
     const queryClient = useQueryClient();
 
     const { data: usersData, isLoading } = useUsers({ page, limit, search });
+
+    // Sort state
+    const [sortColumn, setSortColumn] = useState<string | null>(null);
+    const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
     // Modal states
     const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
@@ -453,6 +457,7 @@ export default function UsersClient() {
         {
             key: "username",
             header: "Username",
+            sortable: true,
             cell: (row) => (
                 <span className="text-muted-foreground">
                     {row.username || "-"}
@@ -462,6 +467,7 @@ export default function UsersClient() {
         {
             key: "whatsapp",
             header: "WhatsApp",
+            sortable: true,
             cell: (row) => (
                 <span className="text-muted-foreground">
                     {row.whatsapp_phone || "-"}
@@ -480,6 +486,7 @@ export default function UsersClient() {
         {
             key: "created_at",
             header: "Created At",
+            sortable: true,
             cell: (row) => (
                 <span className="text-muted-foreground">
                     {new Date(row.created_at).toLocaleDateString("id-ID", {
@@ -526,6 +533,41 @@ export default function UsersClient() {
         },
     ];
 
+    // Sort data locally
+    const sortedData = useMemo(() => {
+        const data = usersData?.data || [];
+        if (!sortColumn || !sortDirection) return data;
+
+        return [...data].sort((a, b) => {
+            let aVal: string | number = "";
+            let bVal: string | number = "";
+
+            if (sortColumn === "username") {
+                aVal = a.username || "";
+                bVal = b.username || "";
+            } else if (sortColumn === "whatsapp") {
+                aVal = a.whatsapp_phone || "";
+                bVal = b.whatsapp_phone || "";
+            } else if (sortColumn === "created_at") {
+                aVal = new Date(a.created_at).getTime();
+                bVal = new Date(b.created_at).getTime();
+            }
+
+            if (typeof aVal === "string" && typeof bVal === "string") {
+                const comparison = aVal.localeCompare(bVal);
+                return sortDirection === "asc" ? comparison : -comparison;
+            } else {
+                const comparison = (aVal as number) - (bVal as number);
+                return sortDirection === "asc" ? comparison : -comparison;
+            }
+        });
+    }, [usersData?.data, sortColumn, sortDirection]);
+
+    const handleSortChange = (column: string, direction: SortDirection) => {
+        setSortColumn(direction ? column : null);
+        setSortDirection(direction);
+    };
+
     return (
         <>
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
@@ -542,7 +584,7 @@ export default function UsersClient() {
 
             <DataTable
                 columns={columns}
-                data={usersData?.data || []}
+                data={sortedData}
                 isLoading={isLoading}
                 page={page}
                 totalPages={usersData?.totalPages || 1}
@@ -551,6 +593,9 @@ export default function UsersClient() {
                 limit={limit}
                 onLimitChange={setLimit}
                 emptyMessage="No users found."
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSortChange={handleSortChange}
                 searchPlaceholder="Search users..."
                 searchValue={searchInput}
                 onSearchChange={setSearch}

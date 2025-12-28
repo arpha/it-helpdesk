@@ -80,8 +80,8 @@ const menuGroups: MenuGroup[] = [
                 icon: Users,
             },
             {
-                title: "Departments",
-                href: "/master/departments",
+                title: "Locations",
+                href: "/master/locations",
                 icon: Building2,
             },
         ],

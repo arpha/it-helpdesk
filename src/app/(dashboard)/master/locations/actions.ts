@@ -3,12 +3,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
-type CreateDepartmentInput = {
+type CreateLocationInput = {
     name: string;
     description?: string | null;
 };
 
-type UpdateDepartmentInput = {
+type UpdateLocationInput = {
     id: string;
     name: string;
     description?: string | null;
@@ -19,13 +19,13 @@ type ActionResult = {
     error?: string;
 };
 
-export async function createDepartment(
-    input: CreateDepartmentInput
+export async function createLocation(
+    input: CreateLocationInput
 ): Promise<ActionResult> {
     try {
         const supabase = createAdminClient();
 
-        const { error } = await supabase.from("departments").insert({
+        const { error } = await supabase.from("locations").insert({
             name: input.name,
             description: input.description || null,
         });
@@ -37,7 +37,7 @@ export async function createDepartment(
             };
         }
 
-        revalidatePath("/master/departments");
+        revalidatePath("/master/locations");
 
         return {
             success: true,
@@ -50,14 +50,14 @@ export async function createDepartment(
     }
 }
 
-export async function updateDepartment(
-    input: UpdateDepartmentInput
+export async function updateLocation(
+    input: UpdateLocationInput
 ): Promise<ActionResult> {
     try {
         const supabase = createAdminClient();
 
         const { error } = await supabase
-            .from("departments")
+            .from("locations")
             .update({
                 name: input.name,
                 description: input.description || null,
@@ -71,7 +71,7 @@ export async function updateDepartment(
             };
         }
 
-        revalidatePath("/master/departments");
+        revalidatePath("/master/locations");
 
         return {
             success: true,
@@ -84,11 +84,11 @@ export async function updateDepartment(
     }
 }
 
-export async function deleteDepartment(id: string): Promise<ActionResult> {
+export async function deleteLocation(id: string): Promise<ActionResult> {
     try {
         const supabase = createAdminClient();
 
-        const { error } = await supabase.from("departments").delete().eq("id", id);
+        const { error } = await supabase.from("locations").delete().eq("id", id);
 
         if (error) {
             return {
@@ -97,7 +97,7 @@ export async function deleteDepartment(id: string): Promise<ActionResult> {
             };
         }
 
-        revalidatePath("/master/departments");
+        revalidatePath("/master/locations");
 
         return {
             success: true,

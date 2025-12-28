@@ -10,13 +10,12 @@ export type Asset = {
     name: string;
     serial_number: string | null;
     purchase_date: string | null;
-    purchase_price: number;
     warranty_expiry: string | null;
     useful_life_years: number;
     status: "active" | "maintenance" | "damage" | "disposed";
     ownership_status: "purchase" | "rent";
     location: string | null;
-    department_id: string | null;
+    location_id: string | null;
     assigned_to: string | null;
     image_url: string | null;
     qr_code_url: string | null;
@@ -28,7 +27,7 @@ export type Asset = {
     asset_categories: {
         name: string;
     } | null;
-    departments: {
+    locations: {
         name: string;
     } | null;
     profiles: {
@@ -64,7 +63,7 @@ async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
             `
             *,
             asset_categories(name),
-            departments(name),
+            locations(name),
             profiles:assigned_to(id, full_name, username)
         `,
             { count: "exact" }

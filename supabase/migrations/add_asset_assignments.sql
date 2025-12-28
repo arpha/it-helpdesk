@@ -82,3 +82,20 @@ ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_department_id_fkey;
 
 -- Drop the department_id column from profiles
 ALTER TABLE profiles DROP COLUMN IF EXISTS department_id;
+
+-- =============================================
+-- RENAME DEPARTMENTS TABLE TO LOCATIONS
+-- =============================================
+-- Rename the table (data will be preserved)
+ALTER TABLE IF EXISTS departments RENAME TO locations;
+
+-- =============================================
+-- REMOVE PRICE COLUMNS FROM ASSETS (Refresh Cycle instead of Depreciation)
+-- =============================================
+ALTER TABLE assets DROP COLUMN IF EXISTS purchase_price;
+
+-- =============================================
+-- RENAME department_id TO location_id IN ALL TABLES
+-- =============================================
+ALTER TABLE assets RENAME COLUMN department_id TO location_id;
+ALTER TABLE tickets RENAME COLUMN department_id TO location_id;

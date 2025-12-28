@@ -18,6 +18,7 @@ type UseUsersParams = {
     page?: number;
     limit?: number;
     search?: string;
+    roles?: string[];
 };
 
 type UseUsersResult = {
@@ -30,6 +31,7 @@ async function fetchUsers({
     page = 1,
     limit = 10,
     search = "",
+    roles,
 }: UseUsersParams): Promise<UseUsersResult> {
     const supabase = createClient();
     const from = (page - 1) * limit;
@@ -42,6 +44,11 @@ async function fetchUsers({
     // Apply search filter
     if (search) {
         query = query.ilike("full_name", `%${search}%`);
+    }
+
+    // Apply role filter
+    if (roles && roles.length > 0) {
+        query = query.in("role", roles);
     }
 
     // Apply pagination
@@ -61,10 +68,10 @@ async function fetchUsers({
 }
 
 export function useUsers(params: UseUsersParams = {}) {
-    const { page = 1, limit = 10, search = "" } = params;
+    const { page = 1, limit = 10, search = "", roles } = params;
 
     return useQuery({
-        queryKey: ["users", { page, limit, search }],
-        queryFn: () => fetchUsers({ page, limit, search }),
+        queryKey: ["users", { page, limit, search, roles }],
+        queryFn: () => fetchUsers({ page, limit, search, roles }),
     });
 }

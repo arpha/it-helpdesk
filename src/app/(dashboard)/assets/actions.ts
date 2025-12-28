@@ -10,13 +10,11 @@ type CreateAssetInput = {
     name: string;
     serial_number?: string;
     purchase_date?: string;
-    purchase_price?: number;
     warranty_expiry?: string;
     useful_life_years?: number;
     status?: string;
     ownership_status?: string;
-    location?: string;
-    department_id?: string;
+    location_id?: string;
     assigned_to?: string;
     image_url?: string;
     notes?: string;
@@ -52,13 +50,11 @@ export async function createAsset(input: CreateAssetInput): Promise<ActionResult
                 name: input.name,
                 serial_number: input.serial_number || null,
                 purchase_date: input.purchase_date || null,
-                purchase_price: input.purchase_price || 0,
                 warranty_expiry: input.warranty_expiry || null,
                 useful_life_years: input.useful_life_years || 5,
                 status: input.status || "active",
                 ownership_status: input.ownership_status || "purchase",
-                location: input.location || null,
-                department_id: input.department_id || null,
+                location_id: input.location_id || null,
                 assigned_to: input.assigned_to || null,
                 image_url: input.image_url || null,
                 notes: input.notes || null,
@@ -94,13 +90,11 @@ export async function updateAsset(input: UpdateAssetInput): Promise<ActionResult
                 name: input.name,
                 serial_number: input.serial_number || null,
                 purchase_date: input.purchase_date || null,
-                purchase_price: input.purchase_price || 0,
                 warranty_expiry: input.warranty_expiry || null,
                 useful_life_years: input.useful_life_years || 5,
                 status: input.status || "active",
                 ownership_status: input.ownership_status || "purchase",
-                location: input.location || null,
-                department_id: input.department_id || null,
+                location_id: input.location_id || null,
                 assigned_to: input.assigned_to || null,
                 image_url: input.image_url || null,
                 notes: input.notes || null,

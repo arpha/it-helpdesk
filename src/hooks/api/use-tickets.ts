@@ -13,7 +13,7 @@ export type Ticket = {
     status: "draft" | "open" | "in_progress" | "resolved" | "closed";
     created_by: string;
     assigned_to: string | null;
-    department_id: string | null;
+    location_id: string | null;
     asset_id: string | null;
     resolution_notes: string | null;
     resolved_at: string | null;
@@ -23,7 +23,7 @@ export type Ticket = {
     // Joined data
     creator?: { full_name: string };
     assignee?: { full_name: string };
-    department?: { name: string };
+    location?: { name: string };
     asset?: { name: string; asset_code: string };
 };
 
@@ -48,7 +48,7 @@ export function useTickets(params: UseTicketsParams = {}) {
                     *,
                     creator:profiles!tickets_created_by_fkey(full_name),
                     assignee:profiles!tickets_assigned_to_fkey(full_name),
-                    department:departments(name),
+                    location:locations(name),
                     asset:assets(name, asset_code)
                 `, { count: "exact" });
 
@@ -94,7 +94,7 @@ export function useTicket(id: string) {
                     *,
                     creator:profiles!tickets_created_by_fkey(full_name),
                     assignee:profiles!tickets_assigned_to_fkey(full_name),
-                    department:departments(name),
+                    location:locations(name),
                     asset:assets(name, asset_code),
                     parts:ticket_parts(
                         id,

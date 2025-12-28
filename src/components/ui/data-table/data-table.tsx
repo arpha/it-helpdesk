@@ -13,13 +13,17 @@ import { TableSearch } from "./table-search";
 import { TableLimit } from "./table-limit";
 import { TablePagination } from "./table-pagination";
 import { ReactNode } from "react";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 export type Column<T> = {
     key: string;
     header: string;
     cell: (row: T) => ReactNode;
     className?: string;
+    sortable?: boolean;
 };
+
+export type SortDirection = "asc" | "desc" | null;
 
 type DataTableProps<T> = {
     columns: Column<T>[];
@@ -43,6 +47,10 @@ type DataTableProps<T> = {
     // Toolbar action
     toolbarAction?: ReactNode;
     hideSearch?: boolean;
+    // Sorting
+    sortColumn?: string | null;
+    sortDirection?: SortDirection;
+    onSortChange?: (column: string, direction: SortDirection) => void;
 };
 
 export function DataTable<T>({
@@ -62,10 +70,40 @@ export function DataTable<T>({
     emptyMessage = "No data found.",
     toolbarAction,
     hideSearch = false,
+    sortColumn,
+    sortDirection,
+    onSortChange,
 }: DataTableProps<T>) {
     const showSearch = onSearchChange !== undefined && !hideSearch;
     const showLimit = onLimitChange !== undefined;
     const showPagination = onPageChange !== undefined && totalPages > 0;
+
+    const handleSort = (columnKey: string) => {
+        if (!onSortChange) return;
+
+        let newDirection: SortDirection = "asc";
+        if (sortColumn === columnKey) {
+            if (sortDirection === "asc") {
+                newDirection = "desc";
+            } else if (sortDirection === "desc") {
+                newDirection = null;
+            }
+        }
+        onSortChange(columnKey, newDirection);
+    };
+
+    const getSortIcon = (columnKey: string, sortable?: boolean) => {
+        if (!sortable || !onSortChange) return null;
+
+        if (sortColumn === columnKey) {
+            if (sortDirection === "asc") {
+                return <ArrowUp className="ml-1 h-4 w-4 inline" />;
+            } else if (sortDirection === "desc") {
+                return <ArrowDown className="ml-1 h-4 w-4 inline" />;
+            }
+        }
+        return <ArrowUpDown className="ml-1 h-4 w-4 inline opacity-50" />;
+    };
 
     return (
         <div className="space-y-4">
@@ -98,8 +136,13 @@ export function DataTable<T>({
                     <TableHeader>
                         <TableRow>
                             {columns.map((column) => (
-                                <TableHead key={column.key} className={column.className}>
+                                <TableHead
+                                    key={column.key}
+                                    className={`${column.className || ""} ${column.sortable && onSortChange ? "cursor-pointer select-none hover:bg-muted/50" : ""}`}
+                                    onClick={() => column.sortable && handleSort(column.key)}
+                                >
                                     {column.header}
+                                    {getSortIcon(column.key, column.sortable)}
                                 </TableHead>
                             ))}
                         </TableRow>
