@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
             console.log("Trying phone variant:", phone);
             const { data, error } = await supabase
                 .from("profiles")
-                .select("id, full_name, location_id")
+                .select("id, full_name")
                 .eq("whatsapp_phone", phone)
                 .single();
 
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
             console.log("Fallback: searching with last 9 digits:", last9Digits);
             const { data, error } = await supabase
                 .from("profiles")
-                .select("id, full_name, location_id, whatsapp_phone")
+                .select("id, full_name, whatsapp_phone")
                 .ilike("whatsapp_phone", `%${last9Digits}`)
                 .single();
 
@@ -245,7 +245,7 @@ Silakan hubungi Admin IT untuk mendaftarkan nomor Anda.`,
 async function handleConversation(
     supabase: ReturnType<typeof createAdminClient>,
     phone: string,
-    profile: { id: string; full_name: string; location_id: string | null },
+    profile: { id: string; full_name: string },
     message: string,
     state: { step: string; data: { category?: string; priority?: string; description?: string }; timestamp: number }
 ) {
@@ -341,7 +341,7 @@ async function handleConversation(
                 status: assigneeId ? "in_progress" : "open",
                 created_by: profile.id,
                 assigned_to: assigneeId,
-                location_id: profile.location_id,
+                // location_id removed - not in profiles table
             })
             .select("id, title, category, priority")
             .single();
