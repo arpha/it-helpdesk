@@ -110,14 +110,18 @@ export async function POST(request: NextRequest) {
         // Find user by WhatsApp phone
         let profile = null;
         for (const phone of phoneVariants) {
-            const { data } = await supabase
+            console.log("Trying phone variant:", phone);
+            const { data, error } = await supabase
                 .from("profiles")
                 .select("id, full_name, location_id")
                 .eq("whatsapp_phone", phone)
                 .single();
 
+            console.log("Query result:", { data, error: error?.message });
+
             if (data) {
                 profile = data;
+                console.log("Profile found:", profile);
                 break;
             }
         }
@@ -125,12 +129,14 @@ export async function POST(request: NextRequest) {
         // Fallback: partial match
         if (!profile) {
             const last9Digits = normalizedPhone.slice(-9);
-            const { data } = await supabase
+            console.log("Fallback: searching with last 9 digits:", last9Digits);
+            const { data, error } = await supabase
                 .from("profiles")
                 .select("id, full_name, location_id, whatsapp_phone")
                 .ilike("whatsapp_phone", `%${last9Digits}`)
                 .single();
 
+            console.log("Fallback result:", { data, error: error?.message });
             if (data) profile = data;
         }
 
