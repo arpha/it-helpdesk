@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
         for (const phone of phoneVariants) {
             const { data } = await supabase
                 .from("profiles")
-                .select("id, full_name, department_id")
+                .select("id, full_name, location_id")
                 .eq("whatsapp_phone", phone)
                 .single();
 
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
             const last9Digits = normalizedPhone.slice(-9);
             const { data } = await supabase
                 .from("profiles")
-                .select("id, full_name, department_id, whatsapp_phone")
+                .select("id, full_name, location_id, whatsapp_phone")
                 .ilike("whatsapp_phone", `%${last9Digits}`)
                 .single();
 
@@ -239,7 +239,7 @@ Silakan hubungi Admin IT untuk mendaftarkan nomor Anda.`,
 async function handleConversation(
     supabase: ReturnType<typeof createAdminClient>,
     phone: string,
-    profile: { id: string; full_name: string; department_id: string | null },
+    profile: { id: string; full_name: string; location_id: string | null },
     message: string,
     state: { step: string; data: { category?: string; priority?: string; description?: string }; timestamp: number }
 ) {
@@ -293,6 +293,37 @@ async function handleConversation(
     if (step === "enter_description") {
         data.description = message;
 
+        // Get least busy technician for auto-assign
+        const { data: technicians } = await supabase
+            .from("profiles")
+            .select("id")
+            .in("role", ["staff_it", "admin"]);
+
+        let assigneeId: string | null = null;
+        if (technicians && technicians.length > 0) {
+            const { data: ticketCounts } = await supabase
+                .from("tickets")
+                .select("assigned_to")
+                .in("status", ["open", "in_progress"])
+                .not("assigned_to", "is", null);
+
+            const countMap = new Map<string, number>();
+            technicians.forEach(t => countMap.set(t.id, 0));
+            ticketCounts?.forEach(t => {
+                if (t.assigned_to && countMap.has(t.assigned_to)) {
+                    countMap.set(t.assigned_to, (countMap.get(t.assigned_to) || 0) + 1);
+                }
+            });
+
+            let minCount = Infinity;
+            for (const [id, count] of countMap) {
+                if (count < minCount) {
+                    minCount = count;
+                    assigneeId = id;
+                }
+            }
+        }
+
         // Create ticket in database
         const { data: ticket, error } = await supabase
             .from("tickets")
@@ -301,11 +332,12 @@ async function handleConversation(
                 description: data.description,
                 category: data.category,
                 priority: data.priority,
-                status: "open",
+                status: assigneeId ? "in_progress" : "open",
                 created_by: profile.id,
-                department_id: profile.department_id,
+                assigned_to: assigneeId,
+                location_id: profile.location_id,
             })
-            .select("id")
+            .select("id, title, category, priority")
             .single();
 
         conversationState.delete(phone);
@@ -319,6 +351,31 @@ async function handleConversation(
         }
 
         const ticketId = ticket.id.slice(0, 8).toUpperCase();
+
+        // Send notification to assigned technician
+        if (assigneeId) {
+            const { data: assignee } = await supabase
+                .from("profiles")
+                .select("full_name, whatsapp_phone")
+                .eq("id", assigneeId)
+                .single();
+
+            if (assignee?.whatsapp_phone) {
+                await sendWhatsAppMessage({
+                    target: formatPhoneNumber(assignee.whatsapp_phone),
+                    message: `🎫 *TICKET BARU UNTUK ANDA*
+
+📋 *Judul:* ${ticket.title}
+📂 *Kategori:* ${ticket.category}
+⚡ *Prioritas:* ${ticket.priority?.toUpperCase()}
+👤 *Pelapor:* ${profile.full_name}
+
+Anda telah di-assign otomatis ke tiket ini.
+Silakan login ke IT Helpdesk untuk detail lebih lanjut.`,
+                });
+            }
+        }
+
         await sendWhatsAppMessage({
             target: phone,
             message: `✅ *TICKET BERHASIL DIBUAT!*
@@ -327,7 +384,7 @@ async function handleConversation(
 📂 *Kategori:* ${data.category}
 ⚡ *Prioritas:* ${data.priority}
 📝 *Deskripsi:* ${data.description}
-
+${assigneeId ? "\n✅ Ticket sudah di-assign ke teknisi." : ""}
 Tim IT akan segera merespon ticket Anda.
 Ketik *2* untuk cek status ticket.`,
         });
