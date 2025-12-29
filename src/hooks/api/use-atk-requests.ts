@@ -18,18 +18,21 @@ export type ATKRequestItem = {
 export type ATKRequest = {
     id: string;
     requester_id: string;
-    department_id: string | null;
+    location_id: string | null;
+    ticket_id: string | null;
     status: "pending" | "approved" | "rejected" | "completed";
     notes: string | null;
     approved_by: string | null;
     approved_at: string | null;
     approval_signature_url: string | null;
+    document_url: string | null;
+    document_number: string | null;
     created_at: string;
     updated_at: string;
     profiles: {
         full_name: string;
     } | null;
-    departments: {
+    locations: {
         name: string;
     } | null;
     approver: {
@@ -64,7 +67,7 @@ async function fetchATKRequests(params: UseATKRequestsParams): Promise<ATKReques
             `
       *,
       profiles:requester_id(full_name),
-      departments:department_id(name),
+      locations:location_id(name),
       approver:approved_by(full_name),
       atk_request_items(
         id,

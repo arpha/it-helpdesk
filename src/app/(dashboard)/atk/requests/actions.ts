@@ -9,6 +9,7 @@ type CreateRequestInput = {
     notes?: string;
     items: { item_id: string; quantity: number }[];
     requester_id?: string; // Optional, if not provided uses logged in user
+    location_id?: string; // Optional location
 };
 
 type ApproveRequestInput = {
@@ -75,19 +76,12 @@ export async function createRequest(input: CreateRequestInput): Promise<ActionRe
         // Use provided requester_id or fallback to logged in user
         const requesterId = input.requester_id || user.id;
 
-        // Get requester's profile for department
-        const { data: profile } = await supabase
-            .from("profiles")
-            .select("department_id")
-            .eq("id", requesterId)
-            .single();
-
         // Create request
         const { data: request, error: requestError } = await supabase
             .from("atk_requests")
             .insert({
                 requester_id: requesterId,
-                department_id: profile?.department_id || null,
+                location_id: input.location_id || null,
                 notes: input.notes || null,
                 status: "pending",
             })
@@ -302,12 +296,28 @@ export async function completeRequest(input: CompleteRequestInput): Promise<Acti
             }
         }
 
-        // Update request status with signature
+        // Generate document number: SPB/YYYY/MM/XXXX
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+
+        // Get count of completed requests this month for sequential number
+        const { count } = await supabase
+            .from("atk_requests")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "completed")
+            .gte("updated_at", `${year}-${month}-01`);
+
+        const sequence = String((count || 0) + 1).padStart(4, "0");
+        const documentNumber = `SPB/${year}/${month}/${sequence}`;
+
+        // Update request status with signature and document number
         const { error } = await supabase
             .from("atk_requests")
             .update({
                 status: "completed",
                 approval_signature_url: signatureUrl,
+                document_number: documentNumber,
             })
             .eq("id", input.request_id);
 

@@ -131,7 +131,7 @@ export function TicketsClient() {
         search,
     });
 
-    const { data: itemsData } = useATKItems({ page: 1, limit: 100 });
+    const { data: itemsData } = useATKItems({ page: 1, limit: 500 });
     const { data: assetsData } = useAssets({ page: 1, limit: 100 });
     const { data: locations } = useLocations();
     const { data: usersData } = useUsers({ page: 1, limit: 100, roles: ["staff_it", "admin"] });
@@ -156,6 +156,7 @@ export function TicketsClient() {
     const [formRepairType, setFormRepairType] = useState("repair");
     const [formParts, setFormParts] = useState<{ item_id: string; quantity: number }[]>([]);
     const [assetPopoverOpen, setAssetPopoverOpen] = useState(false);
+    const [partsPopoverOpenIdx, setPartsPopoverOpenIdx] = useState<number | null>(null);
 
     const isStaff = user?.role === "admin" || user?.role === "staff_it" || user?.role === "manager_it";
 
@@ -762,21 +763,48 @@ export function TicketsClient() {
                             </div>
                             {formParts.map((part, idx) => (
                                 <div key={idx} className="flex gap-2">
-                                    <Select
-                                        value={part.item_id}
-                                        onValueChange={(v) => updatePart(idx, "item_id", v)}
+                                    <Popover
+                                        open={partsPopoverOpenIdx === idx}
+                                        onOpenChange={(open) => setPartsPopoverOpenIdx(open ? idx : null)}
                                     >
-                                        <SelectTrigger className="flex-1">
-                                            <SelectValue placeholder="Select part..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {itemsData?.data?.map((item) => (
-                                                <SelectItem key={item.id} value={item.id}>
-                                                    {item.name} (Stock: {item.stock_quantity})
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                className="flex-1 justify-between font-normal"
+                                            >
+                                                {part.item_id
+                                                    ? itemsData?.data?.find((i) => i.id === part.item_id)?.name
+                                                    : "Select part..."}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[300px] p-0" align="start">
+                                            <Command>
+                                                <CommandInput placeholder="Cari part..." />
+                                                <CommandList>
+                                                    <CommandEmpty>Part tidak ditemukan.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {itemsData?.data?.filter(item => item.stock_quantity > 0).map((item) => (
+                                                            <CommandItem
+                                                                key={item.id}
+                                                                value={item.name}
+                                                                onSelect={() => {
+                                                                    updatePart(idx, "item_id", item.id);
+                                                                    setPartsPopoverOpenIdx(null);
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={`mr-2 h-4 w-4 ${part.item_id === item.id ? "opacity-100" : "opacity-0"}`}
+                                                                />
+                                                                {item.name} (Stock: {item.stock_quantity})
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                     <Input
                                         type="number"
                                         value={part.quantity}

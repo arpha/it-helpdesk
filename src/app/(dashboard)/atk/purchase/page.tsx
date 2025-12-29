@@ -1,5 +1,9 @@
 import PurchaseClient from "./_components/purchase-client";
 
+export const metadata = {
+    title: "Submission | IT Governance",
+};
+
 export default function ATKPurchasePage() {
     return (
         <div className="space-y-6">

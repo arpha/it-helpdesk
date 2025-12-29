@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export type ATKItem = {
     id: string;
-    type: "atk" | "sparepart";
+    type: "consumable" | "sparepart";
     name: string;
     description: string | null;
     unit: string;
@@ -22,7 +22,7 @@ type UseATKItemsParams = {
     page: number;
     limit: number;
     search?: string;
-    type?: "atk" | "sparepart" | "all";
+    type?: "consumable" | "sparepart" | "all";
     status?: "active" | "inactive" | "all";
 };
 

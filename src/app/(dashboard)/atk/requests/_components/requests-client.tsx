@@ -6,6 +6,7 @@ import { useDataTable } from "@/hooks/use-data-table";
 import { useATKRequests, ATKRequest } from "@/hooks/api/use-atk-requests";
 import { useATKItems } from "@/hooks/api/use-atk-items";
 import { useUsers } from "@/hooks/api/use-users";
+import { useLocations } from "@/hooks/api/use-locations";
 import { useAuthStore } from "@/stores/auth-store";
 import { DataTable, Column } from "@/components/ui/data-table";
 import {
@@ -47,6 +48,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { SignaturePad, SignaturePadRef } from "@/components/ui/signature-pad";
 import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import {
     MoreHorizontal,
     Eye,
     CheckCircle,
@@ -56,6 +70,10 @@ import {
     Plus,
     Loader2,
     X,
+    ChevronsUpDown,
+    Check,
+    FileText,
+    Printer,
 } from "lucide-react";
 import {
     createRequest,
@@ -95,7 +113,8 @@ export default function RequestsClient() {
     });
 
     const { data: itemsData } = useATKItems({ page: 1, limit: 100 });
-    const { data: usersData } = useUsers({ page: 1, limit: 100 });
+    const { data: usersData } = useUsers({ page: 1, limit: 1000 });
+    const { data: locationsData } = useLocations();
 
     // Modal states
     const [selectedRequest, setSelectedRequest] = useState<ATKRequest | null>(null);
@@ -105,15 +124,20 @@ export default function RequestsClient() {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isCompleteOpen, setIsCompleteOpen] = useState(false);
+    const [isPrintOpen, setIsPrintOpen] = useState(false);
 
     // Form states
     const [createNotes, setCreateNotes] = useState("");
     const [createItems, setCreateItems] = useState<{ item_id: string; quantity: number }[]>([]);
     const [selectedRequester, setSelectedRequester] = useState<string>("");
+    const [selectedLocation, setSelectedLocation] = useState<string>("");
     const [approvedQuantities, setApprovedQuantities] = useState<Record<string, number>>({});
     const [rejectReason, setRejectReason] = useState("");
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [requesterPopoverOpen, setRequesterPopoverOpen] = useState(false);
+    const [locationPopoverOpen, setLocationPopoverOpen] = useState(false);
+    const [itemPopoverOpenIdx, setItemPopoverOpenIdx] = useState<number | null>(null);
     const signatureRef = useRef<SignaturePadRef>(null);
 
     const handleView = (request: ATKRequest) => {
@@ -142,6 +166,109 @@ export default function RequestsClient() {
     const handleOpenDelete = (request: ATKRequest) => {
         setSelectedRequest(request);
         setIsDeleteOpen(true);
+    };
+
+    const handleOpenPrint = (request: ATKRequest) => {
+        // Create print content in a new window and print directly
+        const printContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Surat Pengeluaran Barang</title>
+                <style>
+                    @page { 
+                        margin: 10mm;
+                        size: A5;
+                    }
+                    @page { margin-top: 0; margin-bottom: 0; }
+                    body { font-family: Arial, sans-serif; padding: 20px; margin: 0; font-size: 11px; }
+                    .header { text-align: center; border-bottom: 2px solid black; padding-bottom: 16px; margin-bottom: 24px; }
+                    .header h1 { margin: 0; font-size: 18px; }
+                    .header p { margin: 4px 0; font-size: 12px; }
+                    .title { text-align: center; margin-bottom: 24px; }
+                    .title h2 { margin: 0; font-size: 16px; text-decoration: underline; }
+                    .info { margin-bottom: 24px; font-size: 13px; }
+                    .info p { margin: 4px 0; }
+                    .info span { display: inline-block; width: 120px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 32px; font-size: 13px; }
+                    th, td { border: 1px solid black; padding: 8px; }
+                    th { background: #f0f0f0; text-align: left; }
+                    .signatures { display: flex; justify-content: space-between; margin-top: 48px; }
+                    .sig-box { text-align: center; width: 180px; }
+                    .sig-box p { margin: 0; font-size: 12px; }
+                    .sig-space { height: 60px; margin-bottom: 8px; }
+                    .sig-line { border-top: 1px solid black; padding-top: 4px; }
+                    .sig-img { height: 50px; margin-bottom: 8px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>RSUD CIKALONG CILEGON KOTA</h1>
+                    <p>Jl. Raya Cilegon No. 123, Cilegon, Banten</p>
+                    <p>Telp: (0254) 123456 | Email: rsudcclk@cilegon.go.id</p>
+                </div>
+                <div class="title">
+                    <h2>SURAT PENGELUARAN BARANG</h2>
+                    <p style="font-size:12px;margin-top:4px;">No: ${request.document_number || "-"}</p>
+                </div>
+                <div class="info">
+                    <p><span>Tanggal</span>: ${new Date(request.updated_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
+                    <p><span>Penerima</span>: ${request.profiles?.full_name || "-"}</p>
+                    <p><span>Lokasi</span>: ${request.locations?.name || "-"}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">No</th>
+                            <th>Nama Barang</th>
+                            <th style="width:60px;text-align:center;">Qty</th>
+                            <th style="width:80px;text-align:center;">Satuan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${request.atk_request_items.map((item, idx) => `
+                            <tr>
+                                <td>${idx + 1}</td>
+                                <td>${item.atk_items?.name || ""}</td>
+                                <td style="text-align:center;">${item.approved_quantity || item.quantity}</td>
+                                <td style="text-align:center;">${item.atk_items?.unit || ""}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+                <div class="signatures">
+                    <div class="sig-box">
+                        <p>Penerima Barang</p>
+                        ${request.approval_signature_url ? `<img src="${request.approval_signature_url}" class="sig-img" />` : '<div class="sig-space"></div>'}
+                        <p class="sig-line">${request.profiles?.full_name || "-"}</p>
+                    </div>
+                    <div class="sig-box">
+                        <p>Pengeluar Barang</p>
+                        <div class="sig-space"></div>
+                        <p class="sig-line">${request.approver?.full_name || "-"}</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+            }, 250);
+        }
+    };
+
+    const formatDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+        });
     };
 
     const handleOpenCreate = () => {
@@ -185,6 +312,7 @@ export default function RequestsClient() {
                 notes: createNotes || undefined,
                 items: validItems,
                 requester_id: selectedRequester || undefined,
+                location_id: selectedLocation || undefined,
             });
 
             if (result.success) {
@@ -283,7 +411,10 @@ export default function RequestsClient() {
             cell: (row) => (
                 <div>
                     <p className="font-medium">{row.profiles?.full_name || "-"}</p>
-                    <p className="text-xs text-muted-foreground">{row.departments?.name || "-"}</p>
+                    <p className="text-xs text-muted-foreground">{row.locations?.name || "-"}</p>
+                    {row.ticket_id && (
+                        <Badge variant="outline" className="text-xs mt-1">From Ticket</Badge>
+                    )}
                 </div>
             ),
         },
@@ -357,6 +488,15 @@ export default function RequestsClient() {
                                 Complete
                             </DropdownMenuItem>
                         )}
+                        {row.status === "completed" && (
+                            <DropdownMenuItem
+                                onClick={() => handleOpenPrint(row)}
+                                className="cursor-pointer text-green-600"
+                            >
+                                <Printer className="mr-2 h-4 w-4" />
+                                Print Document
+                            </DropdownMenuItem>
+                        )}
                         {row.status === "pending" && (
                             <DropdownMenuItem onClick={() => handleOpenDelete(row)} className="cursor-pointer text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -371,9 +511,9 @@ export default function RequestsClient() {
 
     return (
         <>
-            <div className="flex items-center gap-4 mb-4 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
                 <Select value={viewMode} onValueChange={(v) => setViewMode(v as "all" | "my")}>
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-[120px] sm:w-40">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -383,7 +523,7 @@ export default function RequestsClient() {
                 </Select>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-[120px] sm:w-40">
                         <SelectValue placeholder="Filter status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -420,7 +560,7 @@ export default function RequestsClient() {
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>New Request</DialogTitle>
-                        <DialogDescription>Create a new ATK/Sparepart request</DialogDescription>
+                        <DialogDescription>Create a new stuff request</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                         {message && (
@@ -431,40 +571,137 @@ export default function RequestsClient() {
 
                         <div className="space-y-2">
                             <Label>Requester *</Label>
-                            <Select value={selectedRequester} onValueChange={setSelectedRequester}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih pemohon" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {usersData?.data.map((u) => (
-                                        <SelectItem key={u.id} value={u.id}>
-                                            {u.full_name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Popover open={requesterPopoverOpen} onOpenChange={setRequesterPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={requesterPopoverOpen}
+                                        className="w-full justify-between font-normal"
+                                    >
+                                        {selectedRequester
+                                            ? usersData?.data.find((u) => u.id === selectedRequester)?.full_name
+                                            : "Select requester..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-full p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Search name..." />
+                                        <CommandList className="max-h-[200px] overflow-y-auto overscroll-contain">
+                                            <CommandEmpty>No results found.</CommandEmpty>
+                                            <CommandGroup>
+                                                {usersData?.data.map((u) => (
+                                                    <CommandItem
+                                                        key={u.id}
+                                                        value={u.full_name || ""}
+                                                        onSelect={() => {
+                                                            setSelectedRequester(u.id === selectedRequester ? "" : u.id);
+                                                            setRequesterPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={`mr-2 h-4 w-4 ${selectedRequester === u.id ? "opacity-100" : "opacity-0"}`}
+                                                        />
+                                                        {u.full_name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Location</Label>
+                            <Popover open={locationPopoverOpen} onOpenChange={setLocationPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className="w-full justify-between"
+                                    >
+                                        {selectedLocation
+                                            ? locationsData?.find((l) => l.id === selectedLocation)?.name
+                                            : "Select location..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-full p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Search location..." />
+                                        <CommandList className="max-h-[200px] overflow-y-auto overscroll-contain">
+                                            <CommandEmpty>No results found.</CommandEmpty>
+                                            <CommandGroup>
+                                                {locationsData?.map((loc) => (
+                                                    <CommandItem
+                                                        key={loc.id}
+                                                        value={loc.name}
+                                                        onSelect={() => {
+                                                            setSelectedLocation(loc.id);
+                                                            setLocationPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={`mr-2 h-4 w-4 ${selectedLocation === loc.id ? "opacity-100" : "opacity-0"}`}
+                                                        />
+                                                        {loc.name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </div>
 
                         <div className="space-y-2">
                             <Label>Items *</Label>
                             {createItems.map((item, index) => (
                                 <div key={index} className="flex gap-2">
-                                    <Select value={item.item_id} onValueChange={(v) => updateCreateItem(index, "item_id", v)}>
-                                        <SelectTrigger className="flex-1">
-                                            <SelectValue placeholder="Select item" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {itemsData?.data.map((i) => (
-                                                <SelectItem
-                                                    key={i.id}
-                                                    value={i.id}
-                                                    disabled={i.stock_quantity <= 0}
-                                                >
-                                                    {i.name} ({i.type.toUpperCase()}) - Stock: {i.stock_quantity}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Popover open={itemPopoverOpenIdx === index} onOpenChange={(open) => setItemPopoverOpenIdx(open ? index : null)}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                className="flex-1 justify-between font-normal"
+                                            >
+                                                {item.item_id
+                                                    ? (() => {
+                                                        const i = itemsData?.data.find((i) => i.id === item.item_id);
+                                                        return i ? `${i.name} (${i.type.toUpperCase()}) - Stock: ${i.stock_quantity}` : "Select item...";
+                                                    })()
+                                                    : "Select item..."}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[400px] p-0" align="start">
+                                            <Command>
+                                                <CommandInput placeholder="Search item..." />
+                                                <CommandList className="max-h-[200px] overflow-y-auto overscroll-contain">
+                                                    <CommandEmpty>No results found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {itemsData?.data.filter(i => i.stock_quantity > 0).map((i) => (
+                                                            <CommandItem
+                                                                key={i.id}
+                                                                value={`${i.name} ${i.type}`}
+                                                                onSelect={() => {
+                                                                    updateCreateItem(index, "item_id", i.id);
+                                                                    setItemPopoverOpenIdx(null);
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={`mr-2 h-4 w-4 ${item.item_id === i.id ? "opacity-100" : "opacity-0"}`}
+                                                                />
+                                                                {i.name} ({i.type.toUpperCase()}) - Stock: {i.stock_quantity}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                     <Input
                                         type="number"
                                         min="1"
@@ -524,8 +761,8 @@ export default function RequestsClient() {
                                     <p className="font-medium">{selectedRequest.profiles?.full_name || "-"}</p>
                                 </div>
                                 <div>
-                                    <span className="text-muted-foreground">Department</span>
-                                    <p>{selectedRequest.departments?.name || "-"}</p>
+                                    <span className="text-muted-foreground">Location</span>
+                                    <p>{selectedRequest.locations?.name || "-"}</p>
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Status</span>
@@ -732,6 +969,7 @@ export default function RequestsClient() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
         </>
     );
 }

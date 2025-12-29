@@ -48,12 +48,12 @@ import { createItem, updateItem, deleteItem, uploadItemImage, bulkImportItems } 
 import * as XLSX from "xlsx";
 
 const typeLabels: Record<string, string> = {
-    atk: "ATK",
+    consumable: "Consumable",
     sparepart: "Sparepart",
 };
 
 const typeColors: Record<string, string> = {
-    atk: "bg-blue-500/10 text-blue-500",
+    consumable: "bg-blue-500/10 text-blue-500",
     sparepart: "bg-orange-500/10 text-orange-500",
 };
 
@@ -70,7 +70,7 @@ function formatCurrency(amount: number): string {
 export default function ItemsClient() {
     const { page, limit, search, searchInput, setPage, setLimit, setSearch } = useDataTable();
     const queryClient = useQueryClient();
-    const [typeFilter, setTypeFilter] = useState<"atk" | "sparepart" | "all">("all");
+    const [typeFilter, setTypeFilter] = useState<"consumable" | "sparepart" | "all">("all");
     const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("all");
 
     const { data: itemsData, isLoading } = useATKItems({ page, limit, search, type: typeFilter, status: statusFilter });
@@ -83,7 +83,7 @@ export default function ItemsClient() {
     const [isAddOpen, setIsAddOpen] = useState(false);
 
     // Form states
-    const [formType, setFormType] = useState<"atk" | "sparepart">("atk");
+    const [formType, setFormType] = useState<"consumable" | "sparepart">("consumable");
     const [formName, setFormName] = useState("");
     const [formDescription, setFormDescription] = useState("");
     const [formUnit, setFormUnit] = useState("pcs");
@@ -124,7 +124,7 @@ export default function ItemsClient() {
     };
 
     const resetForm = () => {
-        setFormType("atk");
+        setFormType("consumable");
         setFormName("");
         setFormDescription("");
         setFormUnit("pcs");
@@ -207,7 +207,7 @@ export default function ItemsClient() {
         const templateData = [
             {
                 "Nama Barang": "Contoh Item 1",
-                Tipe: "atk",
+                Tipe: "consumable",
                 Satuan: "pcs",
                 Harga: 10000,
                 Stock: 100,
@@ -269,7 +269,7 @@ export default function ItemsClient() {
                 // Map Excel columns to item fields
                 const items = jsonData.map((row) => ({
                     name: String(row["Nama Barang"] || ""),
-                    type: (String(row["Tipe"] || "atk").toLowerCase() === "sparepart" ? "sparepart" : "atk") as "atk" | "sparepart",
+                    type: (String(row["Tipe"] || "consumable").toLowerCase() === "sparepart" ? "sparepart" : "consumable") as "consumable" | "sparepart",
                     unit: String(row["Satuan"] || "pcs"),
                     price: Number(row["Harga"]) || 0,
                     stock_quantity: Number(row["Stock"]) || 0,
@@ -513,10 +513,10 @@ export default function ItemsClient() {
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label>Type *</Label>
-                    <Select value={formType} onValueChange={(v) => setFormType(v as "atk" | "sparepart")}>
+                    <Select value={formType} onValueChange={(v) => setFormType(v as "consumable" | "sparepart")}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="atk">ATK</SelectItem>
+                            <SelectItem value="consumable">Consumable</SelectItem>
                             <SelectItem value="sparepart">Sparepart</SelectItem>
                         </SelectContent>
                     </Select>
@@ -565,11 +565,11 @@ export default function ItemsClient() {
     return (
         <>
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
-                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "atk" | "sparepart" | "all")}>
+                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "consumable" | "sparepart" | "all")}>
                     <SelectTrigger className="w-[120px] sm:w-40"><SelectValue placeholder="Filter type" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="atk">ATK</SelectItem>
+                        <SelectItem value="consumable">Consumable</SelectItem>
                         <SelectItem value="sparepart">Sparepart</SelectItem>
                     </SelectContent>
                 </Select>
@@ -633,7 +633,7 @@ export default function ItemsClient() {
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Add New Item</DialogTitle>
-                        <DialogDescription>Create a new ATK or Sparepart item</DialogDescription>
+                        <DialogDescription>Create a new Stuff item</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
                         {message && (
@@ -666,10 +666,10 @@ export default function ItemsClient() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Type *</Label>
-                                <Select value={formType} onValueChange={(v) => setFormType(v as "atk" | "sparepart")}>
+                                <Select value={formType} onValueChange={(v) => setFormType(v as "consumable" | "sparepart")}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="atk">ATK</SelectItem>
+                                        <SelectItem value="consumable">Consumable</SelectItem>
                                         <SelectItem value="sparepart">Sparepart</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -796,10 +796,10 @@ export default function ItemsClient() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Type *</Label>
-                                <Select value={formType} onValueChange={(v) => setFormType(v as "atk" | "sparepart")}>
+                                <Select value={formType} onValueChange={(v) => setFormType(v as "consumable" | "sparepart")}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="atk">ATK</SelectItem>
+                                        <SelectItem value="consumable">Consumable</SelectItem>
                                         <SelectItem value="sparepart">Sparepart</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -924,8 +924,8 @@ export default function ItemsClient() {
                                                             </div>
                                                         </td>
                                                         <td className="px-3 py-2">
-                                                            <Badge variant="secondary" className={item.type === "atk" ? "bg-blue-500/10 text-blue-500" : "bg-orange-500/10 text-orange-500"}>
-                                                                {item.type === "atk" ? "ATK" : "Sparepart"}
+                                                            <Badge variant="secondary" className={item.type === "consumable" ? "bg-blue-500/10 text-blue-500" : "bg-orange-500/10 text-orange-500"}>
+                                                                {item.type === "consumable" ? "Consumable" : "Sparepart"}
                                                             </Badge>
                                                         </td>
                                                         <td className="px-3 py-2">{item.unit}</td>

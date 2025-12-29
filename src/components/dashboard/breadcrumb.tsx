@@ -23,16 +23,23 @@ const routeLabels: Record<string, string> = {
 export function Breadcrumb() {
     const pathname = usePathname();
 
+    // Segments that should be skipped in breadcrumb (folders without pages)
+    const skipSegments = ["atk", "master"];
+
     const breadcrumbs = useMemo(() => {
         const segments = pathname.split("/").filter(Boolean);
 
-        const items: BreadcrumbItem[] = segments.map((segment, index) => {
-            const href = "/" + segments.slice(0, index + 1).join("/");
-            const label = routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
-            const isLast = index === segments.length - 1;
+        const items: BreadcrumbItem[] = segments
+            .filter(segment => !skipSegments.includes(segment))
+            .map((segment, index, filteredSegments) => {
+                // Build href from original segments up to this point
+                const originalIndex = segments.indexOf(segment);
+                const href = "/" + segments.slice(0, originalIndex + 1).join("/");
+                const label = routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
+                const isLast = index === filteredSegments.length - 1;
 
-            return { label, href, isLast };
-        });
+                return { label, href, isLast };
+            });
 
         return items;
     }, [pathname]);

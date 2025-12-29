@@ -3,7 +3,7 @@ import UsersClient from "./_components/users-client";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata = {
-    title: "Users | IT Helpdesk RSUD Cicalengka",
+    title: "Users | IT Governance",
 };
 
 function UsersTableSkeleton() {

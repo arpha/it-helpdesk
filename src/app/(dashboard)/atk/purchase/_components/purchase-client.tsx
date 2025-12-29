@@ -43,6 +43,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
 import {
     MoreHorizontal,
     Eye,
@@ -54,6 +63,9 @@ import {
     Loader2,
     X,
     FileSpreadsheet,
+    Printer,
+    ChevronsUpDown,
+    Check,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -95,7 +107,7 @@ export default function PurchaseClient() {
         status: statusFilter,
     });
 
-    const { data: itemsData } = useATKItems({ page: 1, limit: 100 });
+    const { data: itemsData } = useATKItems({ page: 1, limit: 1000 });
 
     // Modal states
     const [selectedPurchase, setSelectedPurchase] = useState<ATKPurchaseRequest | null>(null);
@@ -111,8 +123,8 @@ export default function PurchaseClient() {
     const [createItems, setCreateItems] = useState<{ item_id: string; quantity: number; unit_price: number }[]>([]);
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const [photoFile, setPhotoFile] = useState<File | null>(null);
-    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [receivedItems, setReceivedItems] = useState<{ item_id: string; received_quantity: number }[]>([]);
+    const [itemPopoverOpenIdx, setItemPopoverOpenIdx] = useState<number | null>(null);
 
     const handleView = (purchase: ATKPurchaseRequest) => {
         setSelectedPurchase(purchase);
@@ -122,8 +134,13 @@ export default function PurchaseClient() {
     const handleOpenSuccess = (purchase: ATKPurchaseRequest) => {
         setSelectedPurchase(purchase);
         setMessage(null);
-        setPhotoFile(null);
-        setPhotoPreview(null);
+        // Initialize received items with requested quantities
+        setReceivedItems(
+            purchase.atk_purchase_items.map(item => ({
+                item_id: item.item_id,
+                received_quantity: item.quantity, // default to requested quantity
+            }))
+        );
         setIsSuccessOpen(true);
     };
 
@@ -249,35 +266,35 @@ export default function PurchaseClient() {
         });
     };
 
-    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setPhotoFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPhotoPreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
+    const updateReceivedQuantity = (itemId: string, quantity: number) => {
+        setReceivedItems(prev =>
+            prev.map(item =>
+                item.item_id === itemId
+                    ? { ...item, received_quantity: quantity }
+                    : item
+            )
+        );
     };
 
     const handleSuccess = () => {
         if (!selectedPurchase) return;
         setMessage(null);
 
-        if (!photoFile || !photoPreview) {
-            setMessage({ type: "error", text: "Foto barang wajib diupload" });
+        // Validate that at least one item has quantity > 0
+        const hasValidItems = receivedItems.some(item => item.received_quantity > 0);
+        if (!hasValidItems) {
+            setMessage({ type: "error", text: "Minimal ada 1 barang yang diterima" });
             return;
         }
 
         startTransition(async () => {
             const result = await markPurchaseSuccess({
                 purchase_id: selectedPurchase.id,
-                photo_data: photoPreview,
+                received_items: receivedItems,
             });
 
             if (result.success) {
-                setMessage({ type: "success", text: "Success! Stock updated." });
+                setMessage({ type: "success", text: "Berhasil! Stock telah diperbarui." });
                 queryClient.invalidateQueries({ queryKey: ["purchase-requests"] });
                 queryClient.invalidateQueries({ queryKey: ["atk-items"] });
                 setTimeout(() => setIsSuccessOpen(false), 1000);
@@ -336,6 +353,123 @@ export default function PurchaseClient() {
         ];
 
         XLSX.writeFile(workbook, `Pengajuan_${purchase.title.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.xlsx`);
+    };
+
+    const handlePrintDocument = (purchase: ATKPurchaseRequest) => {
+        const printContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Surat Pengajuan Barang</title>
+                <style>
+                    @page {
+                        margin: 15mm;
+                        size: A4;
+                    }
+                    body { font-family: Arial, sans-serif; padding: 20px; margin: 0; font-size: 12px; }
+                    .header { text-align: center; margin-bottom: 20px; }
+                    .header h2 { margin: 0; font-size: 16px; }
+                    .header h3 { margin: 5px 0 0 0; font-size: 14px; font-weight: normal; }
+                    .info { margin-bottom: 20px; }
+                    .info-row { display: flex; margin-bottom: 5px; }
+                    .info-label { width: 120px; font-weight: bold; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+                    th { background: #f0f0f0; font-weight: bold; }
+                    .text-right { text-align: right; }
+                    .text-center { text-align: center; }
+                    .total-row { font-weight: bold; background: #f9f9f9; }
+                    .signatures { display: flex; justify-content: space-between; margin-top: 40px; }
+                    .signature-box { text-align: center; width: 200px; }
+                    .signature-line { border-top: 1px solid #000; margin-top: 60px; padding-top: 5px; }
+                    .notes { margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 5px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h2>SURAT PENGAJUAN BARANG</h2>
+                    <h3>RSUD CICALENGKA</h3>
+                </div>
+                
+                <div class="info">
+                    <div class="info-row">
+                        <span class="info-label">Judul</span>
+                        <span>: ${purchase.title}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Tanggal</span>
+                        <span>: ${new Date(purchase.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Diajukan oleh</span>
+                        <span>: ${purchase.creator?.full_name || "-"}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Status</span>
+                        <span>: ${purchase.status.toUpperCase()}</span>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 40px;">No</th>
+                            <th>Nama Barang</th>
+                            <th class="text-center" style="width: 80px;">Tipe</th>
+                            <th class="text-center" style="width: 60px;">Satuan</th>
+                            <th class="text-right" style="width: 60px;">Qty</th>
+                            <th class="text-right" style="width: 100px;">Harga Satuan</th>
+                            <th class="text-right" style="width: 100px;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${purchase.atk_purchase_items.map((item, idx) => `
+                            <tr>
+                                <td class="text-center">${idx + 1}</td>
+                                <td>${item.atk_items?.name || "-"}</td>
+                                <td class="text-center">${item.atk_items?.type?.toUpperCase() || "-"}</td>
+                                <td class="text-center">${item.atk_items?.unit || "-"}</td>
+                                <td class="text-right">${item.quantity}</td>
+                                <td class="text-right">Rp ${item.price.toLocaleString("id-ID")}</td>
+                                <td class="text-right">Rp ${item.subtotal.toLocaleString("id-ID")}</td>
+                            </tr>
+                        `).join("")}
+                        <tr class="total-row">
+                            <td colspan="6" class="text-right">TOTAL</td>
+                            <td class="text-right">Rp ${purchase.total_amount.toLocaleString("id-ID")}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                ${purchase.notes ? `<div class="notes"><strong>Catatan:</strong> ${purchase.notes}</div>` : ""}
+
+                <div class="signatures">
+                    <div class="signature-box">
+                        <div>Yang Mengajukan,</div>
+                        <div class="signature-line">${purchase.creator?.full_name || ""}</div>
+                    </div>
+                    <div class="signature-box">
+                        <div>Mengetahui,</div>
+                        <div class="signature-line">_____________________</div>
+                    </div>
+                    <div class="signature-box">
+                        <div>Menyetujui,</div>
+                        <div class="signature-line">_____________________</div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+            }, 250);
+        }
     };
 
     const columns: Column<ATKPurchaseRequest>[] = [
@@ -399,6 +533,10 @@ export default function PurchaseClient() {
                             <FileSpreadsheet className="mr-2 h-4 w-4" />
                             Export Excel
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePrintDocument(row)} className="cursor-pointer">
+                            <Printer className="mr-2 h-4 w-4" />
+                            Print Document
+                        </DropdownMenuItem>
                         {row.status === "draft" && (
                             <>
                                 <DropdownMenuItem onClick={() => handleOpenEdit(row)} className="cursor-pointer">
@@ -457,7 +595,7 @@ export default function PurchaseClient() {
                 toolbarAction={
                     <Button onClick={handleOpenCreate}>
                         <Plus className="mr-2 h-4 w-4" />
-                        New Purchase
+                        New Submission
                     </Button>
                 }
             />
@@ -466,8 +604,8 @@ export default function PurchaseClient() {
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>New Purchase Request</DialogTitle>
-                        <DialogDescription>Create a new purchase request for ATK/Sparepart</DialogDescription>
+                        <DialogTitle>New Submission</DialogTitle>
+                        <DialogDescription>Create a new purchase request for Consumable/Sparepart</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                         {message && (
@@ -491,18 +629,45 @@ export default function PurchaseClient() {
                             <div className="space-y-2">
                                 {createItems.map((item, index) => (
                                     <div key={index} className="flex gap-2 items-center">
-                                        <Select value={item.item_id} onValueChange={(v) => updateCreateItem(index, "item_id", v)}>
-                                            <SelectTrigger className="flex-1">
-                                                <SelectValue placeholder="Select item" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {itemsData?.data.map((i) => (
-                                                    <SelectItem key={i.id} value={i.id}>
-                                                        {i.name} - {formatCurrency(i.price)}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Popover open={itemPopoverOpenIdx === index} onOpenChange={(open) => setItemPopoverOpenIdx(open ? index : null)}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className="flex-1 justify-between font-normal"
+                                                >
+                                                    {item.item_id
+                                                        ? itemsData?.data.find((i) => i.id === item.item_id)?.name || "Select item..."
+                                                        : "Select item..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[350px] p-0" align="start">
+                                                <Command>
+                                                    <CommandInput placeholder="Search item..." />
+                                                    <CommandList className="max-h-[200px] overflow-y-auto overscroll-contain">
+                                                        <CommandEmpty>No results found.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {itemsData?.data.map((i) => (
+                                                                <CommandItem
+                                                                    key={i.id}
+                                                                    value={i.name}
+                                                                    onSelect={() => {
+                                                                        updateCreateItem(index, "item_id", i.id);
+                                                                        setItemPopoverOpenIdx(null);
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={`mr-2 h-4 w-4 ${item.item_id === i.id ? "opacity-100" : "opacity-0"}`}
+                                                                    />
+                                                                    {i.name}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
                                         <Input
                                             type="number"
                                             min="1"
@@ -641,7 +806,11 @@ export default function PurchaseClient() {
                                 </div>
                             )}
 
-                            <div className="flex justify-end">
+                            <div className="flex justify-end gap-2">
+                                <Button variant="outline" onClick={() => handlePrintDocument(selectedPurchase)}>
+                                    <Printer className="mr-2 h-4 w-4" />
+                                    Print Document
+                                </Button>
                                 <Button variant="outline" onClick={() => handleExportExcel(selectedPurchase)}>
                                     <FileSpreadsheet className="mr-2 h-4 w-4" />
                                     Export Excel
@@ -681,18 +850,45 @@ export default function PurchaseClient() {
                             <div className="space-y-2">
                                 {createItems.map((item, index) => (
                                     <div key={index} className="flex gap-2 items-center">
-                                        <Select value={item.item_id} onValueChange={(v) => updateCreateItem(index, "item_id", v)}>
-                                            <SelectTrigger className="flex-1">
-                                                <SelectValue placeholder="Select item" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {itemsData?.data.map((i) => (
-                                                    <SelectItem key={i.id} value={i.id}>
-                                                        {i.name} - {formatCurrency(i.price)}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Popover open={itemPopoverOpenIdx === (1000 + index)} onOpenChange={(open) => setItemPopoverOpenIdx(open ? (1000 + index) : null)}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className="flex-1 justify-between font-normal"
+                                                >
+                                                    {item.item_id
+                                                        ? itemsData?.data.find((i) => i.id === item.item_id)?.name || "Select item..."
+                                                        : "Select item..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[350px] p-0" align="start">
+                                                <Command>
+                                                    <CommandInput placeholder="Search item..." />
+                                                    <CommandList className="max-h-[200px] overflow-y-auto overscroll-contain">
+                                                        <CommandEmpty>No results found.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {itemsData?.data.map((i) => (
+                                                                <CommandItem
+                                                                    key={i.id}
+                                                                    value={i.name}
+                                                                    onSelect={() => {
+                                                                        updateCreateItem(index, "item_id", i.id);
+                                                                        setItemPopoverOpenIdx(null);
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={`mr-2 h-4 w-4 ${item.item_id === i.id ? "opacity-100" : "opacity-0"}`}
+                                                                    />
+                                                                    {i.name}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
                                         <Input
                                             type="number"
                                             min="1"
@@ -751,15 +947,15 @@ export default function PurchaseClient() {
                 </DialogContent>
             </Dialog>
 
-            {/* Mark Success Modal */}
+            {/* Mark Success Modal - Verification */}
             <Dialog open={isSuccessOpen} onOpenChange={setIsSuccessOpen}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Mark as Success</DialogTitle>
-                        <DialogDescription>Upload foto barang yang sudah diterima</DialogDescription>
+                        <DialogTitle>Verify Received Items</DialogTitle>
+                        <DialogDescription>Check and adjust the quantity of items actually received</DialogDescription>
                     </DialogHeader>
                     {selectedPurchase && (
-                        <div className="space-y-4 py-4">
+                        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                             {message && (
                                 <div className={`rounded-md p-3 text-sm ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-destructive/10 text-destructive"}`}>
                                     {message.text}
@@ -774,36 +970,54 @@ export default function PurchaseClient() {
                             </div>
 
                             <div className="text-sm text-muted-foreground">
-                                📸 Upload foto barang yang sudah diterima
+                                📦 Adjust the received quantity to match the delivered items
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="photo_upload">Foto Barang *</Label>
-                                <Input
-                                    id="photo_upload"
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handlePhotoChange}
-                                    className="cursor-pointer"
-                                />
-                                {photoPreview && (
-                                    <div className="mt-2">
-                                        <img
-                                            src={photoPreview}
-                                            alt="Preview"
-                                            className="max-h-48 rounded border object-contain"
-                                        />
-                                    </div>
-                                )}
+                            <div className="border rounded-lg overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-muted">
+                                        <tr>
+                                            <th className="text-left p-3">Item Name</th>
+                                            <th className="text-center p-3 w-24">Requested</th>
+                                            <th className="text-center p-3 w-32">Received</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedPurchase.atk_purchase_items.map((item) => {
+                                            const receivedItem = receivedItems.find(r => r.item_id === item.item_id);
+                                            return (
+                                                <tr key={item.id} className="border-t">
+                                                    <td className="p-3">
+                                                        <p className="font-medium">{item.atk_items?.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{item.atk_items?.unit}</p>
+                                                    </td>
+                                                    <td className="p-3 text-center text-muted-foreground">
+                                                        {item.quantity}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max={item.quantity * 2}
+                                                            value={receivedItem?.received_quantity || 0}
+                                                            onChange={(e) => updateReceivedQuantity(item.item_id, parseInt(e.target.value) || 0)}
+                                                            className="w-full text-center"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
 
                             <div className="flex justify-end gap-2 pt-4">
                                 <Button variant="outline" onClick={() => setIsSuccessOpen(false)}>
                                     Cancel
                                 </Button>
-                                <Button onClick={handleSuccess} disabled={isPending || !photoFile} className="bg-green-600 hover:bg-green-700">
+                                <Button onClick={handleSuccess} disabled={isPending} className="bg-green-600 hover:bg-green-700">
                                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                                    Mark Success
+                                    Confirm & Update Stock
                                 </Button>
                             </div>
                         </div>

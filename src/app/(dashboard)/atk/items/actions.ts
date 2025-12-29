@@ -3,7 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
-type ItemType = "atk" | "sparepart";
+type ItemType = "consumable" | "sparepart";
 
 type CreateItemInput = {
     type: ItemType;
@@ -213,7 +213,7 @@ export async function bulkImportItems(items: ImportItemInput[]): Promise<BulkImp
                 errors.push(`Item "${item.name || 'unknown'}": ${errorMsg}`);
                 details.push({
                     name: item.name || "unknown",
-                    type: item.type || "atk",
+                    type: item.type || "consumable",
                     unit: item.unit || "-",
                     price: Number(item.price) || 0,
                     stock: Number(item.stock_quantity) || 0,
@@ -224,10 +224,10 @@ export async function bulkImportItems(items: ImportItemInput[]): Promise<BulkImp
             }
 
             // Validate type
-            const validTypes = ["atk", "sparepart"];
+            const validTypes = ["consumable", "sparepart"];
             const itemType = validTypes.includes(item.type?.toLowerCase())
                 ? item.type.toLowerCase() as ItemType
-                : "atk";
+                : "consumable";
 
             const { error } = await supabase.from("atk_items").insert({
                 type: itemType,
@@ -269,7 +269,7 @@ export async function bulkImportItems(items: ImportItemInput[]): Promise<BulkImp
             errors.push(`Item "${item.name}": ${errorMsg}`);
             details.push({
                 name: item.name || "unknown",
-                type: item.type || "atk",
+                type: item.type || "consumable",
                 unit: item.unit || "-",
                 price: Number(item.price) || 0,
                 stock: Number(item.stock_quantity) || 0,

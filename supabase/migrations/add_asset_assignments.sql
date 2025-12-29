@@ -99,3 +99,30 @@ ALTER TABLE assets DROP COLUMN IF EXISTS purchase_price;
 -- =============================================
 ALTER TABLE assets RENAME COLUMN department_id TO location_id;
 ALTER TABLE tickets RENAME COLUMN department_id TO location_id;
+ALTER TABLE atk_requests RENAME COLUMN department_id TO location_id;
+
+-- =============================================
+-- ADD TICKET REFERENCE TO ATK REQUESTS
+-- =============================================
+ALTER TABLE atk_requests ADD COLUMN IF NOT EXISTS ticket_id uuid REFERENCES tickets(id) ON DELETE SET NULL;
+
+-- =============================================
+-- ADD DOCUMENT FIELDS FOR SURAT PENGELUARAN BARANG
+-- =============================================
+ALTER TABLE atk_requests ADD COLUMN IF NOT EXISTS document_url text;
+ALTER TABLE atk_requests ADD COLUMN IF NOT EXISTS document_number text;
+
+-- =============================================
+-- AI STOCK PREDICTION TABLE
+-- =============================================
+CREATE TABLE IF NOT EXISTS atk_predictions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    item_id uuid REFERENCES atk_items(id) ON DELETE CASCADE,
+    avg_daily_usage float NOT NULL DEFAULT 0,
+    days_until_min_stock int,
+    predicted_min_date date,
+    recommendation text,
+    confidence float DEFAULT 0,
+    calculated_at timestamp with time zone DEFAULT now(),
+    UNIQUE(item_id)
+);

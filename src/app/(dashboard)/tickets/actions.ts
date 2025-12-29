@@ -358,7 +358,7 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
         // Get ticket details
         const { data: ticket, error: ticketError } = await supabase
             .from("tickets")
-            .select("asset_id")
+            .select("asset_id, location_id, created_by")
             .eq("id", input.id)
             .single();
 
@@ -381,9 +381,9 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
             return { success: false, error: updateError.message };
         }
 
-        // 2. If parts were used, add to ticket_parts and reduce stock
+        // 2. If parts were used, create ATK request with status approved
         if (input.parts && input.parts.length > 0) {
-            // Insert ticket parts
+            // Insert ticket parts for record
             const ticketParts = input.parts.map(p => ({
                 ticket_id: input.id,
                 item_id: p.item_id,
@@ -392,22 +392,48 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
 
             await supabase.from("ticket_parts").insert(ticketParts);
 
-            // Reduce ATK stock for each part
-            for (const part of input.parts) {
-                // Get current stock
-                const { data: item } = await supabase
-                    .from("atk_items")
-                    .select("stock_quantity")
-                    .eq("id", part.item_id)
-                    .single();
+            // Get location from asset (either from ticket or from form input)
+            const assetIdForLocation = ticket?.asset_id || input.asset_id;
+            let assetLocationId: string | null = null;
 
-                if (item) {
-                    const newStock = Math.max(0, item.stock_quantity - part.quantity);
-                    await supabase
-                        .from("atk_items")
-                        .update({ stock_quantity: newStock })
-                        .eq("id", part.item_id);
-                }
+            if (assetIdForLocation) {
+                const { data: asset } = await supabase
+                    .from("assets")
+                    .select("location_id")
+                    .eq("id", assetIdForLocation)
+                    .single();
+                assetLocationId = asset?.location_id || null;
+            }
+
+            // Create ATK request with approved status (auto-approve from ticket)
+            const { data: atkRequest, error: atkError } = await supabase
+                .from("atk_requests")
+                .insert({
+                    requester_id: ticket?.created_by || user.id,
+                    ticket_id: input.id,
+                    location_id: assetLocationId,
+                    notes: `From Ticket - Auto generated`,
+                    status: "approved",
+                    approved_by: user.id,
+                    approved_at: new Date().toISOString(),
+                })
+                .select("id")
+                .single();
+
+            if (atkError) {
+                console.error("Failed to create ATK request:", atkError);
+            }
+
+            // Create ATK request items with approved quantity = requested quantity
+            if (atkRequest) {
+                const requestItems = input.parts.map(p => ({
+                    request_id: atkRequest.id,
+                    item_id: p.item_id,
+                    quantity: p.quantity,
+                    approved_quantity: p.quantity,
+                }));
+
+                await supabase.from("atk_request_items").insert(requestItems);
             }
         }
 

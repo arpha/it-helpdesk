@@ -2,7 +2,7 @@ import Link from "next/link";
 import { User, Shield } from "lucide-react";
 
 export const metadata = {
-    title: "Settings | IT Helpdesk RSUD Cicalengka",
+    title: "Settings | IT Governance",
 };
 
 const settingsLinks = [

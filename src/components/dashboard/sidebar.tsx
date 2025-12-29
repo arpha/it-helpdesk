@@ -17,6 +17,8 @@ import {
     ShoppingCart,
     PackagePlus,
     PackageMinus,
+    TrendingUp,
+    BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -87,7 +89,7 @@ const menuGroups: MenuGroup[] = [
         ],
     },
     {
-        title: "ATK Management",
+        title: "Management Stuffs",
         icon: Package,
         items: [
             {
@@ -101,9 +103,19 @@ const menuGroups: MenuGroup[] = [
                 icon: ClipboardList,
             },
             {
+                title: "AI Predictions",
+                href: "/atk/predictions",
+                icon: TrendingUp,
+            },
+            {
                 title: "Submission",
                 href: "/atk/purchase",
                 icon: ShoppingCart,
+            },
+            {
+                title: "Reports",
+                href: "/atk/reports",
+                icon: BarChart3,
             },
         ],
     },
@@ -308,7 +320,7 @@ export function Sidebar() {
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                                 <MonitorCog className="h-4 w-4 text-primary-foreground" />
                             </div>
-                            <span className="text-lg font-semibold">IT Helpdesk</span>
+                            <span className="text-lg font-semibold">IT Governance</span>
                         </SheetTitle>
                     </SheetHeader>
                     <div className="flex-1 overflow-auto">
@@ -343,7 +355,7 @@ export function Sidebar() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                         <MonitorCog className="h-4 w-4 text-primary-foreground" />
                     </div>
-                    {isOpen && <span className="text-lg font-semibold">IT Helpdesk</span>}
+                    {isOpen && <span className="text-lg font-semibold">IT Governance</span>}
                 </div>
                 {isOpen && (
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggle}>

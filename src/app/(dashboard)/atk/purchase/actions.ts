@@ -19,7 +19,7 @@ type UpdatePurchaseInput = {
 
 type SuccessPurchaseInput = {
     purchase_id: string;
-    photo_data: string; // base64 photo of received goods
+    received_items: { item_id: string; received_quantity: number }[]; // actual quantities received
 };
 
 type ActionResult = {
@@ -193,7 +193,7 @@ export async function submitPurchaseRequest(purchaseId: string): Promise<ActionR
     }
 }
 
-// Mark as success: process -> success (adds stock)
+// Mark as success: process -> success (adds stock based on received quantities)
 export async function markPurchaseSuccess(input: SuccessPurchaseInput): Promise<ActionResult> {
     try {
         const supabase = createAdminClient();
@@ -204,23 +204,14 @@ export async function markPurchaseSuccess(input: SuccessPurchaseInput): Promise<
             return { success: false, error: "Not authenticated" };
         }
 
-        const photoUrl = await uploadPhoto(input.photo_data, input.purchase_id);
-        if (!photoUrl) {
-            return { success: false, error: "Failed to upload photo" };
+        if (!input.received_items || input.received_items.length === 0) {
+            return { success: false, error: "No items to verify" };
         }
 
-        // Get purchase items
-        const { data: items } = await supabase
-            .from("atk_purchase_items")
-            .select("item_id, quantity")
-            .eq("purchase_id", input.purchase_id);
+        // Add stock for each received item
+        for (const item of input.received_items) {
+            if (item.received_quantity <= 0) continue;
 
-        if (!items) {
-            return { success: false, error: "No items found" };
-        }
-
-        // Add stock for each item
-        for (const item of items) {
             // Get current stock
             const { data: atkItem } = await supabase
                 .from("atk_items")
@@ -229,11 +220,11 @@ export async function markPurchaseSuccess(input: SuccessPurchaseInput): Promise<
                 .single();
 
             if (atkItem) {
-                // Update stock (ADD quantity)
+                // Update stock (ADD received quantity)
                 await supabase
                     .from("atk_items")
                     .update({
-                        stock_quantity: atkItem.stock_quantity + item.quantity,
+                        stock_quantity: atkItem.stock_quantity + item.received_quantity,
                     })
                     .eq("id", item.item_id);
 
@@ -241,9 +232,9 @@ export async function markPurchaseSuccess(input: SuccessPurchaseInput): Promise<
                 await supabase.from("atk_stock_history").insert({
                     item_id: item.item_id,
                     type: "in",
-                    quantity: item.quantity,
+                    quantity: item.received_quantity,
                     reference_id: input.purchase_id,
-                    notes: "Purchase request fulfilled",
+                    notes: "Purchase request fulfilled - verified receipt",
                     created_by: user.id,
                 });
             }
@@ -256,7 +247,6 @@ export async function markPurchaseSuccess(input: SuccessPurchaseInput): Promise<
                 status: "success",
                 approved_by: user.id,
                 approved_at: new Date().toISOString(),
-                approval_signature_url: photoUrl, // storing photo URL in this field
             })
             .eq("id", input.purchase_id);
 

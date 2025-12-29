@@ -58,7 +58,7 @@ export default function Login() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-xl">IT HELPDESK RSUD CICALENGKA</CardTitle>
+        <CardTitle className="text-xl">IT Governance</CardTitle>
         <CardDescription>Login to access all features</CardDescription>
       </CardHeader>
       <CardContent>
