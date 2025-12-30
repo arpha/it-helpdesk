@@ -636,14 +636,14 @@ export default function AssetsClient() {
                     setIsEditOpen(false);
                 }
             }}>
-                <DialogContent className="sm:max-w-2xl">
+                <DialogContent className="sm:max-w-2xl max-w-[95vw] mx-auto">
                     <DialogHeader>
                         <DialogTitle>{isEditOpen ? "Edit Asset" : "Add New Asset"}</DialogTitle>
                         <DialogDescription>
                             {isEditOpen ? "Update asset details" : "Create a new asset"}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto overflow-x-hidden">
+                    <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto overflow-x-hidden px-1">
                         {message && (
                             <div className={`rounded-md p-3 text-sm ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-destructive/10 text-destructive"}`}>
                                 {message.text}
@@ -769,7 +769,7 @@ export default function AssetsClient() {
                                     type="date"
                                     value={formPurchaseDate}
                                     onChange={(e) => setFormPurchaseDate(e.target.value)}
-                                    className="w-full min-w-0"
+                                    className="w-full min-w-0 [&::-webkit-calendar-picker-indicator]:opacity-100"
                                 />
                             </div>
                         </div>
@@ -782,7 +782,7 @@ export default function AssetsClient() {
                                     type="date"
                                     value={formWarrantyExpiry}
                                     onChange={(e) => setFormWarrantyExpiry(e.target.value)}
-                                    className="w-full min-w-0"
+                                    className="w-full min-w-0 [&::-webkit-calendar-picker-indicator]:opacity-100"
                                 />
                             </div>
                             <div className="space-y-2">
