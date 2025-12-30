@@ -25,7 +25,8 @@ type PageProps = {
 
 export default async function PublicAssetPage({ params }: PageProps) {
     const { id } = await params;
-    const supabase = await createClient();
+    // Use admin client since this is a public page without auth session
+    const supabase = await createClient({ isAdmin: true });
 
     const { data: asset, error } = await supabase
         .from("assets")
