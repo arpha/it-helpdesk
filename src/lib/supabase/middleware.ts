@@ -30,6 +30,11 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Skip auth check for public routes
+  if (request.nextUrl.pathname.startsWith("/public")) {
+    return supabaseResponse;
+  }
+
   if (!user && request.nextUrl.pathname !== "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
