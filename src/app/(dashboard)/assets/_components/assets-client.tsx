@@ -643,7 +643,7 @@ export default function AssetsClient() {
                             {isEditOpen ? "Update asset details" : "Create a new asset"}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+                    <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto overflow-x-hidden">
                         {message && (
                             <div className={`rounded-md p-3 text-sm ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-destructive/10 text-destructive"}`}>
                                 {message.text}
@@ -769,6 +769,7 @@ export default function AssetsClient() {
                                     type="date"
                                     value={formPurchaseDate}
                                     onChange={(e) => setFormPurchaseDate(e.target.value)}
+                                    className="w-full min-w-0"
                                 />
                             </div>
                         </div>
@@ -781,6 +782,7 @@ export default function AssetsClient() {
                                     type="date"
                                     value={formWarrantyExpiry}
                                     onChange={(e) => setFormWarrantyExpiry(e.target.value)}
+                                    className="w-full min-w-0"
                                 />
                             </div>
                             <div className="space-y-2">
