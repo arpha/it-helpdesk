@@ -501,10 +501,66 @@ export default function AssetsClient() {
         }
     };
 
-    const handlePrintSelected = () => {
+    const handlePrintSelected = async () => {
         if (selectedAssetIds.size === 0) return;
-        const ids = Array.from(selectedAssetIds).join(",");
-        window.open(`/assets/print?ids=${ids}`, "_blank");
+
+        // Fetch QR codes for selected assets
+        const selectedAssets = assetsData?.data.filter(a => selectedAssetIds.has(a.id)) || [];
+        const qrCodes: { name: string; code: string; qr: string }[] = [];
+
+        for (const asset of selectedAssets) {
+            try {
+                const res = await fetch(`/api/assets/qr?id=${asset.id}`);
+                const json = await res.json();
+                if (json.success) {
+                    qrCodes.push({
+                        name: asset.name,
+                        code: asset.asset_code,
+                        qr: json.data.qrCode
+                    });
+                }
+            } catch (error) {
+                console.error(`Failed to get QR for ${asset.id}:`, error);
+            }
+        }
+
+        // Create print content
+        const printContent = qrCodes.map((item, index) => `
+            <div style="width: 6cm; height: 6cm; padding: 0.5cm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; page-break-after: ${index < qrCodes.length - 1 ? 'always' : 'auto'}; box-sizing: border-box;">
+                <img src="${item.qr}" style="width: 4cm; height: 4cm;" />
+                <div style="margin-top: 0.3cm;">
+                    <p style="font-weight: bold; font-size: 10px; margin: 0; max-width: 5cm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</p>
+                    <p style="font-size: 9px; color: #666; margin: 0; font-family: monospace;">${item.code}</p>
+                </div>
+            </div>
+        `).join('');
+
+        // Open print window
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Print QR Labels</title>
+                    <style>
+                        @page { size: 6cm 6cm; margin: 0; }
+                        body { margin: 0; padding: 0; }
+                        @media print {
+                            body { margin: 0; padding: 0; }
+                        }
+                    </style>
+                </head>
+                <body>${printContent}</body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+        }
     };
 
     const toggleSelectAsset = (assetId: string) => {
@@ -1100,7 +1156,37 @@ export default function AssetsClient() {
                                 <Button
                                     variant="outline"
                                     onClick={() => {
-                                        window.open(`/assets/print?ids=${selectedAsset.id}`, "_blank");
+                                        const printContent = `
+                                            <div style="width: 6cm; height: 6cm; padding: 0.5cm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box;">
+                                                <img src="${qrCodeData}" style="width: 4cm; height: 4cm;" />
+                                                <div style="margin-top: 0.3cm;">
+                                                    <p style="font-weight: bold; font-size: 10px; margin: 0;">${selectedAsset.name}</p>
+                                                    <p style="font-size: 9px; color: #666; margin: 0; font-family: monospace;">${selectedAsset.asset_code}</p>
+                                                </div>
+                                            </div>
+                                        `;
+                                        const printWindow = window.open('', '_blank');
+                                        if (printWindow) {
+                                            printWindow.document.write(`
+                                                <!DOCTYPE html>
+                                                <html>
+                                                <head>
+                                                    <title>Print QR Label</title>
+                                                    <style>
+                                                        @page { size: 6cm 6cm; margin: 0; }
+                                                        body { margin: 0; padding: 0; }
+                                                    </style>
+                                                </head>
+                                                <body>${printContent}</body>
+                                                </html>
+                                            `);
+                                            printWindow.document.close();
+                                            printWindow.focus();
+                                            setTimeout(() => {
+                                                printWindow.print();
+                                                printWindow.close();
+                                            }, 250);
+                                        }
                                     }}
                                 >
                                     <Printer className="mr-2 h-4 w-4" />

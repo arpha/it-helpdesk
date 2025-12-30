@@ -109,16 +109,17 @@ function PrintContent() {
                 </div>
             </div>
 
-            {/* Labels Grid - 6cm x 6cm per label */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 print:grid-cols-3 print:gap-2">
-                {assets.map((asset) => (
+            {/* Labels - 1 per page (6cm x 6cm) */}
+            <div className="flex flex-wrap gap-4 print:block">
+                {assets.map((asset, index) => (
                     <Card
                         key={asset.id}
-                        className="print:break-inside-avoid print:shadow-none print:border"
+                        className="print:shadow-none print:border print:mb-0"
                         style={{
                             width: "6cm",
                             height: "6cm",
-                            padding: "0.5cm"
+                            padding: "0.5cm",
+                            pageBreakAfter: index < assets.length - 1 ? "always" : "auto",
                         }}
                     >
                         <CardContent className="p-0 h-full flex flex-col items-center justify-center text-center">
@@ -129,7 +130,7 @@ function PrintContent() {
                                     alt={`QR code for ${asset.name}`}
                                     width={150}
                                     height={150}
-                                    className="print:w-[3.5cm] print:h-[3.5cm]"
+                                    className="print:w-[4cm] print:h-[4cm]"
                                 />
                             </div>
                             {/* Asset Info */}
@@ -150,12 +151,14 @@ function PrintContent() {
             <style jsx global>{`
                 @media print {
                     @page {
-                        size: A4;
-                        margin: 1cm;
+                        size: 6cm 6cm;
+                        margin: 0;
                     }
                     body {
                         print-color-adjust: exact;
                         -webkit-print-color-adjust: exact;
+                        margin: 0;
+                        padding: 0;
                     }
                     .print\\:hidden {
                         display: none !important;
