@@ -87,6 +87,7 @@ function CommandList({
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.List>) {
   const listRef = React.useRef<HTMLDivElement>(null);
+  const touchStartY = React.useRef<number>(0);
 
   return (
     <CommandPrimitive.List
@@ -100,6 +101,18 @@ function CommandList({
         e.stopPropagation();
         if (listRef.current) {
           listRef.current.scrollTop += e.deltaY;
+        }
+      }}
+      onTouchStart={(e) => {
+        touchStartY.current = e.touches[0].clientY;
+      }}
+      onTouchMove={(e) => {
+        if (listRef.current) {
+          const touchY = e.touches[0].clientY;
+          const deltaY = touchStartY.current - touchY;
+          listRef.current.scrollTop += deltaY;
+          touchStartY.current = touchY;
+          e.stopPropagation();
         }
       }}
       {...props}
