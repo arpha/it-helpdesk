@@ -19,6 +19,8 @@ import {
     PackageMinus,
     TrendingUp,
     BarChart3,
+    FileText,
+    Activity,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -108,14 +110,24 @@ const menuGroups: MenuGroup[] = [
                 icon: TrendingUp,
             },
             {
+                title: "Reorder",
+                href: "/atk/reorder",
+                icon: ShoppingCart,
+            },
+            {
                 title: "Submission",
                 href: "/atk/purchase",
-                icon: ShoppingCart,
+                icon: FileText,
             },
             {
                 title: "Reports",
                 href: "/atk/reports",
                 icon: BarChart3,
+            },
+            {
+                title: "Health",
+                href: "/atk/health",
+                icon: Activity,
             },
         ],
     },

@@ -42,7 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Package, FileSpreadsheet, Download, Search } from "lucide-react";
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createItem, updateItem, deleteItem, uploadItemImage, bulkImportItems } from "../actions";
 import * as XLSX from "xlsx";
@@ -72,8 +72,20 @@ export default function ItemsClient() {
     const queryClient = useQueryClient();
     const [typeFilter, setTypeFilter] = useState<"consumable" | "sparepart" | "all">("all");
     const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("all");
+    const [healthFilter, setHealthFilter] = useState<"healthy" | "slow" | "dead" | "all">("all");
 
-    const { data: itemsData, isLoading } = useATKItems({ page, limit, search, type: typeFilter, status: statusFilter });
+    const { data: itemsData, isLoading, refetch } = useATKItems({ page, limit, search, type: typeFilter, status: statusFilter, health: healthFilter });
+
+    // Auto-analyze inventory health on page load
+    const hasAnalyzed = useRef(false);
+    useEffect(() => {
+        if (!hasAnalyzed.current) {
+            hasAnalyzed.current = true;
+            fetch("/api/ai/analyze-inventory", { method: "POST" })
+                .then(() => refetch())
+                .catch(console.error);
+        }
+    }, [refetch]);
 
     // Modal states
     const [selectedItem, setSelectedItem] = useState<ATKItem | null>(null);
@@ -453,6 +465,31 @@ export default function ItemsClient() {
             ),
         },
         {
+            key: "health",
+            header: "Health",
+            cell: (row) => {
+                const health = row.atk_item_analytics?.health_status;
+                const days = row.atk_item_analytics?.days_since_last_out;
+                const healthConfig = {
+                    healthy: { label: "Healthy", className: "bg-green-500/10 text-green-600", icon: "🟢" },
+                    slow: { label: "Slow", className: "bg-yellow-500/10 text-yellow-600", icon: "🟡" },
+                    dead: { label: "Dead", className: "bg-red-500/10 text-red-600", icon: "🔴" },
+                    unknown: { label: "N/A", className: "bg-gray-500/10 text-gray-500", icon: "⚪" },
+                };
+                const config = healthConfig[health || "unknown"];
+                return (
+                    <div className="flex flex-col items-start gap-0.5">
+                        <Badge variant="secondary" className={config.className}>
+                            {config.icon} {config.label}
+                        </Badge>
+                        {days !== undefined && days < 999 && (
+                            <span className="text-xs text-muted-foreground">{days}d ago</span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
             key: "actions",
             header: "",
             className: "w-12",
@@ -579,6 +616,15 @@ export default function ItemsClient() {
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="active">Aktif</SelectItem>
                         <SelectItem value="inactive">Non-Aktif</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select value={healthFilter} onValueChange={(v) => setHealthFilter(v as "healthy" | "slow" | "dead" | "all")}>
+                    <SelectTrigger className="w-[120px] sm:w-40"><SelectValue placeholder="Filter health" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Health</SelectItem>
+                        <SelectItem value="healthy">🟢 Healthy</SelectItem>
+                        <SelectItem value="slow">🟡 Slow</SelectItem>
+                        <SelectItem value="dead">🔴 Dead</SelectItem>
                     </SelectContent>
                 </Select>
                 <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-sm sm:ml-auto order-last sm:order-none">
