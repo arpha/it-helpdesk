@@ -62,6 +62,8 @@ import {
     X,
     Check,
     ChevronsUpDown,
+    QrCode,
+    Printer,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createAsset, updateAsset, deleteAsset, uploadAssetImage, generateAssetCode } from "../actions";
@@ -125,6 +127,11 @@ export default function AssetsClient() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isQrOpen, setIsQrOpen] = useState(false);
+    const [qrCodeData, setQrCodeData] = useState<string>("");
+
+    // Bulk select for print
+    const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
 
     // Form states
     const [formAssetCode, setFormAssetCode] = useState("");
@@ -364,6 +371,19 @@ export default function AssetsClient() {
 
     const columns: Column<Asset>[] = [
         {
+            key: "select",
+            header: "",
+            className: "w-10",
+            cell: (asset) => (
+                <input
+                    type="checkbox"
+                    checked={selectedAssetIds.has(asset.id)}
+                    onChange={() => toggleSelectAsset(asset.id)}
+                    className="h-4 w-4 rounded border-gray-300"
+                />
+            ),
+        },
+        {
             key: "asset",
             header: "Asset",
             cell: (asset) => (
@@ -452,18 +472,60 @@ export default function AssetsClient() {
                             <Pencil className="mr-2 h-4 w-4" />
                             Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => handleOpenDelete(asset)}
-                        >
+                        <DropdownMenuItem onClick={() => handleOpenDelete(asset)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleShowQr(asset)}>
+                            <QrCode className="mr-2 h-4 w-4" />
+                            Show QR Code
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),
         },
     ];
+
+    const handleShowQr = async (asset: Asset) => {
+        try {
+            const res = await fetch(`/api/assets/qr?id=${asset.id}`);
+            const json = await res.json();
+            if (json.success) {
+                setSelectedAsset(asset);
+                setQrCodeData(json.data.qrCode);
+                setIsQrOpen(true);
+            }
+        } catch (error) {
+            console.error("Failed to generate QR:", error);
+        }
+    };
+
+    const handlePrintSelected = () => {
+        if (selectedAssetIds.size === 0) return;
+        const ids = Array.from(selectedAssetIds).join(",");
+        window.open(`/assets/print?ids=${ids}`, "_blank");
+    };
+
+    const toggleSelectAsset = (assetId: string) => {
+        setSelectedAssetIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(assetId)) {
+                newSet.delete(assetId);
+            } else {
+                newSet.add(assetId);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedAssetIds.size === assetsData?.data.length) {
+            setSelectedAssetIds(new Set());
+        } else {
+            setSelectedAssetIds(new Set(assetsData?.data.map(a => a.id) || []));
+        }
+    };
 
     return (
         <>
@@ -512,6 +574,12 @@ export default function AssetsClient() {
                 emptyMessage="No assets found."
                 toolbarAction={
                     <div className="flex gap-2">
+                        {selectedAssetIds.size > 0 && (
+                            <Button variant="outline" onClick={handlePrintSelected} size="sm">
+                                <Printer className="mr-2 h-4 w-4" />
+                                Print QR ({selectedAssetIds.size})
+                            </Button>
+                        )}
                         <Button variant="outline" onClick={handleExportExcel} size="sm" className="hidden sm:flex">
                             <FileSpreadsheet className="mr-2 h-4 w-4" />Export Excel
                         </Button>
@@ -1007,6 +1075,42 @@ export default function AssetsClient() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* QR Code Modal */}
+            <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>QR Code</DialogTitle>
+                        <DialogDescription>
+                            Scan this QR code to view asset details
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedAsset && qrCodeData && (
+                        <div className="flex flex-col items-center gap-4 py-4">
+                            <img
+                                src={qrCodeData}
+                                alt={`QR code for ${selectedAsset.name}`}
+                                className="w-48 h-48"
+                            />
+                            <div className="text-center">
+                                <p className="font-semibold">{selectedAsset.name}</p>
+                                <p className="text-sm text-muted-foreground font-mono">{selectedAsset.asset_code}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        window.open(`/assets/print?ids=${selectedAsset.id}`, "_blank");
+                                    }}
+                                >
+                                    <Printer className="mr-2 h-4 w-4" />
+                                    Print Label
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
