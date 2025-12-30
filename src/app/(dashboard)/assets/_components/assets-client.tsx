@@ -817,7 +817,7 @@ export default function AssetsClient() {
                                     <PopoverContent className="w-full p-0" align="start">
                                         <Command>
                                             <CommandInput placeholder="Search user..." />
-                                            <CommandList className="max-h-48 overflow-y-auto">
+                                            <CommandList className="max-h-48 overflow-y-auto touch-pan-y overscroll-contain">
                                                 <CommandEmpty>No user found.</CommandEmpty>
                                                 <CommandGroup>
                                                     <CommandItem
@@ -875,7 +875,7 @@ export default function AssetsClient() {
                                     <PopoverContent className="w-full p-0" align="start">
                                         <Command>
                                             <CommandInput placeholder="Search location..." />
-                                            <CommandList className="max-h-48 overflow-y-auto">
+                                            <CommandList className="max-h-48 overflow-y-auto touch-pan-y overscroll-contain">
                                                 <CommandEmpty>No location found.</CommandEmpty>
                                                 <CommandGroup>
                                                     <CommandItem
