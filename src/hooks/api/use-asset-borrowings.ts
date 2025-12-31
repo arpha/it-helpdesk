@@ -109,12 +109,27 @@ export type BorrowableAsset = {
 async function fetchBorrowableAssets(): Promise<BorrowableAsset[]> {
     const supabase = createClient();
 
-    const { data, error } = await supabase
+    // Get assets with active borrowings
+    const { data: activeBorrowings } = await supabase
+        .from("asset_borrowings")
+        .select("asset_id")
+        .in("status", ["pending", "approved", "borrowed"]);
+
+    const borrowedAssetIds = activeBorrowings?.map(b => b.asset_id) || [];
+
+    let query = supabase
         .from("assets")
         .select("id, name, asset_code, locations(name)")
         .eq("is_borrowable", true)
         .eq("status", "active")
         .order("name");
+
+    // Exclude assets currently being borrowed
+    if (borrowedAssetIds.length > 0) {
+        query = query.not("id", "in", `(${borrowedAssetIds.join(",")})`);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         throw new Error(error.message);

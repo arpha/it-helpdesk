@@ -444,14 +444,28 @@ Ketik *2* untuk cek status ticket.`,
     if (step === "borrowing_search") {
         data.borrowing_search = message;
 
-        // Search for borrowable assets matching the keyword
-        const { data: assets } = await supabase
+        // Get assets with active borrowings
+        const { data: activeBorrowings } = await supabase
+            .from("asset_borrowings")
+            .select("asset_id")
+            .in("status", ["pending", "approved", "borrowed"]);
+
+        const borrowedAssetIds = activeBorrowings?.map(b => b.asset_id) || [];
+
+        // Search for borrowable assets matching the keyword, excluding borrowed ones
+        let assetQuery = supabase
             .from("assets")
             .select("id, name, asset_code, locations(name)")
             .eq("is_borrowable", true)
             .eq("status", "active")
             .ilike("name", `%${message}%`)
             .limit(5);
+
+        if (borrowedAssetIds.length > 0) {
+            assetQuery = assetQuery.not("id", "in", `(${borrowedAssetIds.join(",")})`);
+        }
+
+        const { data: assets } = await assetQuery;
 
         if (!assets || assets.length === 0) {
             await sendWhatsAppMessage({

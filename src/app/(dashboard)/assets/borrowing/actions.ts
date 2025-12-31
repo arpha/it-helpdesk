@@ -47,6 +47,19 @@ export async function createBorrowingRequest(input: CreateBorrowingInput): Promi
             return { success: false, error: "Asset tidak bisa dipinjam" };
         }
 
+        // Check if asset is currently being borrowed
+        const { data: activeBorrowing } = await supabase
+            .from("asset_borrowings")
+            .select("id")
+            .eq("asset_id", input.asset_id)
+            .in("status", ["pending", "approved", "borrowed"])
+            .limit(1)
+            .single();
+
+        if (activeBorrowing) {
+            return { success: false, error: "Asset sedang dipinjam dan belum dikembalikan" };
+        }
+
         const { data, error } = await supabase
             .from("asset_borrowings")
             .insert({
