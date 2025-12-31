@@ -152,6 +152,7 @@ export default function AssetsClient() {
     const [formImageFile, setFormImageFile] = useState<File | null>(null);
     const [formImagePreview, setFormImagePreview] = useState("");
     const [formImageUrl, setFormImageUrl] = useState("");
+    const [formIsBorrowable, setFormIsBorrowable] = useState(false);
 
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -173,6 +174,7 @@ export default function AssetsClient() {
         setFormImageFile(null);
         setFormImagePreview("");
         setFormImageUrl("");
+        setFormIsBorrowable(false);
         setMessage(null);
     };
 
@@ -207,6 +209,7 @@ export default function AssetsClient() {
         setFormImageFile(null);
         setFormImagePreview(asset.image_url || "");
         setFormImageUrl(asset.image_url || "");
+        setFormIsBorrowable(asset.is_borrowable || false);
         setMessage(null);
         setIsEditOpen(true);
     };
@@ -265,6 +268,7 @@ export default function AssetsClient() {
                 image_url: imageUrl || undefined,
                 notes: formNotes || undefined,
                 specifications: formSpecifications,
+                is_borrowable: formIsBorrowable,
             });
 
             if (result.success) {
@@ -316,6 +320,7 @@ export default function AssetsClient() {
                 image_url: imageUrl || undefined,
                 notes: formNotes || undefined,
                 specifications: formSpecifications,
+                is_borrowable: formIsBorrowable,
             });
 
             if (result.success) {
@@ -847,6 +852,21 @@ export default function AssetsClient() {
                                         <SelectItem value="rent">Sewa</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Bisa Dipinjam</Label>
+                                <div className="flex items-center gap-2 pt-2">
+                                    <input
+                                        type="checkbox"
+                                        id="is_borrowable"
+                                        checked={formIsBorrowable}
+                                        onChange={(e) => setFormIsBorrowable(e.target.checked)}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                    />
+                                    <label htmlFor="is_borrowable" className="text-sm text-muted-foreground">
+                                        Asset ini bisa dipinjam oleh unit lain
+                                    </label>
+                                </div>
                             </div>
                         </div>
 

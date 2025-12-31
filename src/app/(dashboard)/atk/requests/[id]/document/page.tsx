@@ -10,10 +10,12 @@ type RequestData = {
     document_number: string | null;
     created_at: string;
     updated_at: string;
+    notes: string | null;
     approval_signature_url: string | null;
-    profiles: { full_name: string } | null;
+    profiles: { full_name: string; nip?: string } | null;
     locations: { name: string } | null;
-    approver: { full_name: string } | null;
+    approver: { full_name: string; nip?: string } | null;
+    completer: { full_name: string; nip?: string } | null;
     atk_request_items: {
         id: string;
         quantity: number;
@@ -37,10 +39,12 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
                     document_number,
                     created_at,
                     updated_at,
+                    notes,
                     approval_signature_url,
-                    profiles:requester_id(full_name),
+                    profiles:requester_id(full_name, nip),
                     locations:location_id(name),
-                    approver:approved_by(full_name),
+                    approver:approved_by(full_name, nip),
+                    completer:completed_by(full_name, nip),
                     atk_request_items(
                         id,
                         quantity,
@@ -77,14 +81,6 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
         );
     }
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-        });
-    };
-
     return (
         <>
             {/* Print Button - hidden when printing */}
@@ -96,66 +92,94 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
             </div>
 
             {/* Document Content */}
-            <div className="max-w-3xl mx-auto p-8 bg-white text-black min-h-screen print:p-0">
-                {/* Header */}
-                <div className="text-center border-b-2 border-black pb-4 mb-6">
-                    <h1 className="text-xl font-bold">RSUD CIKALONG CILEGON KOTA</h1>
-                    <p className="text-sm">Jl. Raya Cilegon No. 123, Cilegon, Banten</p>
-                    <p className="text-sm">Telp: (0254) 123456 | Email: rsudcclk@cilegon.go.id</p>
+            <div className="max-w-4xl mx-auto p-8 bg-white text-black min-h-screen print:p-2 print:max-w-none">
+                {/* Header with Logo */}
+                <div className="flex items-start gap-4 border-b-2 border-black pb-4 mb-6">
+                    <div className="w-36 h-36 flex-shrink-0">
+                        <img src="/logo-bandung.png" alt="Logo" className="w-full h-full object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                    </div>
+                    <div className="flex-1 text-center">
+                        <p className="text-2xl font-bold">PEMERINTAH KABUPATEN BANDUNG</p>
+                        <p className="text-2xl font-bold">DINAS KESEHATAN</p>
+                        <p className="text-4xl font-bold">RUMAH SAKIT UMUM DAERAH CICALENGKA</p>
+                        <p className="text-sm">Jalan Haji Darham No.35, Tenjolaya, Cicalengka Kabupaten Bandung Jawa Barat 40395</p>
+                        <p className="text-sm">Telepon (022) 7952203 Faximile (022) 7952204</p>
+                        <p className="text-sm">Laman rsudcicalengka.bandungkab.go.id, Pos-el rsudcicalengka@bandungkab.go.id</p>
+                    </div>
                 </div>
 
                 {/* Title */}
                 <div className="text-center mb-6">
-                    <h2 className="text-lg font-bold underline">SURAT PENGELUARAN BARANG</h2>
-                    <p className="text-sm mt-1">No: {request.document_number || "-"}</p>
-                </div>
-
-                {/* Info */}
-                <div className="mb-6 space-y-2">
-                    <p><span className="inline-block w-32">Tanggal</span>: {formatDate(request.updated_at)}</p>
-                    <p><span className="inline-block w-32">Penerima</span>: {request.profiles?.full_name || "-"}</p>
-                    <p><span className="inline-block w-32">Lokasi</span>: {request.locations?.name || "-"}</p>
+                    <h2 className="text-lg font-bold underline">SURAT PERMINTAAN BARANG (SPB)</h2>
+                    <p className="text-base mt-2">Nomor : {request.document_number || "..............................."}</p>
                 </div>
 
                 {/* Table */}
-                <table className="w-full border-collapse border border-black mb-8">
+                <table className="w-full border-collapse border border-black mb-8 text-base">
                     <thead>
-                        <tr className="bg-gray-100">
-                            <th className="border border-black p-2 text-left w-12">No</th>
-                            <th className="border border-black p-2 text-left">Nama Barang</th>
-                            <th className="border border-black p-2 text-center w-24">Qty</th>
-                            <th className="border border-black p-2 text-center w-24">Satuan</th>
+                        <tr>
+                            <th className="border border-black p-2 text-center w-12">No.</th>
+                            <th className="border border-black p-2 text-center">Nama / Jenis Barang</th>
+                            <th className="border border-black p-2 text-center w-20">Banyaknya</th>
+                            <th className="border border-black p-2 text-center w-24">Unit Kerja</th>
+                            <th className="border border-black p-2 text-center w-24">Keterangan</th>
                         </tr>
                     </thead>
                     <tbody>
                         {request.atk_request_items.map((item, idx) => (
                             <tr key={item.id}>
-                                <td className="border border-black p-2">{idx + 1}</td>
+                                <td className="border border-black p-2 text-center">{idx + 1}</td>
                                 <td className="border border-black p-2">{item.atk_items?.name}</td>
-                                <td className="border border-black p-2 text-center">{item.approved_quantity || item.quantity}</td>
-                                <td className="border border-black p-2 text-center">{item.atk_items?.unit}</td>
+                                <td className="border border-black p-2 text-center">{item.approved_quantity || item.quantity} {item.atk_items?.unit}</td>
+                                <td className="border border-black p-2 text-center">{request.locations?.name || "-"}</td>
+                                <td className="border border-black p-2"></td>
+                            </tr>
+                        ))}
+                        {/* Empty rows for manual filling */}
+                        {Array.from({ length: Math.max(0, 8 - request.atk_request_items.length) }).map((_, idx) => (
+                            <tr key={`empty-${idx}`}>
+                                <td className="border border-black p-2 h-8">&nbsp;</td>
+                                <td className="border border-black p-2"></td>
+                                <td className="border border-black p-2"></td>
+                                <td className="border border-black p-2"></td>
+                                <td className="border border-black p-2"></td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
 
-                {/* Signatures */}
-                <div className="flex justify-between mt-12">
-                    <div className="text-center w-48">
-                        <p className="mb-20">Penerima Barang</p>
-                        {request.approval_signature_url && (
-                            <img
-                                src={request.approval_signature_url}
-                                alt="Signature"
-                                className="h-16 mx-auto mb-2"
-                            />
-                        )}
-                        <p className="border-t border-black pt-1">{request.profiles?.full_name || "-"}</p>
+                {/* Signatures - 3 columns */}
+                <div className="mt-8">
+                    <div className="text-right mb-4 text-base">
+                        <p>Cicalengka, {new Date(request.updated_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
                     </div>
-                    <div className="text-center w-48">
-                        <p className="mb-20">Pengeluar Barang</p>
-                        <div className="h-16 mb-2"></div>
-                        <p className="border-t border-black pt-1">{request.approver?.full_name || "-"}</p>
+                    <div className="flex justify-between text-center text-base">
+                        <div className="w-1/3 px-2">
+                            <p className="font-semibold">Yang Menyerahkan</p>
+                            <p>Pemegang Barang</p>
+                            <div className="h-24"></div>
+                            <p className="border-t border-black pt-1 mx-4">{request.completer?.full_name || "................................"}</p>
+                        </div>
+                        <div className="w-1/3 px-2">
+                            <p className="font-semibold">Mengetahui / Menyetujui</p>
+                            <p>Sekretaris RSUD Cicalengka</p>
+                            <div className="h-24"></div>
+                            <p className="border-t border-black pt-1 mx-4">................................</p>
+                        </div>
+                        <div className="w-1/3 px-2">
+                            <p className="font-semibold">Yang mengusulkan /</p>
+                            <p>menerima barang</p>
+                            <div className="h-24 flex items-end justify-center">
+                                {request.approval_signature_url && (
+                                    <img
+                                        src={request.approval_signature_url}
+                                        alt="Signature"
+                                        className="h-16 mx-auto"
+                                    />
+                                )}
+                            </div>
+                            <p className="border-t border-black pt-1 mx-4">{request.profiles?.full_name || "................................"}</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -163,6 +187,10 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
             {/* Print Styles */}
             <style jsx global>{`
                 @media print {
+                    @page {
+                        size: A4;
+                        margin: 5mm;
+                    }
                     body {
                         background: white !important;
                         -webkit-print-color-adjust: exact;
@@ -171,11 +199,9 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
                     .print\\:hidden {
                         display: none !important;
                     }
-                    .print\\:p-0 {
-                        padding: 0 !important;
-                    }
                 }
             `}</style>
         </>
     );
 }
+

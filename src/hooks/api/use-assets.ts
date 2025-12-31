@@ -21,6 +21,7 @@ export type Asset = {
     qr_code_url: string | null;
     notes: string | null;
     specifications: Record<string, string> | null;
+    is_borrowable: boolean;
     created_by: string | null;
     created_at: string;
     updated_at: string;

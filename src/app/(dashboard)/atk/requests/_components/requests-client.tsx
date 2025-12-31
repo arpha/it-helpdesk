@@ -169,83 +169,115 @@ export default function RequestsClient() {
     };
 
     const handleOpenPrint = (request: ATKRequest) => {
-        // Create print content in a new window and print directly
+        // Generate empty rows for table
+        const emptyRows = Array.from({ length: Math.max(0, 8 - request.atk_request_items.length) })
+            .map(() => `
+                <tr>
+                    <td>&nbsp;</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            `).join("");
+
+        // Create print content in SPB format
         const printContent = `
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Surat Pengeluaran Barang</title>
+                <title>Surat Permintaan Barang (SPB)</title>
                 <style>
                     @page { 
-                        margin: 10mm;
-                        size: A5;
+                        margin: 5mm;
+                        size: A4;
                     }
-                    @page { margin-top: 0; margin-bottom: 0; }
-                    body { font-family: Arial, sans-serif; padding: 20px; margin: 0; font-size: 11px; }
-                    .header { text-align: center; border-bottom: 2px solid black; padding-bottom: 16px; margin-bottom: 24px; }
-                    .header h1 { margin: 0; font-size: 18px; }
-                    .header p { margin: 4px 0; font-size: 12px; }
+                    body { font-family: Arial, sans-serif; padding: 10px; margin: 0; font-size: 12px; }
+                    .header { display: flex; align-items: flex-start; gap: 15px; border-bottom: 2px solid black; padding-bottom: 16px; margin-bottom: 24px; }
+                    .header-logo { width: 140px; height: 140px; flex-shrink: 0; }
+                    .header-text { flex: 1; text-align: center; }
+                    .header-text p { margin: 3px 0; }
+                    .header-text .bold { font-weight: bold; font-size: 20px; }
+                    .header-text .large { font-size: 26px; font-weight: bold; }
+                    .header-text .small { font-size: 11px; }
                     .title { text-align: center; margin-bottom: 24px; }
-                    .title h2 { margin: 0; font-size: 16px; text-decoration: underline; }
-                    .info { margin-bottom: 24px; font-size: 13px; }
-                    .info p { margin: 4px 0; }
-                    .info span { display: inline-block; width: 120px; }
+                    .title h2 { margin: 0; font-size: 16px; text-decoration: underline; font-weight: bold; }
+                    .title p { margin: 8px 0 0 0; font-size: 14px; }
                     table { width: 100%; border-collapse: collapse; margin-bottom: 32px; font-size: 13px; }
-                    th, td { border: 1px solid black; padding: 8px; }
-                    th { background: #f0f0f0; text-align: left; }
-                    .signatures { display: flex; justify-content: space-between; margin-top: 48px; }
-                    .sig-box { text-align: center; width: 180px; }
-                    .sig-box p { margin: 0; font-size: 12px; }
-                    .sig-space { height: 60px; margin-bottom: 8px; }
-                    .sig-line { border-top: 1px solid black; padding-top: 4px; }
-                    .sig-img { height: 50px; margin-bottom: 8px; }
+                    th, td { border: 1px solid black; padding: 6px 8px; }
+                    th { text-align: center; }
+                    .signatures { margin-top: 30px; }
+                    .sig-date { text-align: right; margin-bottom: 15px; font-size: 13px; }
+                    .sig-row { display: flex; justify-content: space-between; text-align: center; font-size: 13px; }
+                    .sig-box { width: 30%; }
+                    .sig-box p { margin: 2px 0; }
+                    .sig-space { height: 80px; }
+                    .sig-line { border-top: 1px solid black; padding-top: 4px; margin: 0 10px; }
+                    .sig-img { height: 60px; }
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <h1>RSUD CIKALONG CILEGON KOTA</h1>
-                    <p>Jl. Raya Cilegon No. 123, Cilegon, Banten</p>
-                    <p>Telp: (0254) 123456 | Email: rsudcclk@cilegon.go.id</p>
+                    <img src="/logo-bandung.png" class="header-logo" onerror="this.style.display='none'" />
+                    <div class="header-text">
+                        <p class="bold">PEMERINTAH KABUPATEN BANDUNG</p>
+                        <p class="bold">DINAS KESEHATAN</p>
+                        <p class="large">RUMAH SAKIT UMUM DAERAH CICALENGKA</p>
+                        <p class="small">Jalan Haji Darham No.35, Tenjolaya, Cicalengka Kabupaten Bandung Jawa Barat 40395</p>
+                        <p class="small">Telepon (022) 7952203 Faximile (022) 7952204</p>
+                        <p class="small">Laman rsudcicalengka.bandungkab.go.id, Pos-el rsudcicalengka@bandungkab.go.id</p>
+                    </div>
                 </div>
                 <div class="title">
-                    <h2>SURAT PENGELUARAN BARANG</h2>
-                    <p style="font-size:12px;margin-top:4px;">No: ${request.document_number || "-"}</p>
-                </div>
-                <div class="info">
-                    <p><span>Tanggal</span>: ${new Date(request.updated_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
-                    <p><span>Penerima</span>: ${request.profiles?.full_name || "-"}</p>
-                    <p><span>Lokasi</span>: ${request.locations?.name || "-"}</p>
+                    <h2>SURAT PERMINTAAN BARANG (SPB)</h2>
+                    <p>Nomor : ${request.document_number || "..............................."}</p>
                 </div>
                 <table>
                     <thead>
                         <tr>
-                            <th style="width:40px;">No</th>
-                            <th>Nama Barang</th>
-                            <th style="width:60px;text-align:center;">Qty</th>
-                            <th style="width:80px;text-align:center;">Satuan</th>
+                            <th style="width:40px;">No.</th>
+                            <th>Nama / Jenis Barang</th>
+                            <th style="width:70px;">Banyaknya</th>
+                            <th style="width:90px;">Unit Kerja</th>
+                            <th style="width:90px;">Keterangan</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${request.atk_request_items.map((item, idx) => `
                             <tr>
-                                <td>${idx + 1}</td>
+                                <td style="text-align:center;">${idx + 1}</td>
                                 <td>${item.atk_items?.name || ""}</td>
-                                <td style="text-align:center;">${item.approved_quantity || item.quantity}</td>
-                                <td style="text-align:center;">${item.atk_items?.unit || ""}</td>
+                                <td style="text-align:center;">${item.approved_quantity || item.quantity} ${item.atk_items?.unit || ""}</td>
+                                <td style="text-align:center;">${request.locations?.name || "-"}</td>
+                                <td></td>
                             </tr>
                         `).join("")}
+                        ${emptyRows}
                     </tbody>
                 </table>
                 <div class="signatures">
-                    <div class="sig-box">
-                        <p>Penerima Barang</p>
-                        ${request.approval_signature_url ? `<img src="${request.approval_signature_url}" class="sig-img" />` : '<div class="sig-space"></div>'}
-                        <p class="sig-line">${request.profiles?.full_name || "-"}</p>
+                    <div class="sig-date">
+                        <p>Cicalengka, ${new Date(request.updated_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
                     </div>
-                    <div class="sig-box">
-                        <p>Pengeluar Barang</p>
-                        <div class="sig-space"></div>
-                        <p class="sig-line">${request.approver?.full_name || "-"}</p>
+                    <div class="sig-row">
+                        <div class="sig-box">
+                            <p><strong>Yang Menyerahkan</strong></p>
+                            <p>Pemegang Barang</p>
+                            <div class="sig-space"></div>
+                            <p class="sig-line">${request.completer?.full_name || "................................"}</p>
+                        </div>
+                        <div class="sig-box">
+                            <p><strong>Mengetahui / Menyetujui</strong></p>
+                            <p>Sekretaris RSUD Cicalengka</p>
+                            <div class="sig-space"></div>
+                            <p class="sig-line">................................</p>
+                        </div>
+                        <div class="sig-box">
+                            <p><strong>Yang mengusulkan /</strong></p>
+                            <p>menerima barang</p>
+                            <div class="sig-space">${request.approval_signature_url ? `<img src="${request.approval_signature_url}" class="sig-img" />` : ''}</div>
+                            <p class="sig-line">${request.profiles?.full_name || "................................"}</p>
+                        </div>
                     </div>
                 </div>
             </body>
@@ -670,7 +702,7 @@ export default function RequestsClient() {
                                                 {item.item_id
                                                     ? (() => {
                                                         const i = itemsData?.data.find((i) => i.id === item.item_id);
-                                                        return i ? `${i.name} (${i.type.toUpperCase()}) - Stock: ${i.stock_quantity}` : "Select item...";
+                                                        return i ? `${i.name} - Stock: ${i.stock_quantity}` : "Select item...";
                                                     })()
                                                     : "Select item..."}
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -694,7 +726,7 @@ export default function RequestsClient() {
                                                                 <Check
                                                                     className={`mr-2 h-4 w-4 ${item.item_id === i.id ? "opacity-100" : "opacity-0"}`}
                                                                 />
-                                                                {i.name} ({i.type.toUpperCase()}) - Stock: {i.stock_quantity}
+                                                                {i.name} - Stock: {i.stock_quantity}
                                                             </CommandItem>
                                                         ))}
                                                     </CommandGroup>

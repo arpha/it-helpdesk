@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, forwardRef, useImperativeHandle } from "react";
+import { useRef, forwardRef, useImperativeHandle, useEffect, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,21 @@ interface SignaturePadProps {
 const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
     ({ label = "Tanda Tangan", required = false, className }, ref) => {
         const sigCanvasRef = useRef<SignatureCanvas>(null);
+        const containerRef = useRef<HTMLDivElement>(null);
+        const [canvasSize, setCanvasSize] = useState({ width: 400, height: 250 });
+
+        useEffect(() => {
+            const updateSize = () => {
+                if (containerRef.current) {
+                    const width = containerRef.current.offsetWidth;
+                    setCanvasSize({ width, height: 250 });
+                }
+            };
+
+            updateSize();
+            window.addEventListener("resize", updateSize);
+            return () => window.removeEventListener("resize", updateSize);
+        }, []);
 
         useImperativeHandle(ref, () => ({
             isEmpty: () => sigCanvasRef.current?.isEmpty() ?? true,
@@ -49,12 +64,13 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
                         Clear
                     </Button>
                 </div>
-                <div className="border rounded-lg bg-white overflow-hidden">
+                <div ref={containerRef} className="border rounded-lg bg-white overflow-hidden">
                     <SignatureCanvas
                         ref={sigCanvasRef}
                         canvasProps={{
-                            className: "w-full h-32 cursor-crosshair",
-                            style: { width: "100%", height: "128px" },
+                            width: canvasSize.width,
+                            height: canvasSize.height,
+                            className: "cursor-crosshair",
                         }}
                         backgroundColor="white"
                         penColor="black"
@@ -71,3 +87,4 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
 SignaturePad.displayName = "SignaturePad";
 
 export { SignaturePad };
+

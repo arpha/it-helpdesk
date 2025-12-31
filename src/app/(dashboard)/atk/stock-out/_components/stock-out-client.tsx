@@ -82,7 +82,7 @@ export default function StockOutClient() {
                         <SelectContent>
                             {itemsData?.data.map((item) => (
                                 <SelectItem key={item.id} value={item.id}>
-                                    {item.name} ({item.type.toUpperCase()}) - Stock: {item.stock_quantity}
+                                    {item.name} - Stock: {item.stock_quantity}
                                 </SelectItem>
                             ))}
                         </SelectContent>

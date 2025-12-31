@@ -318,6 +318,7 @@ export async function completeRequest(input: CompleteRequestInput): Promise<Acti
                 status: "completed",
                 approval_signature_url: signatureUrl,
                 document_number: documentNumber,
+                completed_by: user.id,
             })
             .eq("id", input.request_id);
 

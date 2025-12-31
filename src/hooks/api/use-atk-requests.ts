@@ -38,6 +38,9 @@ export type ATKRequest = {
     approver: {
         full_name: string;
     } | null;
+    completer: {
+        full_name: string;
+    } | null;
     atk_request_items: ATKRequestItem[];
 };
 
@@ -69,6 +72,7 @@ async function fetchATKRequests(params: UseATKRequestsParams): Promise<ATKReques
       profiles:requester_id(full_name),
       locations:location_id(name),
       approver:approved_by(full_name),
+      completer:completed_by(full_name),
       atk_request_items(
         id,
         item_id,

@@ -13,6 +13,10 @@ const conversationState = new Map<string, {
         category?: string;
         priority?: string;
         description?: string;
+        // Borrowing fields
+        borrowing_search?: string;
+        borrowing_assets?: { id: string; name: string; asset_code: string; location: string }[];
+        selected_asset_id?: string;
     };
     timestamp: number;
 }>();
@@ -38,7 +42,8 @@ Selamat datang di IT Helpdesk.
 Ketik angka untuk memilih:
 *1.* 🎫 Buat Ticket Baru
 *2.* 📋 Cek Status Ticket
-*3.* ❓ Bantuan`;
+*3.* 📦 Pinjam Asset
+*4.* ❓ Bantuan`;
 }
 
 function getCategoryMenu() {
@@ -72,10 +77,17 @@ function getHelpMessage() {
 3. Pilih prioritas (1-4)
 4. Ketik deskripsi masalah
 
+*Cara Pinjam Asset:*
+1. Ketik *3* atau *pinjam*
+2. Ketik nama asset yang dicari
+3. Pilih asset dari hasil pencarian
+4. Masukkan lokasi dan tujuan
+
 *Commands:*
 • *1* atau *ticket* - Buat ticket baru
 • *2* atau *status* - Cek status ticket
-• *3* atau *help* - Tampilkan bantuan
+• *3* atau *pinjam* - Pinjam asset
+• *4* atau *help* - Tampilkan bantuan
 • *batal* - Batalkan proses`;
 }
 
@@ -218,7 +230,26 @@ Silakan hubungi Admin IT untuk mendaftarkan nomor Anda.`,
             return NextResponse.json({ status: "status_sent" });
         }
 
-        if (lowerMessage === "3" || lowerMessage === "help" || lowerMessage === "/help") {
+        // PINJAM command - Asset Borrowing
+        if (lowerMessage === "3" || lowerMessage === "pinjam" || lowerMessage === "/pinjam") {
+            conversationState.set(normalizedPhone, {
+                step: "borrowing_search",
+                data: {},
+                timestamp: Date.now(),
+            });
+            await sendWhatsAppMessage({
+                target: normalizedPhone,
+                message: `📦 *Pinjam Asset*
+
+Ketik nama/jenis asset yang ingin Anda pinjam.
+Contoh: laptop, printer, proyektor
+
+Ketik *batal* untuk batalkan.`,
+            });
+            return NextResponse.json({ status: "borrowing_search_prompt" });
+        }
+
+        if (lowerMessage === "4" || lowerMessage === "help" || lowerMessage === "/help") {
             await sendWhatsAppMessage({
                 target: normalizedPhone,
                 message: getHelpMessage(),
@@ -247,7 +278,18 @@ async function handleConversation(
     phone: string,
     profile: { id: string; full_name: string },
     message: string,
-    state: { step: string; data: { category?: string; priority?: string; description?: string }; timestamp: number }
+    state: {
+        step: string;
+        data: {
+            category?: string;
+            priority?: string;
+            description?: string;
+            borrowing_search?: string;
+            borrowing_assets?: { id: string; name: string; asset_code: string; location: string }[];
+            selected_asset_id?: string;
+        };
+        timestamp: number
+    }
 ) {
     const { step, data } = state;
 
@@ -396,6 +438,187 @@ Ketik *2* untuk cek status ticket.`,
         });
 
         return NextResponse.json({ status: "ticket_created", ticketId: ticket.id });
+    }
+
+    // Borrowing Step 1: Search for assets
+    if (step === "borrowing_search") {
+        data.borrowing_search = message;
+
+        // Search for borrowable assets matching the keyword
+        const { data: assets } = await supabase
+            .from("assets")
+            .select("id, name, asset_code, locations(name)")
+            .eq("is_borrowable", true)
+            .eq("status", "active")
+            .ilike("name", `%${message}%`)
+            .limit(5);
+
+        if (!assets || assets.length === 0) {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `❌ Asset "${message}" tidak ditemukan atau tidak tersedia untuk dipinjam.
+
+Coba kata kunci lain atau ketik *batal* untuk kembali.`,
+            });
+            return NextResponse.json({ status: "no_assets_found" });
+        }
+
+        // Store assets in state
+        data.borrowing_assets = assets.map(a => ({
+            id: a.id,
+            name: a.name,
+            asset_code: a.asset_code,
+            location: (a.locations as unknown as { name: string })?.name || "-"
+        }));
+
+        conversationState.set(phone, { step: "borrowing_select", data, timestamp: Date.now() });
+
+        const assetList = assets
+            .map((a, i) => {
+                const loc = (a.locations as unknown as { name: string })?.name || "-";
+                return `*${i + 1}.* ${a.name}\n    📍 ${loc} | 📋 ${a.asset_code}`;
+            })
+            .join("\n\n");
+
+        await sendWhatsAppMessage({
+            target: phone,
+            message: `📦 *Asset Tersedia:*
+
+${assetList}
+
+Ketik angka (1-${assets.length}) untuk memilih asset.`,
+        });
+
+        return NextResponse.json({ status: "borrowing_assets_listed" });
+    }
+
+    // Borrowing Step 2: Select asset
+    if (step === "borrowing_select") {
+        const index = parseInt(message) - 1;
+        const assets = data.borrowing_assets || [];
+
+        if (index < 0 || index >= assets.length) {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `❌ Pilihan tidak valid. Ketik angka 1-${assets.length}.`,
+            });
+            return NextResponse.json({ status: "invalid_asset_selection" });
+        }
+
+        const selectedAsset = assets[index];
+        data.selected_asset_id = selectedAsset.id;
+        conversationState.set(phone, { step: "borrowing_confirm", data, timestamp: Date.now() });
+
+        await sendWhatsAppMessage({
+            target: phone,
+            message: `✅ Asset dipilih: *${selectedAsset.name}*
+
+📍 Lokasi saat ini: ${selectedAsset.location}
+
+Masukkan lokasi tujuan dan alasan peminjaman.
+Format: *[Lokasi] | [Tujuan]*
+
+Contoh: UGD | Untuk backup laptop rusak`,
+        });
+
+        return NextResponse.json({ status: "borrowing_confirm_prompt" });
+    }
+
+    // Borrowing Step 3: Confirm and create request
+    if (step === "borrowing_confirm") {
+        const parts = message.split("|").map(p => p.trim());
+
+        if (parts.length < 2 || !parts[0] || !parts[1]) {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `❌ Format tidak valid.
+
+Gunakan format: *[Lokasi] | [Tujuan]*
+Contoh: UGD | Untuk backup laptop rusak`,
+            });
+            return NextResponse.json({ status: "invalid_format" });
+        }
+
+        const [locationName, purpose] = parts;
+        const assetId = data.selected_asset_id;
+        const selectedAsset = data.borrowing_assets?.find(a => a.id === assetId);
+
+        // Find location by name
+        const { data: location } = await supabase
+            .from("locations")
+            .select("id, name")
+            .ilike("name", `%${locationName}%`)
+            .single();
+
+        if (!location) {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `❌ Lokasi "${locationName}" tidak ditemukan.
+
+Ketik ulang dengan nama lokasi yang benar.`,
+            });
+            return NextResponse.json({ status: "location_not_found" });
+        }
+
+        // Get asset's original location
+        const { data: asset } = await supabase
+            .from("assets")
+            .select("location_id, is_borrowable")
+            .eq("id", assetId)
+            .single();
+
+        if (!asset || !asset.is_borrowable) {
+            conversationState.delete(phone);
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `❌ Asset tidak tersedia untuk dipinjam.
+
+Ketik *3* untuk cari asset lain.`,
+            });
+            return NextResponse.json({ status: "asset_unavailable" });
+        }
+
+        // Create borrowing request
+        const { data: borrowing, error } = await supabase
+            .from("asset_borrowings")
+            .insert({
+                asset_id: assetId,
+                borrower_location_id: location.id,
+                borrower_user_id: profile.id,
+                original_location_id: asset.location_id,
+                borrow_date: new Date().toISOString(),
+                purpose: purpose,
+                status: "pending",
+                created_by: profile.id,
+            })
+            .select("id")
+            .single();
+
+        conversationState.delete(phone);
+
+        if (error || !borrowing) {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `❌ Gagal membuat request peminjaman.
+
+Silakan coba lagi atau hubungi Admin IT.`,
+            });
+            return NextResponse.json({ status: "borrowing_error", error: error?.message });
+        }
+
+        await sendWhatsAppMessage({
+            target: phone,
+            message: `✅ *REQUEST PEMINJAMAN BERHASIL!*
+
+📦 *Asset:* ${selectedAsset?.name}
+📍 *Lokasi Tujuan:* ${location.name}
+📝 *Tujuan:* ${purpose}
+
+⏳ Menunggu approval dari Admin IT.
+Anda akan diberitahu via WhatsApp setelah disetujui.`,
+        });
+
+        return NextResponse.json({ status: "borrowing_created", borrowingId: borrowing.id });
     }
 
     return NextResponse.json({ status: "unknown_step" });

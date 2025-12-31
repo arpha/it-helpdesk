@@ -19,6 +19,7 @@ type CreateAssetInput = {
     image_url?: string;
     notes?: string;
     specifications?: Record<string, string>;
+    is_borrowable?: boolean;
 };
 
 type UpdateAssetInput = CreateAssetInput & {
@@ -59,6 +60,7 @@ export async function createAsset(input: CreateAssetInput): Promise<ActionResult
                 image_url: input.image_url || null,
                 notes: input.notes || null,
                 specifications: input.specifications || {},
+                is_borrowable: input.is_borrowable || false,
                 created_by: user.id,
             })
             .select("id")
@@ -99,6 +101,7 @@ export async function updateAsset(input: UpdateAssetInput): Promise<ActionResult
                 image_url: input.image_url || null,
                 notes: input.notes || null,
                 specifications: input.specifications || {},
+                is_borrowable: input.is_borrowable || false,
             })
             .eq("id", input.id);
 

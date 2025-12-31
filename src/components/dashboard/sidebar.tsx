@@ -105,16 +105,6 @@ const menuGroups: MenuGroup[] = [
                 icon: ClipboardList,
             },
             {
-                title: "AI Predictions",
-                href: "/atk/predictions",
-                icon: TrendingUp,
-            },
-            {
-                title: "Reorder",
-                href: "/atk/reorder",
-                icon: ShoppingCart,
-            },
-            {
                 title: "Submission",
                 href: "/atk/purchase",
                 icon: FileText,
@@ -123,6 +113,16 @@ const menuGroups: MenuGroup[] = [
                 title: "Reports",
                 href: "/atk/reports",
                 icon: BarChart3,
+            },
+            {
+                title: "AI Predictions",
+                href: "/atk/predictions",
+                icon: TrendingUp,
+            },
+            {
+                title: "Reorder",
+                href: "/atk/reorder",
+                icon: ShoppingCart,
             },
             {
                 title: "Health",
@@ -149,6 +149,11 @@ const menuGroups: MenuGroup[] = [
                 title: "Maintenance",
                 href: "/assets/maintenance",
                 icon: ClipboardList,
+            },
+            {
+                title: "Borrowing",
+                href: "/assets/borrowing",
+                icon: Package,
             },
         ],
     },
