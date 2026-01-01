@@ -59,13 +59,10 @@ export async function createDistribution(input: CreateDistributionInput): Promis
             return { success: false, error: "Pilih minimal 1 asset" };
         }
 
-        const documentNumber = await generateDocumentNumber();
-
-        // Create distribution
+        // Create distribution (without document number - generated on print)
         const { data: distribution, error: distError } = await supabase
             .from("asset_distributions")
             .insert({
-                document_number: documentNumber,
                 destination_location_id: input.destination_location_id,
                 receiver_id: input.receiver_id,
                 notes: input.notes || null,
@@ -234,6 +231,46 @@ export async function uploadDistributionSignature(formData: FormData): Promise<A
         const { data: urlData } = supabase.storage.from("images").getPublicUrl(filePath);
 
         return { success: true, id: urlData.publicUrl };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
+}
+
+// Generate document number for printing (only if not already generated)
+export async function generateDocumentNumberForPrint(distributionId: string): Promise<ActionResult> {
+    try {
+        const supabase = createAdminClient();
+
+        // Check if document number already exists
+        const { data: existing } = await supabase
+            .from("asset_distributions")
+            .select("document_number")
+            .eq("id", distributionId)
+            .single();
+
+        if (existing?.document_number) {
+            // Already has document number
+            return { success: true, id: existing.document_number };
+        }
+
+        // Generate new document number
+        const documentNumber = await generateDocumentNumber();
+
+        // Update distribution with document number
+        const { error } = await supabase
+            .from("asset_distributions")
+            .update({ document_number: documentNumber })
+            .eq("id", distributionId);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        revalidatePath("/assets/distribution");
+        return { success: true, id: documentNumber };
     } catch (error) {
         return {
             success: false,

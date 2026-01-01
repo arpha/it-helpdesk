@@ -74,6 +74,7 @@ import {
     confirmDistribution,
     deleteDistribution,
     uploadDistributionSignature,
+    generateDocumentNumberForPrint,
 } from "../actions";
 import Link from "next/link";
 
@@ -147,6 +148,156 @@ export default function DistributionClient() {
     const handleOpenDelete = (distribution: AssetDistribution) => {
         setSelectedDistribution(distribution);
         setIsDeleteOpen(true);
+    };
+
+    const handlePrint = async (distribution: AssetDistribution) => {
+        // Generate document number if not exists
+        let docNumber = distribution.document_number;
+        if (!docNumber) {
+            const result = await generateDocumentNumberForPrint(distribution.id);
+            if (!result.success) {
+                alert(result.error || "Gagal generate nomor dokumen");
+                return;
+            }
+            docNumber = result.id || null;
+            queryClient.invalidateQueries({ queryKey: ["asset-distributions"] });
+        }
+
+        const formatDate = (dateStr: string) => {
+            return new Date(dateStr).toLocaleDateString("id-ID", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+            });
+        };
+
+        // Empty rows for table
+        const emptyRowCount = Math.max(0, 8 - distribution.asset_distribution_items.length);
+        const emptyRows = Array(emptyRowCount).fill(null).map(() => `
+            <tr>
+                <td style="height:24px;">&nbsp;</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+        `).join("");
+
+        const printContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Surat Bukti Barang Keluar (SBBK)</title>
+                <style>
+                    @page { 
+                        margin: 5mm;
+                        size: A4;
+                    }
+                    body { font-family: Arial, sans-serif; padding: 10px; margin: 0; font-size: 12px; }
+                    .header { display: flex; align-items: flex-start; gap: 15px; border-bottom: 2px solid black; padding-bottom: 16px; margin-bottom: 24px; }
+                    .header-logo { width: 140px; height: 140px; flex-shrink: 0; }
+                    .header-text { flex: 1; text-align: center; }
+                    .header-text p { margin: 3px 0; }
+                    .header-text .bold { font-weight: bold; font-size: 20px; }
+                    .header-text .large { font-size: 26px; font-weight: bold; }
+                    .header-text .small { font-size: 11px; }
+                    .title { text-align: center; margin-bottom: 24px; }
+                    .title h2 { margin: 0; font-size: 16px; text-decoration: underline; font-weight: bold; }
+                    .title p { margin: 8px 0 0 0; font-size: 14px; }
+                    .info { margin-bottom: 20px; font-size: 13px; }
+                    .info p { margin: 4px 0; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 32px; font-size: 13px; }
+                    th, td { border: 1px solid black; padding: 6px 8px; }
+                    th { text-align: center; }
+                    .signatures { margin-top: 30px; }
+                    .sig-date { text-align: right; margin-bottom: 15px; font-size: 13px; }
+                    .sig-row { display: flex; justify-content: space-between; text-align: center; font-size: 13px; }
+                    .sig-box { width: 30%; }
+                    .sig-box p { margin: 2px 0; }
+                    .sig-space { height: 80px; }
+                    .sig-line { border-top: 1px solid black; padding-top: 4px; margin: 0 10px; }
+                    .sig-img { height: 60px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <img src="/logo-bandung.png" class="header-logo" onerror="this.style.display='none'" />
+                    <div class="header-text">
+                        <p class="bold">PEMERINTAH KABUPATEN BANDUNG</p>
+                        <p class="bold">DINAS KESEHATAN</p>
+                        <p class="large">RUMAH SAKIT UMUM DAERAH CICALENGKA</p>
+                        <p class="small">Jalan Haji Darham No.35, Tenjolaya, Cicalengka Kabupaten Bandung Jawa Barat 40395</p>
+                        <p class="small">Telepon (022) 7952203 Faximile (022) 7952204</p>
+                        <p class="small">Laman rsudcicalengka.bandungkab.go.id, Pos-el rsudcicalengka@bandungkab.go.id</p>
+                    </div>
+                </div>
+                <div class="title">
+                    <h2>SURAT BUKTI BARANG KELUAR (SBBK)</h2>
+                    <p>Nomor : ${docNumber || "..............................."}</p>
+                </div>
+                <div class="info">
+                    <p>Tanggal : ${formatDate(distribution.distributed_at || distribution.created_at)}</p>
+                    <p>Lokasi Tujuan : ${distribution.locations?.name || "-"}</p>
+                    <p>Penerima : ${distribution.receiver?.full_name || "-"}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">No.</th>
+                            <th>Nama Asset</th>
+                            <th style="width:100px;">Kode Asset</th>
+                            <th style="width:80px;">Kondisi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${distribution.asset_distribution_items.map((item, idx) => `
+                            <tr>
+                                <td style="text-align:center;">${idx + 1}</td>
+                                <td>${item.assets?.name || ""}</td>
+                                <td style="text-align:center;">${item.assets?.asset_code || "-"}</td>
+                                <td style="text-align:center;">${item.condition}</td>
+                            </tr>
+                        `).join("")}
+                        ${emptyRows}
+                    </tbody>
+                </table>
+                <div class="signatures">
+                    <div class="sig-date">
+                        <p>Cicalengka, ${formatDate(distribution.distributed_at || distribution.created_at)}</p>
+                    </div>
+                    <div class="sig-row">
+                        <div class="sig-box">
+                            <p><strong>Yang Menyerahkan</strong></p>
+                            <p>Pemegang Barang</p>
+                            <div class="sig-space"></div>
+                            <p class="sig-line">${distribution.distributor?.full_name || "................................"}</p>
+                        </div>
+                        <div class="sig-box">
+                            <p><strong>Mengetahui / Menyetujui</strong></p>
+                            <p>Sekretaris RSUD Cicalengka</p>
+                            <div class="sig-space"></div>
+                            <p class="sig-line">................................</p>
+                        </div>
+                        <div class="sig-box">
+                            <p><strong>Yang Menerima</strong></p>
+                            <p>&nbsp;</p>
+                            <div class="sig-space">${distribution.receiver_signature_url ? `<img src="${distribution.receiver_signature_url}" class="sig-img" />` : ''}</div>
+                            <p class="sig-line">${distribution.receiver?.full_name || "................................"}</p>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+            }, 250);
+        }
     };
 
     const handleAddAsset = (assetId: string) => {
@@ -338,11 +489,9 @@ export default function DistributionClient() {
                             Lihat Detail
                         </DropdownMenuItem>
                         {row.status === "completed" && (
-                            <DropdownMenuItem asChild className="cursor-pointer">
-                                <Link href={`/assets/distribution/${row.id}/document`} target="_blank">
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Cetak SBBK
-                                </Link>
+                            <DropdownMenuItem onClick={() => handlePrint(row)} className="cursor-pointer">
+                                <FileText className="mr-2 h-4 w-4" />
+                                Cetak SBBK
                             </DropdownMenuItem>
                         )}
                         {row.status === "draft" && (
