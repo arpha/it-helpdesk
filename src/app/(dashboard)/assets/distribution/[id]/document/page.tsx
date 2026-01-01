@@ -25,6 +25,7 @@ type DistributionData = {
 export default function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
     const [distribution, setDistribution] = useState<DistributionData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchData() {
@@ -52,7 +53,8 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
                 .single();
 
             if (error) {
-                console.error("Error fetching distribution:", error);
+                console.error("Error fetching distribution:", error.message, error.code, error.details);
+                setErrorMsg(error.message || "Terjadi kesalahan saat mengambil data");
             }
             setDistribution(data as unknown as DistributionData);
             setLoading(false);
@@ -74,8 +76,9 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
 
     if (!distribution) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <p>Document not found. Pastikan tabel asset_distributions sudah dibuat di database.</p>
+            <div className="flex items-center justify-center min-h-screen flex-col gap-2">
+                <p className="text-lg font-semibold">Document not found</p>
+                {errorMsg && <p className="text-sm text-muted-foreground">{errorMsg}</p>}
             </div>
         );
     }
