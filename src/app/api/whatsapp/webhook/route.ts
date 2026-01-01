@@ -510,7 +510,7 @@ Ketik angka (1-${assets.length}) untuk memilih asset.`,
         return NextResponse.json({ status: "borrowing_assets_listed" });
     }
 
-    // Borrowing Step 2: Select asset, then show locations
+    // Borrowing Step 2: Select asset, then ask for purpose
     if (step === "borrowing_select") {
         const index = parseInt(message) - 1;
         const assets = data.borrowing_assets || [];
@@ -525,69 +525,13 @@ Ketik angka (1-${assets.length}) untuk memilih asset.`,
 
         const selectedAsset = assets[index];
         data.selected_asset_id = selectedAsset.id;
-
-        // Fetch locations for selection
-        const { data: locations } = await supabase
-            .from("locations")
-            .select("id, name")
-            .order("name")
-            .limit(15);
-
-        if (!locations || locations.length === 0) {
-            await sendWhatsAppMessage({
-                target: phone,
-                message: `❌ Tidak ada lokasi tersedia. Hubungi Admin IT.`,
-            });
-            conversationState.delete(phone);
-            return NextResponse.json({ status: "no_locations" });
-        }
-
-        data.borrowing_locations = locations;
-        conversationState.set(phone, { step: "borrowing_select_location", data, timestamp: Date.now() });
-
-        const locationList = locations
-            .map((loc, i) => `*${i + 1}.* ${loc.name}`)
-            .join("\n");
+        conversationState.set(phone, { step: "borrowing_confirm", data, timestamp: Date.now() });
 
         await sendWhatsAppMessage({
             target: phone,
             message: `✅ Asset dipilih: *${selectedAsset.name}*
 
-📍 *Pilih Lokasi Tujuan:*
-
-${locationList}
-
-Ketik angka (1-${locations.length}) untuk memilih lokasi.`,
-        });
-
-        return NextResponse.json({ status: "borrowing_location_prompt" });
-    }
-
-    // Borrowing Step 3: Select location
-    if (step === "borrowing_select_location") {
-        const index = parseInt(message) - 1;
-        const locations = data.borrowing_locations || [];
-
-        if (index < 0 || index >= locations.length) {
-            await sendWhatsAppMessage({
-                target: phone,
-                message: `❌ Pilihan tidak valid. Ketik angka 1-${locations.length}.`,
-            });
-            return NextResponse.json({ status: "invalid_location_selection" });
-        }
-
-        const selectedLocation = locations[index];
-        data.selected_location_id = selectedLocation.id;
-        conversationState.set(phone, { step: "borrowing_confirm", data, timestamp: Date.now() });
-
-        const selectedAsset = data.borrowing_assets?.find(a => a.id === data.selected_asset_id);
-
-        await sendWhatsAppMessage({
-            target: phone,
-            message: `✅ Lokasi dipilih: *${selectedLocation.name}*
-
-📦 Asset: ${selectedAsset?.name}
-📍 Lokasi Tujuan: ${selectedLocation.name}
+📍 Lokasi saat ini: ${selectedAsset.location}
 
 📝 *Ketik tujuan/alasan peminjaman:*`,
         });
@@ -595,7 +539,7 @@ Ketik angka (1-${locations.length}) untuk memilih lokasi.`,
         return NextResponse.json({ status: "borrowing_purpose_prompt" });
     }
 
-    // Borrowing Step 4: Enter purpose and create request
+    // Borrowing Step 3: Enter purpose and create request
     if (step === "borrowing_confirm") {
         const purpose = message.trim();
 
@@ -610,9 +554,7 @@ Ketik tujuan/alasan peminjaman:`,
         }
 
         const assetId = data.selected_asset_id;
-        const locationId = data.selected_location_id;
         const selectedAsset = data.borrowing_assets?.find(a => a.id === assetId);
-        const selectedLocation = data.borrowing_locations?.find(l => l.id === locationId);
 
         // Get asset's original location
         const { data: asset } = await supabase
@@ -632,12 +574,11 @@ Ketik *3* untuk cari asset lain.`,
             return NextResponse.json({ status: "asset_unavailable" });
         }
 
-        // Create borrowing request
+        // Create borrowing request (no location needed)
         const { data: borrowing, error } = await supabase
             .from("asset_borrowings")
             .insert({
                 asset_id: assetId,
-                borrower_location_id: locationId,
                 borrower_user_id: profile.id,
                 original_location_id: asset.location_id,
                 borrow_date: new Date().toISOString(),
@@ -665,7 +606,7 @@ Silakan coba lagi atau hubungi Admin IT.`,
             message: `✅ *REQUEST PEMINJAMAN BERHASIL!*
 
 📦 *Asset:* ${selectedAsset?.name}
-📍 *Lokasi Tujuan:* ${selectedLocation?.name}
+👤 *Peminjam:* ${profile.full_name}
 📝 *Tujuan:* ${purpose}
 
 ⏳ Menunggu approval dari Admin IT.

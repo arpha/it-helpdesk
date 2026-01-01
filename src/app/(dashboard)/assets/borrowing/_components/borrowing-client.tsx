@@ -159,11 +159,6 @@ export default function BorrowingClient() {
             return;
         }
 
-        if (!selectedLocation) {
-            setMessage({ type: "error", text: "Pilih lokasi peminjam" });
-            return;
-        }
-
         if (!purpose.trim()) {
             setMessage({ type: "error", text: "Isi tujuan peminjaman" });
             return;
@@ -172,7 +167,6 @@ export default function BorrowingClient() {
         startTransition(async () => {
             const result = await createBorrowingRequest({
                 asset_id: selectedAsset,
-                borrower_location_id: selectedLocation,
                 borrower_user_id: selectedUser || undefined,
                 borrow_date: borrowDate,
                 expected_return_date: expectedReturnDate || undefined,
@@ -444,43 +438,6 @@ export default function BorrowingClient() {
                                                             <p>{asset.name}</p>
                                                             <p className="text-xs text-muted-foreground">{asset.asset_code} - {asset.locations?.name}</p>
                                                         </div>
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Lokasi Peminjam *</Label>
-                            <Popover open={locationPopoverOpen} onOpenChange={setLocationPopoverOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" role="combobox" className="w-full justify-between">
-                                        {selectedLocation
-                                            ? locations?.find((l) => l.id === selectedLocation)?.name
-                                            : "Select location..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0" align="start">
-                                    <Command>
-                                        <CommandInput placeholder="Search location..." />
-                                        <CommandList className="max-h-[200px]">
-                                            <CommandEmpty>No locations found.</CommandEmpty>
-                                            <CommandGroup>
-                                                {locations?.map((loc) => (
-                                                    <CommandItem
-                                                        key={loc.id}
-                                                        value={loc.name}
-                                                        onSelect={() => {
-                                                            setSelectedLocation(loc.id);
-                                                            setLocationPopoverOpen(false);
-                                                        }}
-                                                    >
-                                                        <Check className={`mr-2 h-4 w-4 ${selectedLocation === loc.id ? "opacity-100" : "opacity-0"}`} />
-                                                        {loc.name}
                                                     </CommandItem>
                                                 ))}
                                             </CommandGroup>

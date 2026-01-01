@@ -7,7 +7,7 @@ import { sendWhatsAppMessage, formatPhoneNumber } from "@/lib/fonnte/client";
 
 type CreateBorrowingInput = {
     asset_id: string;
-    borrower_location_id: string;
+    borrower_location_id?: string; // Optional
     borrower_user_id?: string; // Optional - admin can specify on behalf of user
     borrow_date: string;
     expected_return_date?: string;
@@ -64,7 +64,7 @@ export async function createBorrowingRequest(input: CreateBorrowingInput): Promi
             .from("asset_borrowings")
             .insert({
                 asset_id: input.asset_id,
-                borrower_location_id: input.borrower_location_id,
+                borrower_location_id: input.borrower_location_id || null,
                 borrower_user_id: input.borrower_user_id || user.id,
                 original_location_id: asset.location_id,
                 borrow_date: input.borrow_date,
