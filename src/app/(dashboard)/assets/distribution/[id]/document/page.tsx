@@ -30,7 +30,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
         async function fetchData() {
             const { id } = await params;
             const supabase = createClient();
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from("asset_distributions")
                 .select(`
                     id,
@@ -51,6 +51,9 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
                 .eq("id", id)
                 .single();
 
+            if (error) {
+                console.error("Error fetching distribution:", error);
+            }
             setDistribution(data as unknown as DistributionData);
             setLoading(false);
         }
@@ -72,14 +75,14 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
     if (!distribution) {
         return (
             <div className="flex items-center justify-center min-h-screen">
-                <p>Document not found</p>
+                <p>Document not found. Pastikan tabel asset_distributions sudah dibuat di database.</p>
             </div>
         );
     }
 
     return (
         <>
-            {/* Print Button */}
+            {/* Print Button - hidden when printing */}
             <div className="fixed top-4 right-4 print:hidden z-50">
                 <Button onClick={handlePrint} className="gap-2">
                     <Printer className="h-4 w-4" />
@@ -139,7 +142,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
                                 <td className="border border-black p-2 text-center">{item.condition}</td>
                             </tr>
                         ))}
-                        {/* Empty rows */}
+                        {/* Empty rows for manual filling */}
                         {Array.from({ length: Math.max(0, 8 - distribution.asset_distribution_items.length) }).map((_, idx) => (
                             <tr key={`empty-${idx}`}>
                                 <td className="border border-black p-2 h-8">&nbsp;</td>
@@ -153,43 +156,67 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
 
                 {/* Notes */}
                 {distribution.notes && (
-                    <div className="mb-6">
-                        <p className="font-medium">Catatan:</p>
-                        <p>{distribution.notes}</p>
+                    <div className="mb-6 text-base">
+                        <p><strong>Catatan:</strong> {distribution.notes}</p>
                     </div>
                 )}
 
-                {/* Signatures */}
-                <div className="flex justify-between mt-12">
-                    <div className="text-center w-48">
-                        <p className="mb-20">Yang Menyerahkan,</p>
-                        <p className="border-b border-black mb-1">
-                            {distribution.distributor?.full_name || "............................"}
-                        </p>
-                        {distribution.distributor?.nip && (
-                            <p className="text-sm">NIP. {distribution.distributor.nip}</p>
-                        )}
+                {/* Signatures - 3 columns like SPB */}
+                <div className="mt-8">
+                    <div className="text-right mb-4 text-base">
+                        <p>Cicalengka, {distribution.distributed_at
+                            ? new Date(distribution.distributed_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
+                            : new Date(distribution.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
+                        }</p>
                     </div>
-                    <div className="text-center w-48">
-                        <p className="mb-4">Yang Menerima,</p>
-                        {distribution.receiver_signature_url ? (
-                            <img
-                                src={distribution.receiver_signature_url}
-                                alt="Signature"
-                                className="mx-auto h-16 mb-1"
-                            />
-                        ) : (
-                            <div className="h-16 mb-1"></div>
-                        )}
-                        <p className="border-b border-black mb-1">
-                            {distribution.receiver?.full_name || "............................"}
-                        </p>
-                        {distribution.receiver?.nip && (
-                            <p className="text-sm">NIP. {distribution.receiver.nip}</p>
-                        )}
+                    <div className="flex justify-between text-center text-base">
+                        <div className="w-1/3 px-2">
+                            <p className="font-semibold">Yang Menyerahkan</p>
+                            <p>Pemegang Barang</p>
+                            <div className="h-24"></div>
+                            <p className="border-t border-black pt-1 mx-4">{distribution.distributor?.full_name || "................................"}</p>
+                        </div>
+                        <div className="w-1/3 px-2">
+                            <p className="font-semibold">Mengetahui / Menyetujui</p>
+                            <p>Sekretaris RSUD Cicalengka</p>
+                            <div className="h-24"></div>
+                            <p className="border-t border-black pt-1 mx-4">................................</p>
+                        </div>
+                        <div className="w-1/3 px-2">
+                            <p className="font-semibold">Yang Menerima</p>
+                            <p>&nbsp;</p>
+                            <div className="h-24 flex items-end justify-center">
+                                {distribution.receiver_signature_url && (
+                                    <img
+                                        src={distribution.receiver_signature_url}
+                                        alt="Signature"
+                                        className="h-16 mx-auto"
+                                    />
+                                )}
+                            </div>
+                            <p className="border-t border-black pt-1 mx-4">{distribution.receiver?.full_name || "................................"}</p>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {/* Print Styles */}
+            <style jsx global>{`
+                @media print {
+                    @page {
+                        size: A4;
+                        margin: 5mm;
+                    }
+                    body {
+                        background: white !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    .print\\:hidden {
+                        display: none !important;
+                    }
+                }
+            `}</style>
         </>
     );
 }
