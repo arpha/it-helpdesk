@@ -21,6 +21,7 @@ import {
     BarChart3,
     FileText,
     Activity,
+    Truck,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -154,6 +155,11 @@ const menuGroups: MenuGroup[] = [
                 title: "Borrowing",
                 href: "/assets/borrowing",
                 icon: Package,
+            },
+            {
+                title: "Distribusi",
+                href: "/assets/distribution",
+                icon: Truck,
             },
         ],
     },
