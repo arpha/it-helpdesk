@@ -197,34 +197,20 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
     try {
         const supabase = createAdminClient();
 
-        // Get user profile to check for avatar
-        const { data: profile } = await supabase
+        // Soft delete - set is_active to false instead of deleting
+        const { error } = await supabase
             .from("profiles")
-            .select("avatar_url")
-            .eq("id", userId)
-            .single();
-
-        // Delete avatar from storage if exists
-        if (profile?.avatar_url) {
-            // Extract file path from URL (format: .../users/filename.ext)
-            const urlParts = profile.avatar_url.split("/");
-            const fileName = urlParts[urlParts.length - 1];
-            const filePath = `users/${fileName}`;
-
-            await supabase.storage.from("images").remove([filePath]);
-        }
-
-        // Delete user from auth
-        const { error } = await supabase.auth.admin.deleteUser(userId);
+            .update({ is_active: false })
+            .eq("id", userId);
 
         if (error) {
             return {
                 success: false,
-                error: error.message,
+                error: "Database error deleting user: " + error.message,
             };
         }
 
-        revalidatePath("/users");
+        revalidatePath("/master/users");
 
         return {
             success: true,
