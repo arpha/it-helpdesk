@@ -484,6 +484,21 @@ export default function UsersClient() {
             ),
         },
         {
+            key: "status",
+            header: "Status",
+            cell: (row) => (
+                <Badge
+                    variant="secondary"
+                    className={row.is_active !== false
+                        ? "bg-green-500/10 text-green-500"
+                        : "bg-gray-500/10 text-gray-500"
+                    }
+                >
+                    {row.is_active !== false ? "Aktif" : "Non-Aktif"}
+                </Badge>
+            ),
+        },
+        {
             key: "created_at",
             header: "Created At",
             sortable: true,
