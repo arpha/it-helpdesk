@@ -15,6 +15,7 @@ async function fetchAllUsers(): Promise<SimpleUser[]> {
     const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, username")
+        .neq("is_active", false)
         .order("full_name", { ascending: true });
 
     if (error) {
