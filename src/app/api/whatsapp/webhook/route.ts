@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
             console.log("Trying phone variant:", phone);
             const { data, error } = await supabase
                 .from("profiles")
-                .select("id, full_name")
+                .select("id, full_name, is_active")
                 .eq("whatsapp_phone", phone)
                 .single();
 
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
             console.log("Fallback: searching with last 9 digits:", last9Digits);
             const { data, error } = await supabase
                 .from("profiles")
-                .select("id, full_name, whatsapp_phone")
+                .select("id, full_name, whatsapp_phone, is_active")
                 .ilike("whatsapp_phone", `%${last9Digits}`)
                 .single();
 
@@ -162,6 +162,17 @@ export async function POST(request: NextRequest) {
 Silakan hubungi Admin IT untuk mendaftarkan nomor Anda.`,
             });
             return NextResponse.json({ status: "unregistered" });
+        }
+
+        // Check if user is active
+        if (profile.is_active === false) {
+            await sendWhatsAppMessage({
+                target: normalizedPhone,
+                message: `❌ Akun Anda tidak aktif.
+
+Silakan hubungi Admin IT untuk mengaktifkan kembali akun Anda.`,
+            });
+            return NextResponse.json({ status: "inactive_user" });
         }
 
         const lowerMessage = message.toLowerCase().trim();
