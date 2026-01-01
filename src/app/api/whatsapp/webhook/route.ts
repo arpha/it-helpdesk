@@ -613,6 +613,29 @@ Silakan coba lagi atau hubungi Admin IT.`,
 Anda akan diberitahu via WhatsApp setelah disetujui.`,
         });
 
+        // Notify admin/staff_it about new borrowing request
+        const { data: admins } = await supabase
+            .from("profiles")
+            .select("id, full_name, whatsapp_phone")
+            .in("role", ["admin", "staff_it"]);
+
+        if (admins && admins.length > 0) {
+            for (const admin of admins) {
+                if (admin.whatsapp_phone) {
+                    await sendWhatsAppMessage({
+                        target: formatPhoneNumber(admin.whatsapp_phone),
+                        message: `📦 *REQUEST PEMINJAMAN BARU*
+
+👤 *Peminjam:* ${profile.full_name}
+📦 *Asset:* ${selectedAsset?.name}
+📝 *Tujuan:* ${purpose}
+
+Silakan login ke IT Helpdesk untuk approve/reject.`,
+                    });
+                }
+            }
+        }
+
         return NextResponse.json({ status: "borrowing_created", borrowingId: borrowing.id });
     }
 

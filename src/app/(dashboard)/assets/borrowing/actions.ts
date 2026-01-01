@@ -81,6 +81,37 @@ export async function createBorrowingRequest(input: CreateBorrowingInput): Promi
             return { success: false, error: error.message };
         }
 
+        // Get borrower name for notification
+        const borrowerId = input.borrower_user_id || user.id;
+        const { data: borrower } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", borrowerId)
+            .single();
+
+        // Notify admin/staff_it about new borrowing request
+        const { data: admins } = await supabase
+            .from("profiles")
+            .select("id, full_name, whatsapp_phone")
+            .in("role", ["admin", "staff_it"]);
+
+        if (admins && admins.length > 0) {
+            for (const admin of admins) {
+                if (admin.whatsapp_phone) {
+                    await sendWhatsAppMessage({
+                        target: formatPhoneNumber(admin.whatsapp_phone),
+                        message: `📦 *REQUEST PEMINJAMAN BARU*
+
+👤 *Peminjam:* ${borrower?.full_name || "Unknown"}
+📦 *Asset:* ${asset.name}
+📝 *Tujuan:* ${input.purpose}
+
+Silakan login ke IT Helpdesk untuk approve/reject.`,
+                    });
+                }
+            }
+        }
+
         revalidatePath("/assets/borrowing");
         return { success: true, id: data.id };
     } catch (error) {
