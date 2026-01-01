@@ -17,6 +17,8 @@ const conversationState = new Map<string, {
         borrowing_search?: string;
         borrowing_assets?: { id: string; name: string; asset_code: string; location: string }[];
         selected_asset_id?: string;
+        borrowing_locations?: { id: string; name: string }[];
+        selected_location_id?: string;
     };
     timestamp: number;
 }>();
@@ -287,6 +289,8 @@ async function handleConversation(
             borrowing_search?: string;
             borrowing_assets?: { id: string; name: string; asset_code: string; location: string }[];
             selected_asset_id?: string;
+            borrowing_locations?: { id: string; name: string }[];
+            selected_location_id?: string;
         };
         timestamp: number
     }
@@ -506,7 +510,7 @@ Ketik angka (1-${assets.length}) untuk memilih asset.`,
         return NextResponse.json({ status: "borrowing_assets_listed" });
     }
 
-    // Borrowing Step 2: Select asset
+    // Borrowing Step 2: Select asset, then show locations
     if (step === "borrowing_select") {
         const index = parseInt(message) - 1;
         const assets = data.borrowing_assets || [];
@@ -521,58 +525,94 @@ Ketik angka (1-${assets.length}) untuk memilih asset.`,
 
         const selectedAsset = assets[index];
         data.selected_asset_id = selectedAsset.id;
-        conversationState.set(phone, { step: "borrowing_confirm", data, timestamp: Date.now() });
+
+        // Fetch locations for selection
+        const { data: locations } = await supabase
+            .from("locations")
+            .select("id, name")
+            .order("name")
+            .limit(15);
+
+        if (!locations || locations.length === 0) {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `❌ Tidak ada lokasi tersedia. Hubungi Admin IT.`,
+            });
+            conversationState.delete(phone);
+            return NextResponse.json({ status: "no_locations" });
+        }
+
+        data.borrowing_locations = locations;
+        conversationState.set(phone, { step: "borrowing_select_location", data, timestamp: Date.now() });
+
+        const locationList = locations
+            .map((loc, i) => `*${i + 1}.* ${loc.name}`)
+            .join("\n");
 
         await sendWhatsAppMessage({
             target: phone,
             message: `✅ Asset dipilih: *${selectedAsset.name}*
 
-📍 Lokasi saat ini: ${selectedAsset.location}
+📍 *Pilih Lokasi Tujuan:*
 
-Masukkan lokasi tujuan dan alasan peminjaman.
-Format: *[Lokasi] | [Tujuan]*
+${locationList}
 
-Contoh: UGD | Untuk backup laptop rusak`,
+Ketik angka (1-${locations.length}) untuk memilih lokasi.`,
         });
 
-        return NextResponse.json({ status: "borrowing_confirm_prompt" });
+        return NextResponse.json({ status: "borrowing_location_prompt" });
     }
 
-    // Borrowing Step 3: Confirm and create request
+    // Borrowing Step 3: Select location
+    if (step === "borrowing_select_location") {
+        const index = parseInt(message) - 1;
+        const locations = data.borrowing_locations || [];
+
+        if (index < 0 || index >= locations.length) {
+            await sendWhatsAppMessage({
+                target: phone,
+                message: `❌ Pilihan tidak valid. Ketik angka 1-${locations.length}.`,
+            });
+            return NextResponse.json({ status: "invalid_location_selection" });
+        }
+
+        const selectedLocation = locations[index];
+        data.selected_location_id = selectedLocation.id;
+        conversationState.set(phone, { step: "borrowing_confirm", data, timestamp: Date.now() });
+
+        const selectedAsset = data.borrowing_assets?.find(a => a.id === data.selected_asset_id);
+
+        await sendWhatsAppMessage({
+            target: phone,
+            message: `✅ Lokasi dipilih: *${selectedLocation.name}*
+
+📦 Asset: ${selectedAsset?.name}
+📍 Lokasi Tujuan: ${selectedLocation.name}
+
+📝 *Ketik tujuan/alasan peminjaman:*`,
+        });
+
+        return NextResponse.json({ status: "borrowing_purpose_prompt" });
+    }
+
+    // Borrowing Step 4: Enter purpose and create request
     if (step === "borrowing_confirm") {
-        const parts = message.split("|").map(p => p.trim());
+        const purpose = message.trim();
 
-        if (parts.length < 2 || !parts[0] || !parts[1]) {
+        if (!purpose) {
             await sendWhatsAppMessage({
                 target: phone,
-                message: `❌ Format tidak valid.
+                message: `❌ Tujuan peminjaman tidak boleh kosong.
 
-Gunakan format: *[Lokasi] | [Tujuan]*
-Contoh: UGD | Untuk backup laptop rusak`,
+Ketik tujuan/alasan peminjaman:`,
             });
-            return NextResponse.json({ status: "invalid_format" });
+            return NextResponse.json({ status: "empty_purpose" });
         }
 
-        const [locationName, purpose] = parts;
         const assetId = data.selected_asset_id;
+        const locationId = data.selected_location_id;
         const selectedAsset = data.borrowing_assets?.find(a => a.id === assetId);
-
-        // Find location by name
-        const { data: location } = await supabase
-            .from("locations")
-            .select("id, name")
-            .ilike("name", `%${locationName}%`)
-            .single();
-
-        if (!location) {
-            await sendWhatsAppMessage({
-                target: phone,
-                message: `❌ Lokasi "${locationName}" tidak ditemukan.
-
-Ketik ulang dengan nama lokasi yang benar.`,
-            });
-            return NextResponse.json({ status: "location_not_found" });
-        }
+        const selectedLocation = data.borrowing_locations?.find(l => l.id === locationId);
 
         // Get asset's original location
         const { data: asset } = await supabase
@@ -597,7 +637,7 @@ Ketik *3* untuk cari asset lain.`,
             .from("asset_borrowings")
             .insert({
                 asset_id: assetId,
-                borrower_location_id: location.id,
+                borrower_location_id: locationId,
                 borrower_user_id: profile.id,
                 original_location_id: asset.location_id,
                 borrow_date: new Date().toISOString(),
@@ -625,7 +665,7 @@ Silakan coba lagi atau hubungi Admin IT.`,
             message: `✅ *REQUEST PEMINJAMAN BERHASIL!*
 
 📦 *Asset:* ${selectedAsset?.name}
-📍 *Lokasi Tujuan:* ${location.name}
+📍 *Lokasi Tujuan:* ${selectedLocation?.name}
 📝 *Tujuan:* ${purpose}
 
 ⏳ Menunggu approval dari Admin IT.
