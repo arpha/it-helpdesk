@@ -20,6 +20,7 @@ type UseUsersParams = {
     limit?: number;
     search?: string;
     roles?: string[];
+    activeOnly?: boolean;
 };
 
 type UseUsersResult = {
@@ -33,6 +34,7 @@ async function fetchUsers({
     limit = 10,
     search = "",
     roles,
+    activeOnly = false,
 }: UseUsersParams): Promise<UseUsersResult> {
     const supabase = createClient();
     const from = (page - 1) * limit;
@@ -52,6 +54,11 @@ async function fetchUsers({
         query = query.in("role", roles);
     }
 
+    // Filter only active users if specified
+    if (activeOnly) {
+        query = query.neq("is_active", false);
+    }
+
     // Apply pagination
     query = query.range(from, to).order("created_at", { ascending: false });
 
@@ -69,10 +76,10 @@ async function fetchUsers({
 }
 
 export function useUsers(params: UseUsersParams = {}) {
-    const { page = 1, limit = 10, search = "", roles } = params;
+    const { page = 1, limit = 10, search = "", roles, activeOnly = false } = params;
 
     return useQuery({
-        queryKey: ["users", { page, limit, search, roles }],
-        queryFn: () => fetchUsers({ page, limit, search, roles }),
+        queryKey: ["users", { page, limit, search, roles, activeOnly }],
+        queryFn: () => fetchUsers({ page, limit, search, roles, activeOnly }),
     });
 }
