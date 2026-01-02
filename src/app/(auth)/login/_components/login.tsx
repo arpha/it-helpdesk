@@ -58,7 +58,7 @@ export default function Login() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-xl">IT Governance</CardTitle>
+        <CardTitle className="text-xl">SI-Mantap</CardTitle>
         <CardDescription>Login to access all features</CardDescription>
       </CardHeader>
       <CardContent>

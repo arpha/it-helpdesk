@@ -1,7 +1,7 @@
 import RequestsClient from "./_components/requests-client";
 
 export const metadata = {
-    title: "Requests | IT Governance",
+    title: "Requests | SI-Mantap",
 };
 
 export default function ATKRequestsPage() {

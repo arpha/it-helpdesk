@@ -42,11 +42,12 @@ type ActionResult = {
 async function getLeastBusyTechnician(): Promise<string | null> {
     const supabase = createAdminClient();
 
-    // Get all technicians (staff_it and admin)
+    // Get all active technicians (staff_it and admin)
     const { data: technicians } = await supabase
         .from("profiles")
         .select("id")
-        .in("role", ["staff_it", "admin"]);
+        .in("role", ["staff_it", "admin"])
+        .neq("is_active", false);
 
     if (!technicians || technicians.length === 0) {
         return null;
@@ -448,9 +449,31 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
                     .eq("id", input.id);
             }
 
-            const partsDescription = input.parts?.length
-                ? `Parts used: ${input.parts.map(p => `${p.quantity}x`).join(", ")}`
-                : "";
+            // Calculate total cost from parts
+            let totalCost = 0;
+            let partsDescription = "";
+
+            if (input.parts && input.parts.length > 0) {
+                // Get item prices
+                const itemIds = input.parts.map(p => p.item_id);
+                const { data: items } = await supabase
+                    .from("atk_items")
+                    .select("id, name, price")
+                    .in("id", itemIds);
+
+                const itemPriceMap = new Map(items?.map(i => [i.id, { price: i.price || 0, name: i.name }]) || []);
+
+                const partDetails: string[] = [];
+                input.parts.forEach(p => {
+                    const item = itemPriceMap.get(p.item_id);
+                    if (item) {
+                        const partCost = item.price * p.quantity;
+                        totalCost += partCost;
+                        partDetails.push(`${item.name} x${p.quantity} = Rp${partCost.toLocaleString()}`);
+                    }
+                });
+                partsDescription = `Parts used:\n${partDetails.join("\n")}`;
+            }
 
             await supabase.from("asset_maintenance").insert({
                 asset_id: assetId,
@@ -459,7 +482,7 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
                 notes: partsDescription,
                 performed_by: user.id,
                 performed_at: new Date().toISOString(),
-                cost: 0,
+                cost: totalCost,
             });
         }
 

@@ -25,6 +25,7 @@ type UseMaintenanceParams = {
     page: number;
     limit: number;
     assetId?: string;
+    search?: string;
 };
 
 type MaintenanceResult = {
@@ -35,7 +36,7 @@ type MaintenanceResult = {
 
 async function fetchMaintenance(params: UseMaintenanceParams): Promise<MaintenanceResult> {
     const supabase = createClient();
-    const { page, limit, assetId } = params;
+    const { page, limit, assetId, search } = params;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
@@ -44,13 +45,17 @@ async function fetchMaintenance(params: UseMaintenanceParams): Promise<Maintenan
         .select(
             `
             *,
-            assets(name, asset_code)
+            assets!inner(name, asset_code)
         `,
             { count: "exact" }
         );
 
     if (assetId) {
         query = query.eq("asset_id", assetId);
+    }
+
+    if (search) {
+        query = query.or(`name.ilike.%${search}%,asset_code.ilike.%${search}%`, { referencedTable: "assets" });
     }
 
     const { data, count, error } = await query
@@ -70,7 +75,8 @@ async function fetchMaintenance(params: UseMaintenanceParams): Promise<Maintenan
 
 export function useAssetMaintenance(params: UseMaintenanceParams) {
     return useQuery({
-        queryKey: ["asset-maintenance", params.page, params.limit, params.assetId],
+        queryKey: ["asset-maintenance", params.page, params.limit, params.assetId, params.search],
         queryFn: () => fetchMaintenance(params),
     });
 }
+

@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import ReportsClient from "./_components/reports-client";
 
 export const metadata = {
-    title: "Usage Reports | IT Governance",
+    title: "Usage Reports | SI-Mantap",
 };
 
 export default function ReportsPage() {

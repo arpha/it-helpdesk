@@ -1,7 +1,7 @@
 import PurchaseClient from "./_components/purchase-client";
 
 export const metadata = {
-    title: "Submission | IT Governance",
+    title: "Submission | SI-Mantap",
 };
 
 export default function ATKPurchasePage() {

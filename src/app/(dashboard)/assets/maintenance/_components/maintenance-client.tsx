@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAssetMaintenance, AssetMaintenance } from "@/hooks/api/use-asset-maintenance";
 import { useAssets } from "@/hooks/api/use-assets";
+import { useITUsers } from "@/hooks/api/use-all-users";
 import { DataTable, Column } from "@/components/ui/data-table";
 import {
     Dialog,
@@ -71,9 +72,11 @@ export default function MaintenanceClient() {
     const queryClient = useQueryClient();
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
+    const [search, setSearch] = useState("");
 
-    const { data: maintenanceData, isLoading } = useAssetMaintenance({ page, limit });
+    const { data: maintenanceData, isLoading } = useAssetMaintenance({ page, limit, search });
     const { data: assetsData } = useAssets({ page: 1, limit: 200 });
+    const { data: usersData } = useITUsers();
 
     // Modal states
     const [selectedMaintenance, setSelectedMaintenance] = useState<AssetMaintenance | null>(null);
@@ -304,11 +307,12 @@ export default function MaintenanceClient() {
                 limit={limit}
                 onLimitChange={setLimit}
                 emptyMessage="No maintenance records found."
-                toolbarAction={
-                    <Button onClick={handleOpenAdd}>
-                        <Plus className="mr-2 h-4 w-4" />Add Maintenance
-                    </Button>
-                }
+                searchValue={search}
+                onSearchChange={(value) => {
+                    setSearch(value);
+                    setPage(1);
+                }}
+                searchPlaceholder="Search by asset name or code..."
             />
 
             {/* Add/Edit Modal */}
@@ -334,45 +338,26 @@ export default function MaintenanceClient() {
 
                         <div className="space-y-2">
                             <Label>Asset *</Label>
-                            <div className="relative">
-                                <Input
-                                    placeholder="Search asset by name, code, or location..."
-                                    value={assetSearch}
-                                    onChange={(e) => setAssetSearch(e.target.value)}
-                                    className="mb-2"
-                                />
-                                <div className="max-h-48 overflow-y-auto border rounded-md">
-                                    {filteredAssets.length === 0 ? (
-                                        <div className="p-3 text-sm text-muted-foreground text-center">
-                                            No assets found
-                                        </div>
-                                    ) : (
-                                        filteredAssets.map((asset) => (
-                                            <div
-                                                key={asset.id}
-                                                className={`p-3 cursor-pointer hover:bg-accent transition-colors ${formAssetId === asset.id ? "bg-primary text-primary-foreground" : ""}`}
-                                                onClick={() => {
-                                                    setFormAssetId(asset.id);
-                                                    setAssetSearch("");
-                                                }}
-                                            >
-                                                <p className="font-medium">{asset.name}</p>
-                                                <p className={`text-xs ${formAssetId === asset.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                                                    {asset.asset_code} • {asset.location || "No location"}
-                                                </p>
-                                            </div>
-                                        ))
-                                    )}
+                            <Select value={formAssetId} onValueChange={setFormAssetId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih asset..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {assetsData?.data?.map((asset) => (
+                                        <SelectItem key={asset.id} value={asset.id}>
+                                            {asset.name} - {asset.locations?.name || "No location"}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {formAssetId && (
+                                <div className="p-3 rounded-md bg-muted text-sm">
+                                    <p className="font-medium">{assetsData?.data?.find(a => a.id === formAssetId)?.name}</p>
+                                    <p className="text-muted-foreground">
+                                        {assetsData?.data?.find(a => a.id === formAssetId)?.locations?.name || "No location"}
+                                    </p>
                                 </div>
-                                {formAssetId && (
-                                    <div className="mt-2 p-2 bg-muted rounded-md text-sm">
-                                        <span className="text-muted-foreground">Selected: </span>
-                                        <span className="font-medium">
-                                            {assetsData?.data?.find(a => a.id === formAssetId)?.name} ({assetsData?.data?.find(a => a.id === formAssetId)?.asset_code})
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -414,11 +399,18 @@ export default function MaintenanceClient() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Performed By</Label>
-                                <Input
-                                    value={formPerformedBy}
-                                    onChange={(e) => setFormPerformedBy(e.target.value)}
-                                    placeholder="Technician name"
-                                />
+                                <Select value={formPerformedBy} onValueChange={setFormPerformedBy}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih teknisi..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {usersData?.map((user) => (
+                                            <SelectItem key={user.id} value={user.full_name || user.username || user.id}>
+                                                {user.full_name || user.username}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label>Date</Label>

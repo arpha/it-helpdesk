@@ -122,6 +122,7 @@ export async function confirmDistribution(
             .select(`
                 id,
                 destination_location_id,
+                receiver_id,
                 asset_distribution_items(asset_id)
             `)
             .eq("id", distributionId)
@@ -147,15 +148,18 @@ export async function confirmDistribution(
             return { success: false, error: updateError.message };
         }
 
-        // Update asset locations
+        // Update asset locations and assigned_to
         const assetIds = distribution.asset_distribution_items.map((item: { asset_id: string }) => item.asset_id);
         const { error: assetError } = await supabase
             .from("assets")
-            .update({ location_id: distribution.destination_location_id })
+            .update({
+                location_id: distribution.destination_location_id,
+                assigned_to: distribution.receiver_id
+            })
             .in("id", assetIds);
 
         if (assetError) {
-            console.error("Error updating asset locations:", assetError);
+            console.error("Error updating assets:", assetError);
         }
 
         revalidatePath("/assets/distribution");

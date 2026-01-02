@@ -1,7 +1,7 @@
 import ItemsClient from "./_components/items-client";
 
 export const metadata = {
-    title: "Items | IT Governance",
+    title: "Items | SI-Mantap",
 };
 
 export default function ATKItemsPage() {

@@ -212,6 +212,7 @@ export default function BorrowingClient() {
             const result = await rejectBorrowing(selectedBorrowing.id, rejectReason);
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ["asset-borrowings"] });
+                queryClient.invalidateQueries({ queryKey: ["borrowable-assets"] });
                 setIsRejectOpen(false);
             }
         });
@@ -409,42 +410,26 @@ export default function BorrowingClient() {
 
                         <div className="space-y-2">
                             <Label>Asset *</Label>
-                            <Popover open={assetPopoverOpen} onOpenChange={setAssetPopoverOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" role="combobox" className="w-full justify-between">
-                                        {selectedAsset
-                                            ? borrowableAssets?.find((a) => a.id === selectedAsset)?.name
-                                            : "Select asset..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0" align="start">
-                                    <Command>
-                                        <CommandInput placeholder="Search asset..." />
-                                        <CommandList className="max-h-[200px]">
-                                            <CommandEmpty>No assets found.</CommandEmpty>
-                                            <CommandGroup>
-                                                {borrowableAssets?.map((asset) => (
-                                                    <CommandItem
-                                                        key={asset.id}
-                                                        value={`${asset.name} ${asset.asset_code}`}
-                                                        onSelect={() => {
-                                                            setSelectedAsset(asset.id);
-                                                            setAssetPopoverOpen(false);
-                                                        }}
-                                                    >
-                                                        <Check className={`mr-2 h-4 w-4 ${selectedAsset === asset.id ? "opacity-100" : "opacity-0"}`} />
-                                                        <div>
-                                                            <p>{asset.name}</p>
-                                                            <p className="text-xs text-muted-foreground">{asset.asset_code} - {asset.locations?.name}</p>
-                                                        </div>
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                            <Select value={selectedAsset} onValueChange={setSelectedAsset}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih asset..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {borrowableAssets?.map((asset) => (
+                                        <SelectItem key={asset.id} value={asset.id}>
+                                            {asset.name} - {asset.locations?.name || "No location"}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {selectedAsset && (
+                                <div className="p-3 rounded-md bg-muted text-sm">
+                                    <p className="font-medium">{borrowableAssets?.find(a => a.id === selectedAsset)?.name}</p>
+                                    <p className="text-muted-foreground">
+                                        {borrowableAssets?.find(a => a.id === selectedAsset)?.locations?.name || "No location"}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-2">

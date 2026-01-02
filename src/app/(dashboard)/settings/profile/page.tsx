@@ -3,7 +3,7 @@ import ProfileForm from "./_components/profile-form";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata = {
-    title: "Profile Settings | IT Governance",
+    title: "Profile Settings | SI-Mantap",
 };
 
 function ProfileFormSkeleton() {

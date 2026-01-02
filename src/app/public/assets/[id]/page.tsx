@@ -153,7 +153,7 @@ export default async function PublicAssetPage({ params }: PageProps) {
                 </Card>
 
                 <p className="text-center text-white/40 text-xs mt-4">
-                    IT Governance - Asset Management System
+                    SI-Mantap - Asset Management System
                 </p>
             </div>
         </div>

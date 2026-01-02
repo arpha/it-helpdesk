@@ -1,7 +1,7 @@
 import Login from "./_components/login";
 
 export const metadata = {
-  title: "IT Governance | Login",
+  title: "SI-Mantap | Login",
 };
 
 export default function LoginPage() {

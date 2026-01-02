@@ -32,3 +32,29 @@ export function useAllUsers() {
         queryFn: fetchAllUsers,
     });
 }
+
+// Fetch only IT users (admin, staff_it, manager_it)
+async function fetchITUsers(): Promise<SimpleUser[]> {
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, username")
+        .in("role", ["admin", "staff_it", "manager_it"])
+        .neq("is_active", false)
+        .order("full_name", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching IT users:", error);
+        return [];
+    }
+
+    return (data as SimpleUser[]) || [];
+}
+
+export function useITUsers() {
+    return useQuery({
+        queryKey: ["it-users"],
+        queryFn: fetchITUsers,
+    });
+}

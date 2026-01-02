@@ -14,6 +14,7 @@ import {
     Package,
     PackageSearch,
     ClipboardList,
+    ClipboardCheck,
     ShoppingCart,
     PackagePlus,
     PackageMinus,
@@ -130,6 +131,11 @@ const menuGroups: MenuGroup[] = [
                 href: "/atk/health",
                 icon: Activity,
             },
+            {
+                title: "Stock Opname",
+                href: "/atk/stock-opname",
+                icon: ClipboardCheck,
+            },
         ],
     },
     {
@@ -160,6 +166,11 @@ const menuGroups: MenuGroup[] = [
                 title: "Distribusi",
                 href: "/assets/distribution",
                 icon: Truck,
+            },
+            {
+                title: "Reports",
+                href: "/assets/reports",
+                icon: BarChart3,
             },
         ],
     },
@@ -343,7 +354,7 @@ export function Sidebar() {
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                                 <MonitorCog className="h-4 w-4 text-primary-foreground" />
                             </div>
-                            <span className="text-lg font-semibold">IT Governance</span>
+                            <span className="text-lg font-semibold">SI-Mantap</span>
                         </SheetTitle>
                     </SheetHeader>
                     <div className="flex-1 overflow-auto">
@@ -378,7 +389,7 @@ export function Sidebar() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                         <MonitorCog className="h-4 w-4 text-primary-foreground" />
                     </div>
-                    {isOpen && <span className="text-lg font-semibold">IT Governance</span>}
+                    {isOpen && <span className="text-lg font-semibold">SI-Mantap</span>}
                 </div>
                 {isOpen && (
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggle}>
