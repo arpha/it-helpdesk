@@ -451,7 +451,7 @@ export function TicketsClient() {
                         </div>
                         {isStaff && (
                             <div className="space-y-2">
-                                <Label>Pelapor (opsional)</Label>
+                                <Label>Requester (optional)</Label>
                                 <Popover open={requesterPopoverOpen} onOpenChange={setRequesterPopoverOpen}>
                                     <PopoverTrigger asChild>
                                         <Button
@@ -463,21 +463,21 @@ export function TicketsClient() {
                                             {formRequester ? (
                                                 allUsersData?.data?.find((u) => u.id === formRequester)?.full_name || "Unknown"
                                             ) : (
-                                                <span className="text-muted-foreground">Pilih pelapor jika berbeda dengan Anda...</span>
+                                                <span className="text-muted-foreground">Select requester if different from you...</span>
                                             )}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-[400px] p-0" align="start">
-                                        <Command>
-                                            <CommandInput placeholder="Cari user..." />
-                                            <CommandList>
+                                    <PopoverContent className="w-[400px] p-0" align="start" side="bottom" sideOffset={8} avoidCollisions={true}>
+                                        <Command shouldFilter={true}>
+                                            <CommandInput placeholder="Search requester..." className="h-9" />
+                                            <CommandList className="max-h-[200px]">
                                                 <CommandEmpty>User tidak ditemukan.</CommandEmpty>
                                                 <CommandGroup>
                                                     {allUsersData?.data?.map((u) => (
                                                         <CommandItem
                                                             key={u.id}
-                                                            value={`${u.full_name} ${u.username}`}
+                                                            value={u.full_name || u.username || ""}
                                                             onSelect={() => {
                                                                 setFormRequester(u.id === formRequester ? "" : u.id);
                                                                 setRequesterPopoverOpen(false);
@@ -486,10 +486,7 @@ export function TicketsClient() {
                                                             <Check
                                                                 className={`mr-2 h-4 w-4 ${formRequester === u.id ? "opacity-100" : "opacity-0"}`}
                                                             />
-                                                            <div className="flex flex-col">
-                                                                <span>{u.full_name || u.username}</span>
-                                                                <span className="text-xs text-muted-foreground">{u.role || "-"}</span>
-                                                            </div>
+                                                            <span>{u.full_name || u.username}</span>
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>
@@ -497,7 +494,7 @@ export function TicketsClient() {
                                         </Command>
                                     </PopoverContent>
                                 </Popover>
-                                <p className="text-xs text-muted-foreground">Kosongkan jika Anda adalah pelapor</p>
+                                <p className="text-xs text-muted-foreground">Leave empty if you are the requester</p>
                             </div>
                         )}
                         <div className="grid grid-cols-2 gap-4">

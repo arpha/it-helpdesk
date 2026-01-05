@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Monitor, MapPin, User, Calendar, Tag, Info } from "lucide-react";
+import { Monitor, MapPin, User, Calendar, Tag, Info, Wrench } from "lucide-react";
 import Image from "next/image";
 
 const statusLabels: Record<string, string> = {
@@ -17,6 +17,13 @@ const statusColors: Record<string, string> = {
     maintenance: "bg-yellow-500/10 text-yellow-500",
     damage: "bg-red-500/10 text-red-500",
     disposed: "bg-gray-500/10 text-gray-500",
+};
+
+const maintenanceTypeLabels: Record<string, string> = {
+    repair: "Repair",
+    upgrade: "Upgrade",
+    cleaning: "Cleaning",
+    inspection: "Inspection",
 };
 
 type PageProps = {
@@ -43,9 +50,25 @@ export default async function PublicAssetPage({ params }: PageProps) {
         notFound();
     }
 
+    // Fetch maintenance history
+    const { data: maintenanceHistory } = await supabase
+        .from("asset_maintenance")
+        .select(`
+            id,
+            maintenance_type,
+            description,
+            cost,
+            performed_at,
+            performed_by,
+            profiles:performed_by(full_name)
+        `)
+        .eq("asset_id", id)
+        .order("performed_at", { ascending: false })
+        .limit(10);
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4 sm:p-8">
-            <div className="max-w-2xl mx-auto">
+            <div className="max-w-2xl mx-auto space-y-4">
                 <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
                     <CardHeader className="text-center border-b border-white/10 pb-6">
                         <div className="mx-auto mb-4">
@@ -151,6 +174,51 @@ export default async function PublicAssetPage({ params }: PageProps) {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* Maintenance History */}
+                {maintenanceHistory && maintenanceHistory.length > 0 && (
+                    <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
+                        <CardHeader className="border-b border-white/10 pb-4">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Wrench className="h-5 w-5" />
+                                Maintenance History
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            <div className="space-y-3">
+                                {maintenanceHistory.map((m) => (
+                                    <div key={m.id} className="border-b border-white/10 pb-3 last:border-0">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <Badge variant="outline" className="text-white/80 border-white/30 mb-1">
+                                                    {maintenanceTypeLabels[m.maintenance_type] || m.maintenance_type}
+                                                </Badge>
+                                                <p className="text-sm text-white/80">{m.description || "-"}</p>
+                                            </div>
+                                            {m.cost && m.cost > 0 && (
+                                                <span className="text-sm text-yellow-400 font-medium">
+                                                    Rp {m.cost.toLocaleString("id-ID")}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-4 mt-2 text-xs text-white/50">
+                                            <span>
+                                                {new Date(m.performed_at).toLocaleDateString("id-ID", {
+                                                    day: "numeric",
+                                                    month: "short",
+                                                    year: "numeric"
+                                                })}
+                                            </span>
+                                            {(m.profiles as unknown as { full_name?: string } | null)?.full_name && (
+                                                <span>by {(m.profiles as unknown as { full_name: string }).full_name}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 <p className="text-center text-white/40 text-xs mt-4">
                     SI-Mantap - Asset Management System
