@@ -112,7 +112,7 @@ export default function RequestsClient() {
         userId: user?.id,
     });
 
-    const { data: itemsData } = useATKItems({ page: 1, limit: 100 });
+    const { data: itemsData } = useATKItems({ page: 1, limit: 1000 });
     const { data: usersData } = useUsers({ page: 1, limit: 1000, activeOnly: true });
     const { data: locationsData } = useLocations();
 
