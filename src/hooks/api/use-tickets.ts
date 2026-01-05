@@ -12,6 +12,7 @@ export type Ticket = {
     priority: "low" | "medium" | "high" | "urgent";
     status: "draft" | "open" | "in_progress" | "resolved" | "closed";
     created_by: string;
+    requester_id: string | null;
     assigned_to: string | null;
     location_id: string | null;
     asset_id: string | null;
@@ -22,6 +23,7 @@ export type Ticket = {
     updated_at: string;
     // Joined data
     creator?: { full_name: string };
+    requester?: { full_name: string };
     assignee?: { full_name: string };
     location?: { name: string };
     asset?: { name: string; asset_code: string };
@@ -47,6 +49,7 @@ export function useTickets(params: UseTicketsParams = {}) {
                 .select(`
                     *,
                     creator:profiles!tickets_created_by_fkey(full_name),
+                    requester:profiles!tickets_requester_id_fkey(full_name),
                     assignee:profiles!tickets_assigned_to_fkey(full_name),
                     location:locations(name),
                     asset:assets(name, asset_code)

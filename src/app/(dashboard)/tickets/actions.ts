@@ -11,6 +11,7 @@ type CreateTicketInput = {
     priority: string;
     location_id?: string;
     asset_id?: string;
+    requester_id?: string; // ID pelapor (jika admin buat untuk orang lain)
 };
 
 type UpdateTicketInput = {
@@ -103,6 +104,16 @@ export async function createTicket(input: CreateTicketInput): Promise<ActionResu
         // Get least busy technician for auto-assign
         const assigneeId = await getLeastBusyTechnician();
 
+        // Get requester's profile for location fallback
+        const requesterId = input.requester_id || null;
+        const requesterIdForLocation = requesterId || user.id;
+
+        const { data: requesterProfile } = await supabase
+            .from("profiles")
+            .select("location_id, full_name")
+            .eq("id", requesterIdForLocation)
+            .single();
+
         const { data, error } = await supabase
             .from("tickets")
             .insert({
@@ -111,9 +122,10 @@ export async function createTicket(input: CreateTicketInput): Promise<ActionResu
                 category: input.category,
                 priority: input.priority,
                 status: assigneeId ? "in_progress" : "open",
-                created_by: user.id,
+                created_by: user.id, // Siapa yang input
+                requester_id: requesterId, // Siapa pelapor (null jika sama dengan created_by)
                 assigned_to: assigneeId,
-                location_id: input.location_id || profile?.location_id,
+                location_id: input.location_id || requesterProfile?.location_id || profile?.location_id,
                 asset_id: input.asset_id || null,
             })
             .select("id, title, category, priority")

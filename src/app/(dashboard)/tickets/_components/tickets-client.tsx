@@ -135,6 +135,7 @@ export function TicketsClient() {
     const { data: assetsData } = useAssets({ page: 1, limit: 100 });
     const { data: locations } = useLocations();
     const { data: usersData } = useUsers({ page: 1, limit: 100, roles: ["staff_it", "admin"] });
+    const { data: allUsersData } = useUsers({ page: 1, limit: 1000, activeOnly: true }); // All users for requester dropdown
 
     // Modal states
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -157,6 +158,8 @@ export function TicketsClient() {
     const [formParts, setFormParts] = useState<{ item_id: string; quantity: number }[]>([]);
     const [assetPopoverOpen, setAssetPopoverOpen] = useState(false);
     const [partsPopoverOpenIdx, setPartsPopoverOpenIdx] = useState<number | null>(null);
+    const [formRequester, setFormRequester] = useState(""); // Requester ID for admin
+    const [requesterPopoverOpen, setRequesterPopoverOpen] = useState(false);
 
     const isStaff = user?.role === "admin" || user?.role === "staff_it" || user?.role === "manager_it";
 
@@ -170,6 +173,7 @@ export function TicketsClient() {
         setFormResolution("");
         setFormRepairType("repair");
         setFormParts([]);
+        setFormRequester("");
     };
 
     const handleCreate = () => {
@@ -180,6 +184,7 @@ export function TicketsClient() {
                 category: formCategory,
                 priority: formPriority,
                 asset_id: formAssetId || undefined,
+                requester_id: formRequester || undefined,
             });
 
             if (result.success) {
@@ -444,6 +449,57 @@ export function TicketsClient() {
                                 rows={3}
                             />
                         </div>
+                        {isStaff && (
+                            <div className="space-y-2">
+                                <Label>Pelapor (opsional)</Label>
+                                <Popover open={requesterPopoverOpen} onOpenChange={setRequesterPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={requesterPopoverOpen}
+                                            className="w-full justify-between font-normal"
+                                        >
+                                            {formRequester ? (
+                                                allUsersData?.data?.find((u) => u.id === formRequester)?.full_name || "Unknown"
+                                            ) : (
+                                                <span className="text-muted-foreground">Pilih pelapor jika berbeda dengan Anda...</span>
+                                            )}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[400px] p-0" align="start">
+                                        <Command>
+                                            <CommandInput placeholder="Cari user..." />
+                                            <CommandList>
+                                                <CommandEmpty>User tidak ditemukan.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {allUsersData?.data?.map((u) => (
+                                                        <CommandItem
+                                                            key={u.id}
+                                                            value={`${u.full_name} ${u.username}`}
+                                                            onSelect={() => {
+                                                                setFormRequester(u.id === formRequester ? "" : u.id);
+                                                                setRequesterPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={`mr-2 h-4 w-4 ${formRequester === u.id ? "opacity-100" : "opacity-0"}`}
+                                                            />
+                                                            <div className="flex flex-col">
+                                                                <span>{u.full_name || u.username}</span>
+                                                                <span className="text-xs text-muted-foreground">{u.role || "-"}</span>
+                                                            </div>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                <p className="text-xs text-muted-foreground">Kosongkan jika Anda adalah pelapor</p>
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Category</Label>
@@ -565,8 +621,12 @@ export function TicketsClient() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <Label className="text-muted-foreground">Created By</Label>
+                                    <Label className="text-muted-foreground">Diinput Oleh</Label>
                                     <p>{selectedTicket.creator?.full_name}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Pelapor</Label>
+                                    <p>{selectedTicket.requester?.full_name || selectedTicket.creator?.full_name || "-"}</p>
                                 </div>
                                 <div>
                                     <Label className="text-muted-foreground">Assigned To</Label>
