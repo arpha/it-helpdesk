@@ -55,12 +55,12 @@ export default async function PublicAssetPage({ params }: PageProps) {
         .from("asset_maintenance")
         .select(`
             id,
-            maintenance_type,
+            type,
             description,
             cost,
             performed_at,
             performed_by,
-            profiles:performed_by(full_name)
+            created_at
         `)
         .eq("asset_id", id)
         .order("performed_at", { ascending: false })
@@ -194,7 +194,7 @@ export default async function PublicAssetPage({ params }: PageProps) {
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <Badge variant="outline" className="text-white/80 border-white/30 mb-1">
-                                                    {maintenanceTypeLabels[m.maintenance_type] || m.maintenance_type}
+                                                    {maintenanceTypeLabels[m.type] || m.type}
                                                 </Badge>
                                                 <p className="text-sm text-white/80">{m.description || "-"}</p>
                                             </div>
@@ -212,8 +212,8 @@ export default async function PublicAssetPage({ params }: PageProps) {
                                                     year: "numeric"
                                                 })}
                                             </span>
-                                            {(m.profiles as unknown as { full_name?: string } | null)?.full_name && (
-                                                <span>by {(m.profiles as unknown as { full_name: string }).full_name}</span>
+                                            {m.performed_by && (
+                                                <span>by {m.performed_by}</span>
                                             )}
                                         </div>
                                     </div>
