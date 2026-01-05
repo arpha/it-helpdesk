@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,8 +32,8 @@ type PageProps = {
 
 export default async function PublicAssetPage({ params }: PageProps) {
     const { id } = await params;
-    // Use admin client since this is a public page without auth session
-    const supabase = await createClient({ isAdmin: true });
+    // Use admin client to bypass RLS since this is a public page
+    const supabase = createAdminClient();
 
     const { data: asset, error } = await supabase
         .from("assets")
@@ -51,7 +51,7 @@ export default async function PublicAssetPage({ params }: PageProps) {
     }
 
     // Fetch maintenance history
-    const { data: maintenanceHistory } = await supabase
+    const { data: maintenanceHistory, error: maintenanceError } = await supabase
         .from("asset_maintenance")
         .select(`
             id,
@@ -65,6 +65,9 @@ export default async function PublicAssetPage({ params }: PageProps) {
         .eq("asset_id", id)
         .order("performed_at", { ascending: false })
         .limit(10);
+
+    // Log for debugging (can remove later)
+    console.log("Maintenance query result:", { id, maintenanceHistory, maintenanceError });
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4 sm:p-8">
