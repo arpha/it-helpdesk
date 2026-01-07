@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { UserInitializer } from "@/components/auth/user-initializer";
+import { ChatWidget } from "@/components/ai/chat-widget";
 import { cookies } from "next/headers";
 import { UserProfile } from "@/stores/auth-store";
 
@@ -45,6 +46,10 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
                 {/* Page Content */}
                 <main className="flex-1 overflow-auto p-6">{children}</main>
             </div>
+
+            {/* AI Chat Assistant */}
+            <ChatWidget />
         </div>
     );
 }
+

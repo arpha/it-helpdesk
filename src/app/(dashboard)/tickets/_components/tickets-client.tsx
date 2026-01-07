@@ -280,7 +280,7 @@ export function TicketsClient() {
                 <div>
                     <p className="font-medium">{ticket.title}</p>
                     <p className="text-xs text-muted-foreground">
-                        {ticket.creator?.full_name} • {new Date(ticket.created_at).toLocaleDateString("id-ID")}
+                        {ticket.requester?.full_name || ticket.creator?.full_name} • {new Date(ticket.created_at).toLocaleDateString("id-ID")}
                     </p>
                 </div>
             ),
