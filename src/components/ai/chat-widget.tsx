@@ -60,15 +60,26 @@ export function ChatWidget() {
             content: messageText,
         };
 
-        setMessages((prev) => [...prev, userMessage]);
+        // Add new message to the list
+        const updatedMessages = [...messages, userMessage];
+        setMessages(updatedMessages);
         setInput("");
         setIsLoading(true);
 
         try {
+            // Build conversation history for context (last 6 messages max)
+            const history = updatedMessages.slice(-6).map(m => ({
+                role: m.role,
+                content: m.content
+            }));
+
             const response = await fetch("/api/ai/ticket-assistant", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: messageText }),
+                body: JSON.stringify({
+                    message: messageText,
+                    history: history
+                }),
             });
 
             const data = await response.json();

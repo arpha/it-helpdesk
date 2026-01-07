@@ -276,7 +276,7 @@ export default function RequestsClient() {
                             <p><strong>Yang mengusulkan /</strong></p>
                             <p>menerima barang</p>
                             <div class="sig-space">${request.approval_signature_url ? `<img src="${request.approval_signature_url}" class="sig-img" />` : ''}</div>
-                            <p class="sig-line">${request.profiles?.full_name || "................................"}</p>
+                            <p class="sig-line">${request.requester?.full_name || "................................"}</p>
                         </div>
                     </div>
                 </div>
@@ -442,7 +442,7 @@ export default function RequestsClient() {
             header: "Requester",
             cell: (row) => (
                 <div>
-                    <p className="font-medium">{row.profiles?.full_name || "-"}</p>
+                    <p className="font-medium">{row.requester?.full_name || "-"}</p>
                     <p className="text-xs text-muted-foreground">{row.locations?.name || "-"}</p>
                     {row.ticket_id && (
                         <Badge variant="outline" className="text-xs mt-1">From Ticket</Badge>
@@ -790,7 +790,7 @@ export default function RequestsClient() {
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <span className="text-muted-foreground">Requester</span>
-                                    <p className="font-medium">{selectedRequest.profiles?.full_name || "-"}</p>
+                                    <p className="font-medium">{selectedRequest.requester?.full_name || "-"}</p>
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Location</span>
@@ -838,7 +838,7 @@ export default function RequestsClient() {
                                         className="mt-2 border rounded max-h-24"
                                     />
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        Approved by {selectedRequest.profiles?.full_name} on{" "}
+                                        Approved by {selectedRequest.approver?.full_name} on{" "}
                                         {selectedRequest.approved_at
                                             ? new Date(selectedRequest.approved_at).toLocaleDateString("id-ID")
                                             : ""}

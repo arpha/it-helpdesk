@@ -1,174 +1,163 @@
 import { NextRequest, NextResponse } from "next/server";
-import { askGemini } from "@/lib/gemini/client";
-import {
-    searchAssets,
-    checkStock,
-    searchTickets,
-    searchProfiles,
-    searchLocations,
-    getAssetCount,
-    getTicketStats
-} from "@/lib/ai/tools";
+import { askGeminiNatural, summarizeQueryResult } from "@/lib/gemini/client";
+import { executeReadOnlyQuery, validateSqlQuery } from "@/lib/ai/tools";
 
 export async function POST(request: NextRequest) {
     try {
-        const { message } = await request.json();
+        const { message: rawMessage, history = [] } = await request.json();
 
-        if (!message) {
+        if (!rawMessage) {
             return NextResponse.json({ error: "Message is required" }, { status: 400 });
         }
 
-        // 1. Intent Classification & Keyword Extraction via AI
-        const intentPrompt = `
-        Analisis pertanyaan user berikut dan tentukan INTENT (tujuan) dan KEYWORD (kata kunci) pencarian.
-        
-        Pilihan INTENT:
-        - CHECK_STOCK (jika tanya sisa/jumlah barang ATK/habis pakai)
-        - SEARCH_ASSET (jika tanya info/lokasi/spek spesifik aset. TAPI jika tanya "jumlah", "total", atau "berapa aset", gunakan STATS)
-        - STATS (jika tanya JUMLAH TOTAL aset, tiket, atau statistik umum sistem)
-        - SEARCH_USER (jika tanya info orang/teknisi)
-        - SEARCH_LOCATION (jika tanya info ruangan/gedung)
-        - TROUBLESHOOT (jika tanya cara memperbaiki error/masalah teknis)
-        - OTHER (jika sapaan atau pertanyaan umum)
+        // Preprocess message: replace color synonyms
+        const colorReplacements: [RegExp, string][] = [
+            [/\b(warna\s+)?biru\b/gi, 'cyan'],
+            [/\b(warna\s+)?merah\b/gi, 'magenta'],
+            [/\b(warna\s+)?kuning\b/gi, 'yellow'],
+            [/\b(warna\s+)?hitam\b/gi, 'hitam'],
+            [/\bblue\b/gi, 'cyan'],
+            [/\bred\b/gi, 'magenta'],
+            [/\bblack\b/gi, 'hitam'],
+            [/\byellow\b/gi, 'yellow'],
+        ];
 
-        Format output JSON:
-        {"intent": "INTENT_NAME", "keyword": "search_keyword"}
-
-        Contoh:
-        "Tinta hitam ada berapa?" -> {"intent": "CHECK_STOCK", "keyword": "tinta hitam"}
-        "Berapa jumlah aset kita?" -> {"intent": "STATS", "keyword": "aset"}
-        "Ada berapa laptop?" -> {"intent": "STATS", "keyword": "laptop"}
-        "Total printer di kantor?" -> {"intent": "STATS", "keyword": "printer"}
-        "Ada berapa total tiket?" -> {"intent": "STATS", "keyword": "tiket"}
-        "Cari laptop aset kantor" -> {"intent": "SEARCH_ASSET", "keyword": "laptop"}
-        
-        Pertanyaan: "${message}"
-        `;
-
-        const classificationRaw = await askGemini(intentPrompt, "");
-        // Clean markdown code blocks if any
-        const cleanJson = classificationRaw.replace(/```json/g, "").replace(/```/g, "").trim();
-
-        let classification;
-        try {
-            classification = JSON.parse(cleanJson);
-        } catch (e) {
-            // Fallback default
-            classification = { intent: "TROUBLESHOOT", keyword: message };
+        let message = rawMessage;
+        for (const [pattern, replacement] of colorReplacements) {
+            message = message.replace(pattern, replacement);
         }
 
-        // FORCE FIX: Smart Intent Overrides
-        const msgLower = message.toLowerCase();
+        // Check for follow-up question (short/abbreviated question that needs context)
+        const isFollowUp = message.length < 30 && (
+            message.toLowerCase().startsWith('kalau') ||
+            message.toLowerCase().startsWith('bagaimana dengan') ||
+            message.toLowerCase().startsWith('terus') ||
+            message.toLowerCase().startsWith('lalu') ||
+            message.toLowerCase().startsWith('dan') ||
+            message.match(/^\??[a-z ]+\?$/i)
+        );
 
-        // Cek indikator pertanyaan statistik/jumlah
-        const isStatsQuestion = msgLower.includes("total") || msgLower.includes("jumlah") || msgLower.startsWith("berapa") || msgLower.includes(" ada berapa ");
+        // If follow-up, try to expand with context from previous messages
+        if (isFollowUp && history.length > 0) {
+            const previousUserMessages = history
+                .filter((h: { role: string }) => h.role === 'user')
+                .map((h: { content: string }) => h.content);
 
-        if (isStatsQuestion) {
-            // Jika pertanyaan jumlah tiket
-            if (msgLower.includes("tiket") || msgLower.includes("ticket")) {
-                classification.intent = "STATS";
-                classification.keyword = "tiket";
-            }
-            // Jika pertanyaan aset/barang spesifik (bukan tiket)
-            else {
-                classification.intent = "STATS";
-                // Jika keyword dari AI kosong atau tidak relevan, coba ambil dari pesan
-                // Tapi biasanya keyword dari AI sudah benar (misal 'laptop'), jadi kita biarkan/paksa keywordnya
-                if (!classification.keyword || classification.keyword === "aset") {
-                    // Extract noun simple logic (fallback)
-                    if (msgLower.includes("laptop")) classification.keyword = "laptop";
-                    else if (msgLower.includes("printer")) classification.keyword = "printer";
-                    else if (msgLower.includes("komputer") || msgLower.includes("pc")) classification.keyword = "pc";
-                    else if (msgLower.includes("monitor")) classification.keyword = "monitor";
+            if (previousUserMessages.length > 0) {
+                // Search ALL previous messages for location pattern
+                let location = '';
+                for (let i = previousUserMessages.length - 1; i >= 0; i--) {
+                    if (i === previousUserMessages.length - 1) continue;
+
+                    const prevMsg = previousUserMessages[i];
+                    const locationMatch = prevMsg.match(/di\s+([^\?]+)/i);
+                    if (locationMatch) {
+                        location = locationMatch[1].trim();
+                        break;
+                    }
+                }
+
+                if (location) {
+                    const expandedKeyword = message
+                        .replace(/kalau/gi, '')
+                        .replace(/bagaimana dengan/gi, '')
+                        .replace(/\?/g, '')
+                        .trim();
+
+                    message = `list ${expandedKeyword} di ${location}`;
+                    console.log("Expanded follow-up:", message);
                 }
             }
         }
 
+        console.log("Preprocessed message:", message);
 
-        console.log("AI Intent:", classification);
+        // Call AI with natural conversation
+        const aiResult = await askGeminiNatural(message, history);
 
-        // 2. Data Fetching based on Intent
-        let contextData = "";
-        let relatedData: any[] = [];
-        const { intent, keyword } = classification;
+        let finalResponse = aiResult.response;
+        let queryData = null;
+        let generatedSql = aiResult.sql || null;
 
-        if (intent === "CHECK_STOCK") {
-            const items = await checkStock(keyword);
-            relatedData = items;
-            contextData = items.length > 0
-                ? `DATA STOK BARANG:\n${items.map((i: any) => `- ${i.name}: ${i.stock_quantity} ${i.unit} (Kategori: ${i.category})`).join("\n")}`
-                : "Data stok tidak ditemukan.";
+        // If AI generated SQL, execute it
+        if (aiResult.sql) {
+            console.log("AI generated SQL:", aiResult.sql);
 
-        } else if (intent === "SEARCH_ASSET") {
-            const assets = await searchAssets(keyword);
-            relatedData = assets;
-            contextData = assets.length > 0
-                // @ts-ignore
-                ? `DATA ASET:\n${assets.map((a: any) => `- ${a.name} (${a.code})\n  Serial: ${a.serial_number}\n  Status: ${a.status}\n  Lokasi: ${a.location?.name || '-'} \n  Peminjam: ${a.assigned_to?.full_name || '-'}\n`).join("\n")}`
-                : "Data aset tidak ditemukan.";
-
-        } else if (intent === "STATS") {
-            if (keyword.toLowerCase().includes("tiket") || keyword.toLowerCase().includes("ticket")) {
-                const stats = await getTicketStats();
-                contextData = `DATA STATISTIK TIKET:\nTotal: ${stats.total}\nResolved: ${stats.resolved}\nOpen: ${stats.open}\nIn Progress: ${stats.in_progress}`;
+            // Validate SQL
+            const validation = validateSqlQuery(aiResult.sql);
+            if (!validation.valid) {
+                console.log("SQL validation failed:", validation.error);
+                finalResponse = `Maaf, query tidak valid: ${validation.error}`;
             } else {
-                // Default ke aset (bisa filter by keyword misal "laptop")
-                const count = await getAssetCount(keyword);
-                const itemType = ["aset", "asset", "barang"].includes(keyword.toLowerCase()) ? "Total Aset Terdaftar" : `Total Aset "${keyword}"`;
-                contextData = `DATA STATISTIK:\n${itemType}: ${count} unit`;
+                // Execute query
+                const queryResult = await executeReadOnlyQuery(aiResult.sql);
+
+                if (queryResult.error) {
+                    console.log("SQL execution error:", queryResult.error);
+                    finalResponse = `Maaf, terjadi kesalahan saat mengambil data: ${queryResult.error}`;
+                } else {
+                    queryData = queryResult.data;
+                    console.log("Query result:", queryData);
+
+                    // Format the data into response
+                    if (Array.isArray(queryData) && queryData.length > 0) {
+                        // Check if it's a count query
+                        const firstRow = queryData[0];
+                        if (firstRow.total !== undefined || firstRow.count !== undefined) {
+                            const count = firstRow.total ?? firstRow.count;
+                            finalResponse = `${aiResult.response || "Berikut hasilnya:"}\n\nTotal: **${count}**`;
+                        } else {
+                            // DATA FOUND: Use AI to Summarize the result nicely (Second Pass)
+                            const summary = await summarizeQueryResult(message, queryData);
+                            if (summary) {
+                                finalResponse = summary;
+                            } else {
+                                // Fallback to list formatting if summary fails
+                                const formattedItems = queryData.map((item: Record<string, unknown>) => {
+                                    const parts = [];
+                                    if (item.name) parts.push(`**${item.name}**`);
+                                    if (item.asset_code) parts.push(`(${item.asset_code})`);
+                                    if (item.serial_number) parts.push(`[SN: ${item.serial_number}]`);
+                                    if (item.status) parts.push(`- ${item.status}`);
+                                    if (item.resolution_notes) parts.push(`\n   💡 Solusi: ${item.resolution_notes}`);
+
+                                    // Add any other columns
+                                    Object.entries(item).forEach(([key, value]) => {
+                                        if (!['name', 'asset_code', 'serial_number', 'status', 'stock_quantity', 'unit', 'location_name', 'resolution_notes'].includes(key)) {
+                                            parts.push(`${key}: ${value}`);
+                                        }
+                                    });
+
+                                    return `• ${parts.join(' ')}`;
+                                }).join('\n');
+                                finalResponse = `${aiResult.response || "Berikut hasilnya:"}\n\n${formattedItems}`;
+                            }
+                        }
+                    } else if (Array.isArray(queryData) && queryData.length === 0) {
+                        finalResponse = `Tidak ditemukan data yang sesuai dengan pencarian Anda.`;
+                    }
+                }
             }
-
-
-        } else if (intent === "SEARCH_USER") {
-            const users = await searchProfiles(keyword);
-            relatedData = users;
-            contextData = users.length > 0
-                ? `DATA USER/TEKNISI:\n${users.map((u: any) => `- ${u.full_name} (${u.role})\n  Dept: ${u.department || '-'}\n  Email: ${u.email}\n  Telp: ${u.phone || '-'}`).join("\n")}`
-                : "Data user tidak ditemukan.";
-
-        } else if (intent === "SEARCH_LOCATION") {
-            const locs = await searchLocations(keyword);
-            relatedData = locs;
-            contextData = locs.length > 0
-                ? `DATA LOKASI:\n${locs.map((l: any) => `- ${l.name} (Gedung: ${l.building}, Lantai: ${l.floor})\n  Info: ${l.description || '-'}`).join("\n")}`
-                : "Data lokasi tidak ditemukan.";
-
-        } else if (intent === "TROUBLESHOOT") {
-            const tickets = await searchTickets(keyword);
-            relatedData = tickets;
-            contextData = tickets.length > 0
-                ? `RIWAYAT TIKET SERUPA:\n${tickets.map((t: any) => `- Masalah: ${t.title}\n  Solusi: ${t.resolution_notes}`).join("\n\n")}`
-                : "Tidak ada riwayat tiket serupa.";
         }
-
-        // 3. Final Answer Synthesis
-        const finalPrompt = `
-        Anda adalah IT Helpdesk Assistant. Jawab pertanyaan user berdasarkan DATA KONTEKS berikut.
-        
-        DATA KONTEKS:
-        ${contextData}
-
-        PERTANYAAN USER: "${message}"
-
-        INSTRUKSI UTAMA:
-        1. JIKA DATA ADA DI KONTEKS: Langsung jawab intinya. JANGAN minta maaf atau bilang "tidak menemukan data". Gunakan data angka/fakta yang ada.
-        2. JIKA DATA KOSONG: Katakan dengan sopan bahwa data tidak ditemukan di database.
-        3. JIKA USER TANYA "DETAIL" TAPI KONTEKS HANYA ANGKA TOTAL: Jelaskan bahwa Anda tidak bisa menampilkan detail semua sekaligus, dan minta user mencari lebih spesifik (contoh: "Cari laptop", "Lihat printer").
-        4. Jawab dalam Bahasa Indonesia yang natural, ringkas, dan membantu.
-        `;
-
-        const finalResponse = await askGemini(finalPrompt, "");
 
         return NextResponse.json({
             success: true,
             response: finalResponse,
-            debug: { intent, keyword, dataCount: relatedData.length }
+            debug: {
+                preprocessedMessage: message,
+                generatedSql,
+                queryData
+            }
         });
 
     } catch (error) {
-        console.error("AI Assistant Error:", error);
+        console.error("AI ticket-assistant error:", error);
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Unknown error" },
+            {
+                success: false,
+                error: error instanceof Error ? error.message : "Terjadi kesalahan",
+                response: "Maaf, terjadi kesalahan saat memproses permintaan Anda."
+            },
             { status: 500 }
         );
     }

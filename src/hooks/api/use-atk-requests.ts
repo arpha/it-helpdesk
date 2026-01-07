@@ -29,7 +29,7 @@ export type ATKRequest = {
     document_number: string | null;
     created_at: string;
     updated_at: string;
-    profiles: {
+    requester: {
         full_name: string;
     } | null;
     locations: {
@@ -69,7 +69,7 @@ async function fetchATKRequests(params: UseATKRequestsParams): Promise<ATKReques
         .select(
             `
       *,
-      profiles:requester_id(full_name),
+      requester:requester_id(full_name),
       locations:location_id(name),
       approver:approved_by(full_name),
       completer:completed_by(full_name),
