@@ -371,7 +371,7 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
         // Get ticket details
         const { data: ticket, error: ticketError } = await supabase
             .from("tickets")
-            .select("asset_id, location_id, created_by")
+            .select("asset_id, location_id, created_by, requester_id")
             .eq("id", input.id)
             .single();
 
@@ -422,7 +422,7 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
             const { data: atkRequest, error: atkError } = await supabase
                 .from("atk_requests")
                 .insert({
-                    requester_id: ticket?.created_by || user.id,
+                    requester_id: ticket?.requester_id || ticket?.created_by || user.id,
                     ticket_id: input.id,
                     location_id: assetLocationId,
                     notes: `From Ticket - Auto generated`,
