@@ -58,6 +58,8 @@ async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
+    // Use standard select without inner join enforcement for global search
+    // to ensure assets without locations can still be found by name/code
     let query = supabase
         .from("assets")
         .select(
@@ -71,7 +73,27 @@ async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
         );
 
     if (search) {
-        query = query.or(`name.ilike.%${search}%,asset_code.ilike.%${search}%,serial_number.ilike.%${search}%`);
+        // Split by space to allow multi-term search (e.g. "Laptop Gizi")
+        const terms = search.trim().split(/\s+/);
+
+        for (const term of terms) {
+            // 1. Find locations matching the term
+            const { data: locations } = await supabase
+                .from("locations")
+                .select("id")
+                .ilike("name", `%${term}%`);
+
+            const locIds = locations?.map(l => l.id) || [];
+
+            // 2. Build OR query: Name match OR (if locs found) Location ID match
+            let orQuery = `name.ilike.%${term}%,asset_code.ilike.%${term}%,serial_number.ilike.%${term}%`;
+
+            if (locIds.length > 0) {
+                orQuery += `,location_id.in.(${locIds.join(",")})`;
+            }
+
+            query = query.or(orQuery);
+        }
     }
 
     if (status && status !== "all") {

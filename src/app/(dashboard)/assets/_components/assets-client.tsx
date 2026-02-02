@@ -116,7 +116,13 @@ export default function AssetsClient() {
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
-    const { data: assetsData, isLoading } = useAssets({ page, limit, search, status: statusFilter, categoryId: categoryFilter });
+    const { data: assetsData, isLoading } = useAssets({
+        page,
+        limit,
+        search,
+        status: statusFilter,
+        categoryId: categoryFilter
+    });
     const { data: categories } = useAllAssetCategories();
     const { data: locations } = useLocations();
     const { data: users } = useAllUsers();
@@ -625,7 +631,7 @@ export default function AssetsClient() {
                 isLoading={isLoading}
                 searchValue={searchInput}
                 onSearchChange={setSearch}
-                searchPlaceholder="Search assets..."
+                searchPlaceholder="Search assets or location..."
                 page={page}
                 totalPages={assetsData?.totalPages || 1}
                 totalItems={assetsData?.totalItems}

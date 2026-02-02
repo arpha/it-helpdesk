@@ -68,14 +68,25 @@ const menuItems: MenuItem[] = [
         href: "/dashboard",
         icon: LayoutDashboard,
     },
-    {
-        title: "Tickets",
-        href: "/tickets",
-        icon: Ticket,
-    },
 ];
 
 const menuGroups: MenuGroup[] = [
+    {
+        title: "Helpdesk",
+        icon: Ticket,
+        items: [
+            {
+                title: "All Tickets",
+                href: "/tickets",
+                icon: ClipboardList,
+            },
+            {
+                title: "Reports",
+                href: "/tickets/reports",
+                icon: BarChart3,
+            },
+        ],
+    },
     {
         title: "Master",
         icon: Database,
