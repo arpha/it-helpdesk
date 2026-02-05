@@ -47,5 +47,35 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Role-based protection for "user" role
+  if (user) {
+    // Fetch profile to get role
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const role = profile?.role;
+    const path = request.nextUrl.pathname;
+
+    if (role === "user") {
+      // List of restricted parent paths for "user" role
+      const restrictedPaths = ["/master", "/atk", "/assets"];
+
+      // Specifically for tickets: /tickets/reports and /tickets (all tickets) are restricted
+      // but we might want to keep the tool accessible if it's under /tools
+      const isRestrictedBase = restrictedPaths.some(p => path.startsWith(p));
+      const isRestrictedTicket = path === "/tickets" || path.startsWith("/tickets/");
+
+      // Note: /tools/qr-generator is allowed
+      if (isRestrictedBase || isRestrictedTicket) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
   return supabaseResponse;
 }

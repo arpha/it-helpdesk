@@ -23,6 +23,7 @@ import {
     FileText,
     Activity,
     Truck,
+    QrCode,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -49,6 +50,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useEffect, useState } from "react";
 import { UserMenu } from "./user-menu";
+import { useAuthStore } from "@/stores/auth-store";
 
 type MenuItem = {
     title: string;
@@ -84,6 +86,11 @@ const menuGroups: MenuGroup[] = [
                 title: "Reports",
                 href: "/tickets/reports",
                 icon: BarChart3,
+            },
+            {
+                title: "QR Generator",
+                href: "/tools/qr-generator",
+                icon: QrCode,
             },
         ],
     },
@@ -220,10 +227,40 @@ export function Sidebar() {
         );
     };
 
+    const { user } = useAuthStore();
+    const role = user?.role || "user";
+
+    // Filter menu items and groups based on role
+    const filteredMenuItems = menuItems.filter(item => {
+        if (role === "admin") return true;
+        if (role === "user") {
+            return item.href === "/dashboard";
+        }
+        return true; // Default for staff_it and manager_it
+    });
+
+    const filteredMenuGroups = menuGroups.map(group => {
+        if (role === "admin") return group;
+
+        // Special case for "user" role
+        if (role === "user") {
+            // Only keep "QR Generator" in Helpdesk, hide other groups
+            if (group.title === "Helpdesk") {
+                return {
+                    ...group,
+                    items: group.items.filter(item => item.href === "/tools/qr-generator")
+                };
+            }
+            return null; // Hide other groups
+        }
+
+        return group;
+    }).filter(group => group !== null && group.items.length > 0) as MenuGroup[];
+
     const SidebarContent = () => (
         <nav className="flex flex-col gap-1 p-2">
             {/* Regular Menu Items */}
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
                 const isActive =
                     pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
@@ -255,7 +292,7 @@ export function Sidebar() {
             })}
 
             {/* Menu Groups with Dropdown */}
-            {menuGroups.map((group) => {
+            {filteredMenuGroups.map((group) => {
                 const isGroupOpen = openGroups.includes(group.title);
                 const hasActiveItem = group.items.some(
                     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
