@@ -13,6 +13,8 @@ type AssetData = {
     name: string;
     asset_code: string;
     qrCode: string;
+    location: string;
+    serial: string;
 };
 
 function PrintContent() {
@@ -47,6 +49,8 @@ function PrintContent() {
                             name: assetJson.data.name,
                             asset_code: assetJson.data.asset_code,
                             qrCode: qrJson.data.qrCode,
+                            location: assetJson.data.locations?.name || "No Location",
+                            serial: assetJson.data.serial_number || "No SN",
                         });
                     }
                 } catch (error) {
@@ -60,6 +64,17 @@ function PrintContent() {
 
         fetchAssets();
     }, [idsParam]);
+
+    // Auto-print when loaded
+    useEffect(() => {
+        if (!loading && assets.length > 0) {
+            // Small delay to ensure images are rendered
+            const timer = setTimeout(() => {
+                window.print();
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [loading, assets]);
 
     const handlePrint = () => {
         window.print();
@@ -93,7 +108,7 @@ function PrintContent() {
             <div className="flex items-center justify-between print:hidden">
                 <div>
                     <h1 className="text-2xl font-bold">Print QR Labels</h1>
-                    <p className="text-muted-foreground">{assets.length} label(s) ready to print</p>
+                    <p className="text-muted-foreground">{assets.length} label(s) ready to print (A5 Landscape)</p>
                 </div>
                 <div className="flex gap-2">
                     <Link href="/assets">
@@ -109,59 +124,79 @@ function PrintContent() {
                 </div>
             </div>
 
-            {/* Labels - 1 per page (6cm x 6cm) */}
-            <div className="flex flex-wrap gap-4 print:block">
-                {assets.map((asset, index) => (
-                    <Card
+            {/* Labels Grid for A5 */}
+            <div className="print:block flex flex-wrap gap-2 content-start">
+                {assets.map((asset) => (
+                    <div
                         key={asset.id}
-                        className="print:shadow-none print:border print:mb-0"
+                        className="relative border border-gray-200 overflow-hidden bg-white print:border-none"
                         style={{
-                            width: "6cm",
-                            height: "6cm",
-                            padding: "0.5cm",
-                            pageBreakAfter: index < assets.length - 1 ? "always" : "auto",
+                            width: "1in",
+                            height: "1.25in",
+                            padding: "0.05in",
+                            boxSizing: "border-box",
+                            display: "inline-flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            textAlign: "center",
+                            pageBreakInside: "avoid"
                         }}
                     >
-                        <CardContent className="p-0 h-full flex flex-col items-center justify-center text-center">
-                            {/* QR Code */}
-                            <div className="flex-1 flex items-center justify-center">
-                                <Image
-                                    src={asset.qrCode}
-                                    alt={`QR code for ${asset.name}`}
-                                    width={150}
-                                    height={150}
-                                    className="print:w-[4cm] print:h-[4cm]"
-                                />
-                            </div>
-                            {/* Asset Info */}
-                            <div className="mt-1">
-                                <p className="font-bold text-xs truncate max-w-[5cm]" title={asset.name}>
-                                    {asset.name}
-                                </p>
-                                <p className="text-xs text-muted-foreground font-mono">
-                                    {asset.asset_code}
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                        {/* Location - Top Left tiny */}
+                        <div className="absolute top-[2px] left-[2px] text-[4px] font-bold text-black uppercase leading-none tracking-tighter">
+                            {asset.location !== "No Location" ? asset.location.substring(0, 10) : ""}
+                        </div>
+
+                        {/* QR Code - Maximize area */}
+                        <div className="flex-1 flex items-center justify-center w-full h-full overflow-hidden">
+                            <Image
+                                src={asset.qrCode}
+                                alt="QR"
+                                width={100}
+                                height={100}
+                                className="w-full h-full object-contain"
+                                style={{ transform: "scale(1.2)" }}
+                            />
+                        </div>
+
+                        {/* Text Info - Extremely small */}
+                        <div className="w-full mt-[1px] leading-none">
+                            <p className="font-bold text-[5px] truncate px-[1px]">{asset.name}</p>
+                            <p className="text-[5px] font-mono truncate">{asset.asset_code}</p>
+                            <p className="text-[4px] text-gray-600 truncate">SN:{asset.serial.substring(0, 8)}</p>
+                        </div>
+                    </div>
                 ))}
             </div>
 
-            {/* Print Styles */}
+            {/* Print Styles: A5 Landscape & Grid */}
             <style jsx global>{`
                 @media print {
                     @page {
-                        size: 6cm 6cm;
-                        margin: 0;
+                        size: A5 landscape; /* 210mm x 148mm */
+                        margin: 0.2in;
                     }
                     body {
                         print-color-adjust: exact;
                         -webkit-print-color-adjust: exact;
                         margin: 0;
                         padding: 0;
+                        width: 100%;
+                        height: 100%;
                     }
                     .print\\:hidden {
                         display: none !important;
+                    }
+                    .print\\:block {
+                        display: flex !important;
+                        flex-wrap: wrap !important;
+                        align-content: flex-start !important;
+                        justify-content: flex-start !important;
+                        gap: 0 !important;
+                    }
+                    .print\\:border-none {
+                        border: 1px dashed #ddd !important; 
                     }
                 }
             `}</style>

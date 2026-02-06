@@ -20,6 +20,7 @@ type CreateAssetInput = {
     notes?: string;
     specifications?: Record<string, string>;
     is_borrowable?: boolean;
+    barcode_status?: string;
 };
 
 type UpdateAssetInput = CreateAssetInput & {
@@ -61,6 +62,7 @@ export async function createAsset(input: CreateAssetInput): Promise<ActionResult
                 notes: input.notes || null,
                 specifications: input.specifications || {},
                 is_borrowable: input.is_borrowable || false,
+                barcode_status: input.barcode_status || "not_printed",
                 created_by: user.id,
             })
             .select("id")
@@ -102,6 +104,7 @@ export async function updateAsset(input: UpdateAssetInput): Promise<ActionResult
                 notes: input.notes || null,
                 specifications: input.specifications || {},
                 is_borrowable: input.is_borrowable || false,
+                barcode_status: input.barcode_status || undefined,
             })
             .eq("id", input.id);
 
@@ -126,6 +129,32 @@ export async function deleteAsset(id: string): Promise<ActionResult> {
         const { error } = await supabase
             .from("assets")
             .delete()
+            .eq("id", id);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        revalidatePath("/assets");
+        return { success: true };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
+}
+
+export async function updateBarcodeStatus(
+    id: string,
+    status: "not_printed" | "printed" | "installed"
+): Promise<ActionResult> {
+    try {
+        const supabase = createAdminClient();
+
+        const { error } = await supabase
+            .from("assets")
+            .update({ barcode_status: status })
             .eq("id", id);
 
         if (error) {

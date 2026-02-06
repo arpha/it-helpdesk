@@ -22,6 +22,7 @@ export type Asset = {
     notes: string | null;
     specifications: Record<string, string> | null;
     is_borrowable: boolean;
+    barcode_status: "not_printed" | "printed" | "installed";
     created_by: string | null;
     created_at: string;
     updated_at: string;
@@ -44,6 +45,7 @@ type UseAssetsParams = {
     search?: string;
     status?: string;
     categoryId?: string;
+    barcodeStatus?: string;
 };
 
 type AssetsResult = {
@@ -54,7 +56,7 @@ type AssetsResult = {
 
 async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
     const supabase = createClient();
-    const { page, limit, search, status, categoryId } = params;
+    const { page, limit, search, status, categoryId, barcodeStatus } = params;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
@@ -104,6 +106,10 @@ async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
         query = query.eq("category_id", categoryId);
     }
 
+    if (barcodeStatus && barcodeStatus !== "all") {
+        query = query.eq("barcode_status", barcodeStatus);
+    }
+
     const { data, count, error } = await query
         .order("created_at", { ascending: false })
         .range(from, to);
@@ -121,7 +127,7 @@ async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
 
 export function useAssets(params: UseAssetsParams) {
     return useQuery({
-        queryKey: ["assets", params.page, params.limit, params.search, params.status, params.categoryId],
+        queryKey: ["assets", params.page, params.limit, params.search, params.status, params.categoryId, params.barcodeStatus],
         queryFn: () => fetchAssets(params),
     });
 }

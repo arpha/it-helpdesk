@@ -66,7 +66,7 @@ import {
     Printer,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { createAsset, updateAsset, deleteAsset, uploadAssetImage, generateAssetCode } from "../actions";
+import { createAsset, updateAsset, deleteAsset, uploadAssetImage, generateAssetCode, updateBarcodeStatus } from "../actions";
 
 const statusLabels: Record<string, string> = {
     active: "Active",
@@ -80,6 +80,18 @@ const statusColors: Record<string, string> = {
     maintenance: "bg-yellow-500/10 text-yellow-500",
     damage: "bg-red-500/10 text-red-500",
     disposed: "bg-gray-500/10 text-gray-500",
+};
+
+const barcodeStatusLabels: Record<string, string> = {
+    not_printed: "Belum Dicetak",
+    printed: "Sudah Dicetak",
+    installed: "Terpasang",
+};
+
+const barcodeStatusColors: Record<string, string> = {
+    not_printed: "bg-gray-500/10 text-gray-500",
+    printed: "bg-blue-500/10 text-blue-500",
+    installed: "bg-green-500/10 text-green-500",
 };
 
 const conditionLabels: Record<string, string> = {
@@ -115,13 +127,15 @@ export default function AssetsClient() {
     const queryClient = useQueryClient();
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
+    const [barcodeFilter, setBarcodeFilter] = useState<string>("all");
 
     const { data: assetsData, isLoading } = useAssets({
         page,
         limit,
         search,
         status: statusFilter,
-        categoryId: categoryFilter
+        categoryId: categoryFilter,
+        barcodeStatus: barcodeFilter
     });
     const { data: categories } = useAllAssetCategories();
     const { data: locations } = useLocations();
@@ -159,6 +173,7 @@ export default function AssetsClient() {
     const [formImagePreview, setFormImagePreview] = useState("");
     const [formImageUrl, setFormImageUrl] = useState("");
     const [formIsBorrowable, setFormIsBorrowable] = useState(false);
+    const [formBarcodeStatus, setFormBarcodeStatus] = useState("not_printed");
 
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -181,6 +196,7 @@ export default function AssetsClient() {
         setFormImagePreview("");
         setFormImageUrl("");
         setFormIsBorrowable(false);
+        setFormBarcodeStatus("not_printed");
         setMessage(null);
     };
 
@@ -194,6 +210,7 @@ export default function AssetsClient() {
         // Generate asset code
         const code = await generateAssetCode("AST");
         setFormAssetCode(code);
+        setFormBarcodeStatus("not_printed");
         setIsAddOpen(true);
     };
 
@@ -216,6 +233,7 @@ export default function AssetsClient() {
         setFormImagePreview(asset.image_url || "");
         setFormImageUrl(asset.image_url || "");
         setFormIsBorrowable(asset.is_borrowable || false);
+        setFormBarcodeStatus(asset.barcode_status || "not_printed");
         setMessage(null);
         setIsEditOpen(true);
     };
@@ -275,6 +293,7 @@ export default function AssetsClient() {
                 notes: formNotes || undefined,
                 specifications: formSpecifications,
                 is_borrowable: formIsBorrowable,
+                barcode_status: formBarcodeStatus,
             });
 
             if (result.success) {
@@ -327,6 +346,7 @@ export default function AssetsClient() {
                 notes: formNotes || undefined,
                 specifications: formSpecifications,
                 is_borrowable: formIsBorrowable,
+                barcode_status: formBarcodeStatus,
             });
 
             if (result.success) {
@@ -346,6 +366,15 @@ export default function AssetsClient() {
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ["assets"] });
                 setIsDeleteOpen(false);
+            }
+        });
+    };
+
+    const handleUpdateBarcodeStatus = (id: string, status: "printed" | "installed") => {
+        startTransition(async () => {
+            const result = await updateBarcodeStatus(id, status);
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["assets"] });
             }
         });
     };
@@ -429,6 +458,16 @@ export default function AssetsClient() {
             ),
         },
         {
+            key: "barcode",
+            header: "Barcode",
+            cell: (asset) => (
+                <Badge variant="outline" className={barcodeStatusColors[asset.barcode_status]}>
+                    <QrCode className="mr-1 h-3 w-3" />
+                    {barcodeStatusLabels[asset.barcode_status]}
+                </Badge>
+            ),
+        },
+        {
             key: "location",
             header: "Location",
             cell: (asset) => (
@@ -492,6 +531,12 @@ export default function AssetsClient() {
                             <QrCode className="mr-2 h-4 w-4" />
                             Show QR Code
                         </DropdownMenuItem>
+                        {asset.barcode_status !== "installed" && (
+                            <DropdownMenuItem onClick={() => handleUpdateBarcodeStatus(asset.id, "installed")}>
+                                <Check className="mr-2 h-4 w-4" />
+                                Mark as Installed
+                            </DropdownMenuItem>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),
@@ -517,7 +562,7 @@ export default function AssetsClient() {
 
         // Fetch QR codes for selected assets
         const selectedAssets = assetsData?.data.filter(a => selectedAssetIds.has(a.id)) || [];
-        const qrCodes: { name: string; code: string; qr: string }[] = [];
+        const qrCodes: { name: string; code: string; qr: string; location: string; serial: string }[] = [];
 
         for (const asset of selectedAssets) {
             try {
@@ -527,24 +572,40 @@ export default function AssetsClient() {
                     qrCodes.push({
                         name: asset.name,
                         code: asset.asset_code,
-                        qr: json.data.qrCode
+                        qr: json.data.qrCode,
+                        location: asset.locations?.name || "No Location",
+                        serial: asset.serial_number || "No SN"
                     });
+
+                    // Mark as printed if not already installed
+                    if (asset.barcode_status === "not_printed") {
+                        await updateBarcodeStatus(asset.id, "printed");
+                    }
                 }
             } catch (error) {
                 console.error(`Failed to get QR for ${asset.id}:`, error);
             }
         }
 
-        // Create print content
-        const printContent = qrCodes.map((item, index) => `
-            <div style="width: 6cm; height: 6cm; padding: 0.5cm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; page-break-after: ${index < qrCodes.length - 1 ? 'always' : 'auto'}; box-sizing: border-box;">
-                <img src="${item.qr}" style="width: 4cm; height: 4cm;" />
-                <div style="margin-top: 0.3cm;">
-                    <p style="font-weight: bold; font-size: 10px; margin: 0; max-width: 5cm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</p>
-                    <p style="font-size: 9px; color: #666; margin: 0; font-family: monospace;">${item.code}</p>
+        // Create print content (A5 Landscape, 1x1.25 inch labels)
+        const printContent = qrCodes.map((item) => `
+            <div style="width: 1in; height: 1.25in; padding: 0.05in; box-sizing: border-box; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; page-break-inside: avoid; position: relative; border: 1px dashed #ddd; overflow: hidden; background: white;">
+                <div style="width: 100%; font-size: 5px; font-weight: bold; color: black; text-transform: uppercase; line-height: 1.1; margin-bottom: 1px;">
+                    ${item.location !== "No Location" ? item.location : ""}
+                </div>
+                <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden;">
+                    <img src="${item.qr}" style="width: 100%; height: 100%; object-fit: contain;" />
+                </div>
+                <div style="width: 100%; margin-top: 1px; line-height: 1;">
+                    <p style="font-weight: bold; font-size: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 1px; margin: 0;">${item.name}</p>
+                    <p style="font-size: 5px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">${item.code}</p>
+                    <p style="font-size: 4px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">SN:${item.serial.substring(0, 12)}</p>
                 </div>
             </div>
         `).join('');
+
+        // Refresh query client to show "Printed" status
+        queryClient.invalidateQueries({ queryKey: ["assets"] });
 
         // Open print window
         const printWindow = window.open('', '_blank');
@@ -555,22 +616,49 @@ export default function AssetsClient() {
                 <head>
                     <title>Print QR Labels</title>
                     <style>
-                        @page { size: 6cm 6cm; margin: 0; }
-                        body { margin: 0; padding: 0; }
                         @media print {
-                            body { margin: 0; padding: 0; }
+                            @page {
+                                size: A5 landscape; /* 210mm x 148mm */
+                                margin: 0.2in;
+                            }
+                            body {
+                                print-color-adjust: exact;
+                                -webkit-print-color-adjust: exact;
+                                margin: 0;
+                                padding: 0;
+                                width: 100%;
+                                height: 100%;
+                            }
+                            .container {
+                                display: flex;
+                                flex-wrap: wrap;
+                                align-content: flex-start;
+                                justify-content: flex-start;
+                                gap: 0;
+                            }
                         }
+                        /* Screen styles for preview */
+                        body { margin: 0; padding: 0.2in; font-family: sans-serif; }
+                        .container { display: flex; flex-wrap: wrap; gap: 0; }
                     </style>
                 </head>
-                <body>${printContent}</body>
+                <body>
+                    <div class="container">
+                        ${printContent}
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.print();
+                                window.close();
+                            }, 500);
+                        }
+                    </script>
+                </body>
                 </html>
             `);
             printWindow.document.close();
             printWindow.focus();
-            setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-            }, 250);
         }
     };
 
@@ -621,6 +709,18 @@ export default function AssetsClient() {
                                 {cat.name}
                             </SelectItem>
                         ))}
+                    </SelectContent>
+                </Select>
+
+                <Select value={barcodeFilter} onValueChange={setBarcodeFilter}>
+                    <SelectTrigger className="w-32 sm:w-40">
+                        <SelectValue placeholder="Status Barcode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Semua Barcode</SelectItem>
+                        <SelectItem value="not_printed">Belum Dicetak</SelectItem>
+                        <SelectItem value="printed">Sudah Dicetak</SelectItem>
+                        <SelectItem value="installed">Terpasang</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -873,6 +973,23 @@ export default function AssetsClient() {
                                         Asset ini bisa dipinjam oleh unit lain
                                     </label>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Row 1.6: Barcode Status (FORMS) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Status Pemasangan Barcode</Label>
+                                <Select value={formBarcodeStatus} onValueChange={setFormBarcodeStatus}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="not_printed">Belum Dicetak</SelectItem>
+                                        <SelectItem value="printed">Sudah Dicetak</SelectItem>
+                                        <SelectItem value="installed">Terpasang</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
