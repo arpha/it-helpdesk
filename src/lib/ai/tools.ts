@@ -65,8 +65,9 @@ export async function searchProfiles(keyword: string) {
     const supabase = createAdminClient();
     const { data } = await supabase
         .from("profiles")
-        .select("full_name, email, phone, role, department")
+        .select("full_name, email, phone, role, department, is_active")
         .ilike("full_name", `%${keyword}%`)
+        .neq("is_active", false)
         .limit(5);
     return data || [];
 }
@@ -207,6 +208,7 @@ DATABASE SCHEMA:
    - role: ENUM ('admin', 'staff', 'user')
    - phone: VARCHAR
    - location_id: UUID → locations(id)
+   - is_active: BOOLEAN (TRUE jika aktif, FALSE jika non-aktif)
 
 5. locations (Lokasi/Ruangan)
    - id: UUID

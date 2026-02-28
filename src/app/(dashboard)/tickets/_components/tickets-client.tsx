@@ -134,7 +134,7 @@ export function TicketsClient() {
     const { data: itemsData } = useATKItems({ page: 1, limit: 500 });
     const { data: assetsData } = useAssets({ page: 1, limit: 1000 });
     const { data: locations } = useLocations();
-    const { data: usersData } = useUsers({ page: 1, limit: 100, roles: ["staff_it", "admin"] });
+    const { data: usersData } = useUsers({ page: 1, limit: 1000, roles: ["staff_it", "admin"], activeOnly: true });
     const { data: allUsersData } = useUsers({ page: 1, limit: 1000, activeOnly: true }); // All users for requester dropdown
 
     // Modal states

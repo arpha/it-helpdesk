@@ -24,6 +24,7 @@ import {
     Activity,
     Truck,
     QrCode,
+    Fingerprint,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -107,6 +108,11 @@ const menuGroups: MenuGroup[] = [
                 title: "Locations",
                 href: "/master/locations",
                 icon: Building2,
+            },
+            {
+                title: "Fingerprint",
+                href: "/master/fingerprints",
+                icon: Fingerprint,
             },
         ],
     },
