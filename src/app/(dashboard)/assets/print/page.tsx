@@ -108,7 +108,7 @@ function PrintContent() {
             <div className="flex items-center justify-between print:hidden">
                 <div>
                     <h1 className="text-2xl font-bold">Print QR Labels</h1>
-                    <p className="text-muted-foreground">{assets.length} label(s) ready to print (A5 Landscape)</p>
+                    <p className="text-muted-foreground">{assets.length} label(s) ready to print (A5 Portrait)</p>
                 </div>
                 <div className="flex gap-2">
                     <Link href="/assets">
@@ -131,9 +131,9 @@ function PrintContent() {
                         key={asset.id}
                         className="relative border border-gray-200 overflow-hidden bg-white print:border-none"
                         style={{
-                            width: "1in",
-                            height: "1.25in",
-                            padding: "0.05in",
+                            width: "3.54cm",
+                            height: "4.175cm",
+                            padding: "0.1cm",
                             boxSizing: "border-box",
                             display: "inline-flex",
                             flexDirection: "column",
@@ -144,7 +144,7 @@ function PrintContent() {
                         }}
                     >
                         {/* Location - Top Left tiny */}
-                        <div className="absolute top-[2px] left-[2px] text-[4px] font-bold text-black uppercase leading-none tracking-tighter">
+                        <div className="absolute top-[2px] left-[2px] text-[5px] font-bold text-black uppercase leading-none tracking-tighter">
                             {asset.location !== "No Location" ? asset.location.substring(0, 10) : ""}
                         </div>
 
@@ -162,19 +162,19 @@ function PrintContent() {
 
                         {/* Text Info - Extremely small */}
                         <div className="w-full mt-[1px] leading-none">
-                            <p className="font-bold text-[5px] truncate px-[1px]">{asset.name}</p>
-                            <p className="text-[5px] font-mono truncate">{asset.asset_code}</p>
-                            <p className="text-[4px] text-gray-600 truncate">SN:{asset.serial.substring(0, 8)}</p>
+                            <p className="font-bold text-[6px] truncate px-[1px]">{asset.name}</p>
+                            <p className="text-[6px] font-mono truncate">{asset.asset_code}</p>
+                            <p className="text-[5px] text-gray-600 truncate">SN:{asset.serial.substring(0, 8)}</p>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Print Styles: A5 Landscape & Grid */}
+            {/* Print Styles: A5 Portrait & Grid */}
             <style jsx global>{`
                 @media print {
                     @page {
-                        size: A5 landscape; /* 210mm x 148mm */
+                        size: A5 portrait; /* 148mm x 210mm */
                         margin: 0.2in;
                     }
                     body {

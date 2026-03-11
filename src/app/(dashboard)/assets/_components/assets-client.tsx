@@ -587,19 +587,19 @@ export default function AssetsClient() {
             }
         }
 
-        // Create print content (A5 Landscape, 1x1.25 inch labels)
+        // Create print content (A5 Portrait, 3.54x4.175 cm labels)
         const printContent = qrCodes.map((item) => `
-            <div style="width: 1in; height: 1.25in; padding: 0.05in; box-sizing: border-box; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; page-break-inside: avoid; position: relative; border: 1px dashed #ddd; overflow: hidden; background: white;">
-                <div style="width: 100%; font-size: 5px; font-weight: bold; color: black; text-transform: uppercase; line-height: 1.1; margin-bottom: 1px;">
+            <div style="width: 3.54cm; height: 4.175cm; padding: 0.1cm; box-sizing: border-box; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; page-break-inside: avoid; position: relative; border: 1px dashed #ddd; overflow: hidden; background: white;">
+                <div style="width: 100%; font-size: 6px; font-weight: bold; color: black; text-transform: uppercase; line-height: 1.1; margin-bottom: 1px;">
                     ${item.location !== "No Location" ? item.location : ""}
                 </div>
                 <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden;">
                     <img src="${item.qr}" style="width: 100%; height: 100%; object-fit: contain;" />
                 </div>
                 <div style="width: 100%; margin-top: 1px; line-height: 1;">
-                    <p style="font-weight: bold; font-size: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 1px; margin: 0;">${item.name}</p>
-                    <p style="font-size: 5px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">${item.code}</p>
-                    <p style="font-size: 4px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">SN:${item.serial.substring(0, 12)}</p>
+                    <p style="font-weight: bold; font-size: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 1px; margin: 0;">${item.name}</p>
+                    <p style="font-size: 6px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">${item.code}</p>
+                    <p style="font-size: 5px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">SN:${item.serial.substring(0, 12)}</p>
                 </div>
             </div>
         `).join('');
@@ -618,7 +618,7 @@ export default function AssetsClient() {
                     <style>
                         @media print {
                             @page {
-                                size: A5 landscape; /* 210mm x 148mm */
+                                size: A5 portrait; /* 148mm x 210mm */
                                 margin: 0.2in;
                             }
                             body {
