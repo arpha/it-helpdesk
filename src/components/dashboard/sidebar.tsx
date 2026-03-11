@@ -93,6 +93,11 @@ const menuGroups: MenuGroup[] = [
                 href: "/tools/qr-generator",
                 icon: QrCode,
             },
+            {
+                title: "Convert OCR",
+                href: "/tools/convert",
+                icon: FileText,
+            },
         ],
     },
     {
