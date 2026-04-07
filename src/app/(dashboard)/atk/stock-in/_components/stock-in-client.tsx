@@ -20,7 +20,7 @@ import { stockIn } from "../../stock/actions";
 
 export default function StockInClient() {
     const queryClient = useQueryClient();
-    const { data: itemsData, isLoading: itemsLoading } = useATKItems({ page: 1, limit: 100 });
+    const { data: itemsData, isLoading: itemsLoading } = useATKItems({ page: 1, limit: 1000 });
 
     const [selectedItem, setSelectedItem] = useState<string>("");
     const [quantity, setQuantity] = useState("");
