@@ -330,3 +330,76 @@ export async function getAssetAssignmentHistory(assetId: string): Promise<AssetA
 
     return data || [];
 }
+
+export async function getAssetsByIds(ids: string[]): Promise<any[]> {
+    const supabase = createAdminClient();
+
+    const { data, error } = await supabase
+        .from("assets")
+        .select(`
+            id,
+            asset_code,
+            name,
+            serial_number,
+            barcode_status,
+            locations(name)
+        `)
+        .in("id", ids);
+
+    if (error) {
+        console.error("Error fetching assets by IDs:", error);
+        return [];
+    }
+
+    return data || [];
+}
+
+export async function getAllAssetIds(filters: {
+    search?: string;
+    status?: string;
+    categoryId?: string;
+    barcodeStatus?: string;
+}): Promise<string[]> {
+    const supabase = createAdminClient();
+    const { search, status, categoryId, barcodeStatus } = filters;
+
+    let query = supabase.from("assets").select("id");
+
+    if (search) {
+        const terms = search.trim().split(/\s+/);
+        for (const term of terms) {
+            const { data: locations } = await supabase
+                .from("locations")
+                .select("id")
+                .ilike("name", `%${term}%`);
+
+            const locIds = locations?.map(l => l.id) || [];
+            let orQuery = `name.ilike.%${term}%,asset_code.ilike.%${term}%,serial_number.ilike.%${term}%`;
+            if (locIds.length > 0) {
+                orQuery += `,location_id.in.(${locIds.join(",")})`;
+            }
+            query = query.or(orQuery);
+        }
+    }
+
+    if (status && status !== "all") {
+        query = query.eq("status", status);
+    }
+
+    if (categoryId && categoryId !== "all") {
+        query = query.eq("category_id", categoryId);
+    }
+
+    if (barcodeStatus && barcodeStatus !== "all") {
+        query = query.eq("barcode_status", barcodeStatus);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error("Error fetching all asset IDs:", error);
+        return [];
+    }
+
+    return data?.map(asset => asset.id) || [];
+}

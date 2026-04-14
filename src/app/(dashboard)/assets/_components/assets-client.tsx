@@ -66,7 +66,7 @@ import {
     Printer,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { createAsset, updateAsset, deleteAsset, uploadAssetImage, generateAssetCode, updateBarcodeStatus } from "../actions";
+import { createAsset, updateAsset, deleteAsset, uploadAssetImage, generateAssetCode, updateBarcodeStatus, getAssetsByIds, getAllAssetIds } from "../actions";
 
 const statusLabels: Record<string, string> = {
     active: "Active",
@@ -152,6 +152,7 @@ export default function AssetsClient() {
 
     // Bulk select for print
     const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
+    const [isBulkLoading, setIsBulkLoading] = useState(false);
 
     // Form states
     const [formAssetCode, setFormAssetCode] = useState("");
@@ -412,7 +413,20 @@ export default function AssetsClient() {
     const columns: Column<Asset>[] = [
         {
             key: "select",
-            header: "",
+            header: (
+                <input
+                    type="checkbox"
+                    checked={
+                        assetsData?.data &&
+                        assetsData.data.length > 0 &&
+                        assetsData.data.every((a) => selectedAssetIds.has(a.id)) &&
+                        (selectedAssetIds.size === assetsData.totalItems || selectedAssetIds.size > 0)
+                    }
+                    onChange={toggleSelectAll}
+                    disabled={isBulkLoading}
+                    className="h-4 w-4 rounded border-gray-300"
+                />
+            ),
             className: "w-10",
             cell: (asset) => (
                 <input
@@ -560,105 +574,124 @@ export default function AssetsClient() {
     const handlePrintSelected = async () => {
         if (selectedAssetIds.size === 0) return;
 
-        // Fetch QR codes for selected assets
-        const selectedAssets = assetsData?.data.filter(a => selectedAssetIds.has(a.id)) || [];
-        const qrCodes: { name: string; code: string; qr: string; location: string; serial: string }[] = [];
-
-        for (const asset of selectedAssets) {
-            try {
-                const res = await fetch(`/api/assets/qr?id=${asset.id}`);
-                const json = await res.json();
-                if (json.success) {
-                    qrCodes.push({
-                        name: asset.name,
-                        code: asset.asset_code,
-                        qr: json.data.qrCode,
-                        location: asset.locations?.name || "No Location",
-                        serial: asset.serial_number || "No SN"
-                    });
-
-                    // Mark as printed if not already installed
-                    if (asset.barcode_status === "not_printed") {
-                        await updateBarcodeStatus(asset.id, "printed");
-                    }
-                }
-            } catch (error) {
-                console.error(`Failed to get QR for ${asset.id}:`, error);
+        setIsBulkLoading(true);
+        try {
+            // Fetch ALL details for ALL selected IDs from server
+            const assetIds = Array.from(selectedAssetIds);
+            const assets = await getAssetsByIds(assetIds);
+            
+            if (!assets || assets.length === 0) {
+                setIsBulkLoading(false);
+                return;
             }
-        }
 
-        // Create print content (A5 Portrait, 3.54x4.175 cm labels)
-        const printContent = qrCodes.map((item) => `
-            <div style="width: 3.54cm; height: 4.175cm; padding: 0.1cm; box-sizing: border-box; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; page-break-inside: avoid; position: relative; border: 1px dashed #ddd; overflow: hidden; background: white;">
-                <div style="width: 100%; font-size: 6px; font-weight: bold; color: black; text-transform: uppercase; line-height: 1.1; margin-bottom: 1px;">
-                    ${item.location !== "No Location" ? item.location : ""}
-                </div>
-                <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden;">
-                    <img src="${item.qr}" style="width: 100%; height: 100%; object-fit: contain;" />
-                </div>
-                <div style="width: 100%; margin-top: 1px; line-height: 1;">
-                    <p style="font-weight: bold; font-size: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 1px; margin: 0;">${item.name}</p>
-                    <p style="font-size: 6px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">${item.code}</p>
-                    <p style="font-size: 5px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">SN:${item.serial.substring(0, 12)}</p>
-                </div>
-            </div>
-        `).join('');
+            const qrCodes: { name: string; code: string; qr: string; location: string; serial: string }[] = [];
 
-        // Refresh query client to show "Printed" status
-        queryClient.invalidateQueries({ queryKey: ["assets"] });
+            for (const asset of assets) {
+                try {
+                    const res = await fetch(`/api/assets/qr?id=${asset.id}`);
+                    const json = await res.json();
+                    if (json.success) {
+                        qrCodes.push({
+                            name: asset.name,
+                            code: asset.asset_code,
+                            qr: json.data.qrCode,
+                            location: asset.locations?.name || "No Location",
+                            serial: asset.serial_number || "No SN"
+                        });
 
-        // Open print window
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Print QR Labels</title>
-                    <style>
-                        @media print {
-                            @page {
-                                size: A5 portrait; /* 148mm x 210mm */
-                                margin: 0.2in;
-                            }
-                            body {
-                                print-color-adjust: exact;
-                                -webkit-print-color-adjust: exact;
-                                margin: 0;
-                                padding: 0;
-                                width: 100%;
-                                height: 100%;
-                            }
-                            .container {
-                                display: flex;
-                                flex-wrap: wrap;
-                                align-content: flex-start;
-                                justify-content: flex-start;
-                                gap: 0;
-                            }
+                        // Mark as printed if not already installed
+                        if (asset.barcode_status === "not_printed") {
+                            await updateBarcodeStatus(asset.id, "printed");
                         }
-                        /* Screen styles for preview */
-                        body { margin: 0; padding: 0.2in; font-family: sans-serif; }
-                        .container { display: flex; flex-wrap: wrap; gap: 0; }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        ${printContent}
+                    }
+                } catch (error) {
+                    console.error(`Failed to get QR for ${asset.id}:`, error);
+                }
+            }
+
+            if (qrCodes.length === 0) {
+                setIsBulkLoading(false);
+                return;
+            }
+
+            // Create print content (A5 Portrait, 3.54x4.175 cm labels)
+            const printContent = qrCodes.map((item) => `
+                <div style="width: 3.54cm; height: 4.175cm; padding: 0.1cm; box-sizing: border-box; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; page-break-inside: avoid; position: relative; border: 1px dashed #ddd; overflow: hidden; background: white;">
+                    <div style="width: 100%; font-size: 6px; font-weight: bold; color: black; text-transform: uppercase; line-height: 1.1; margin-bottom: 1px;">
+                        ${item.location !== "No Location" ? item.location : ""}
                     </div>
-                    <script>
-                        window.onload = function() {
-                            setTimeout(function() {
-                                window.print();
-                                window.close();
-                            }, 500);
-                        }
-                    </script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-            printWindow.focus();
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden;">
+                        <img src="${item.qr}" style="width: 100%; height: 100%; object-fit: contain;" />
+                    </div>
+                    <div style="width: 100%; margin-top: 1px; line-height: 1;">
+                        <p style="font-weight: bold; font-size: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 1px; margin: 0;">${item.name}</p>
+                        <p style="font-size: 6px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">${item.code}</p>
+                        <p style="font-size: 5px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">SN:${item.serial.substring(0, 12)}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            // Refresh query client to show "Printed" status
+            queryClient.invalidateQueries({ queryKey: ["assets"] });
+
+            // Open print window
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Print QR Labels</title>
+                        <style>
+                            @media print {
+                                @page {
+                                    size: A5 portrait; /* 148mm x 210mm */
+                                    margin: 0.2in;
+                                }
+                                body {
+                                    print-color-adjust: exact;
+                                    -webkit-print-color-adjust: exact;
+                                    margin: 0;
+                                    padding: 0;
+                                    width: 100%;
+                                    height: 100%;
+                                }
+                                .container {
+                                    display: flex;
+                                    flex-wrap: wrap;
+                                    align-content: flex-start;
+                                    justify-content: flex-start;
+                                    gap: 0;
+                                }
+                            }
+                            /* Screen styles for preview */
+                            body { margin: 0; padding: 0.2in; font-family: sans-serif; }
+                            .container { display: flex; flex-wrap: wrap; gap: 0; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            ${printContent}
+                        </div>
+                        <script>
+                            window.onload = function() {
+                                setTimeout(function() {
+                                    window.print();
+                                    window.close();
+                                }, 500);
+                            }
+                        </script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.focus();
+            }
+        } catch (error) {
+            console.error("Print failed:", error);
+        } finally {
+            setIsBulkLoading(false);
         }
     };
 
@@ -674,11 +707,28 @@ export default function AssetsClient() {
         });
     };
 
-    const toggleSelectAll = () => {
-        if (selectedAssetIds.size === assetsData?.data.length) {
+    const toggleSelectAll = async () => {
+        // If all items on current page are already selected, we might want to deselect all
+        const allCurrentSelected = assetsData?.data.every(a => selectedAssetIds.has(a.id));
+
+        if (allCurrentSelected && selectedAssetIds.size > 0) {
             setSelectedAssetIds(new Set());
         } else {
-            setSelectedAssetIds(new Set(assetsData?.data.map(a => a.id) || []));
+            setIsBulkLoading(true);
+            try {
+                // Fetch all IDs matching current filters
+                const allIds = await getAllAssetIds({
+                    search,
+                    status: statusFilter,
+                    categoryId: categoryFilter,
+                    barcodeStatus: barcodeFilter
+                });
+                setSelectedAssetIds(new Set(allIds));
+            } catch (error) {
+                console.error("Failed to select all:", error);
+            } finally {
+                setIsBulkLoading(false);
+            }
         }
     };
 
@@ -742,8 +792,12 @@ export default function AssetsClient() {
                 toolbarAction={
                     <div className="flex gap-2">
                         {selectedAssetIds.size > 0 && (
-                            <Button variant="outline" onClick={handlePrintSelected} size="sm">
-                                <Printer className="mr-2 h-4 w-4" />
+                            <Button variant="outline" onClick={handlePrintSelected} size="sm" disabled={isBulkLoading}>
+                                {isBulkLoading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Printer className="mr-2 h-4 w-4" />
+                                )}
                                 Print QR ({selectedAssetIds.size})
                             </Button>
                         )}
