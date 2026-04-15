@@ -410,152 +410,6 @@ export default function AssetsClient() {
         XLSX.writeFile(workbook, `Assets_${new Date().toISOString().split("T")[0]}.xlsx`);
     };
 
-    const columns: Column<Asset>[] = [
-        {
-            key: "select",
-            header: (
-                <input
-                    type="checkbox"
-                    checked={
-                        assetsData?.data &&
-                        assetsData.data.length > 0 &&
-                        assetsData.data.every((a) => selectedAssetIds.has(a.id)) &&
-                        (selectedAssetIds.size === assetsData.totalItems || selectedAssetIds.size > 0)
-                    }
-                    onChange={toggleSelectAll}
-                    disabled={isBulkLoading}
-                    className="h-4 w-4 rounded border-gray-300"
-                />
-            ),
-            className: "w-10",
-            cell: (asset) => (
-                <input
-                    type="checkbox"
-                    checked={selectedAssetIds.has(asset.id)}
-                    onChange={() => toggleSelectAsset(asset.id)}
-                    className="h-4 w-4 rounded border-gray-300"
-                />
-            ),
-        },
-        {
-            key: "asset",
-            header: "Asset",
-            cell: (asset) => (
-                <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 rounded-lg">
-                        <AvatarImage src={asset.image_url || undefined} />
-                        <AvatarFallback className="rounded-lg">
-                            <Monitor className="h-5 w-5" />
-                        </AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <p className="font-medium">{asset.name}</p>
-                        <p className="text-xs text-muted-foreground">{asset.asset_code}</p>
-                    </div>
-                </div>
-            ),
-        },
-        {
-            key: "category",
-            header: "Category",
-            cell: (asset) => (
-                <span className="text-muted-foreground">{asset.asset_categories?.name || "-"}</span>
-            ),
-        },
-        {
-            key: "status",
-            header: "Status",
-            cell: (asset) => (
-                <Badge className={statusColors[asset.status]}>
-                    {statusLabels[asset.status]}
-                </Badge>
-            ),
-        },
-        {
-            key: "barcode",
-            header: "Barcode",
-            cell: (asset) => (
-                <Badge variant="outline" className={barcodeStatusColors[asset.barcode_status]}>
-                    <QrCode className="mr-1 h-3 w-3" />
-                    {barcodeStatusLabels[asset.barcode_status]}
-                </Badge>
-            ),
-        },
-        {
-            key: "location",
-            header: "Location",
-            cell: (asset) => (
-                <span className="text-muted-foreground">{asset.locations?.name || "-"}</span>
-            ),
-        },
-        {
-            key: "refresh_cycle",
-            header: "Refresh Cycle",
-            cell: (asset) => {
-                const { yearsRemaining, percentRemaining } = calculateRefreshCycle(
-                    asset.purchase_date,
-                    asset.useful_life_years
-                );
-                const filledBlocks = Math.round(percentRemaining / 10);
-                const emptyBlocks = 10 - filledBlocks;
-                const progressBar = "█".repeat(filledBlocks) + "░".repeat(emptyBlocks);
-
-                return (
-                    <div>
-                        <p className="text-sm font-medium">
-                            {yearsRemaining > 0
-                                ? `${yearsRemaining.toFixed(1)} years left`
-                                : "Needs refresh"}
-                        </p>
-                        <p className="text-xs font-mono text-muted-foreground">
-                            [{progressBar}] {Math.round(percentRemaining)}%
-                        </p>
-                    </div>
-                );
-            },
-        },
-        {
-            key: "actions",
-            header: "",
-            className: "w-12",
-            cell: (asset) => (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleView(asset)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenEdit(asset)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDelete(asset)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleShowQr(asset)}>
-                            <QrCode className="mr-2 h-4 w-4" />
-                            Show QR Code
-                        </DropdownMenuItem>
-                        {asset.barcode_status !== "installed" && (
-                            <DropdownMenuItem onClick={() => handleUpdateBarcodeStatus(asset.id, "installed")}>
-                                <Check className="mr-2 h-4 w-4" />
-                                Mark as Installed
-                            </DropdownMenuItem>
-                        )}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            ),
-        },
-    ];
 
     const handleShowQr = async (asset: Asset) => {
         try {
@@ -731,6 +585,153 @@ export default function AssetsClient() {
             }
         }
     };
+
+    const columns: Column<Asset>[] = [
+        {
+            key: "select",
+            header: (
+                <input
+                    type="checkbox"
+                    checked={
+                        assetsData?.data &&
+                        assetsData.data.length > 0 &&
+                        assetsData.data.every((a) => selectedAssetIds.has(a.id)) &&
+                        (selectedAssetIds.size === assetsData.totalItems || selectedAssetIds.size > 0)
+                    }
+                    onChange={toggleSelectAll}
+                    disabled={isBulkLoading}
+                    className="h-4 w-4 rounded border-gray-300"
+                />
+            ),
+            className: "w-10",
+            cell: (asset) => (
+                <input
+                    type="checkbox"
+                    checked={selectedAssetIds.has(asset.id)}
+                    onChange={() => toggleSelectAsset(asset.id)}
+                    className="h-4 w-4 rounded border-gray-300"
+                />
+            ),
+        },
+        {
+            key: "asset",
+            header: "Asset",
+            cell: (asset) => (
+                <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 rounded-lg">
+                        <AvatarImage src={asset.image_url || undefined} />
+                        <AvatarFallback className="rounded-lg">
+                            <Monitor className="h-5 w-5" />
+                        </AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <p className="font-medium">{asset.name}</p>
+                        <p className="text-xs text-muted-foreground">{asset.asset_code}</p>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: "category",
+            header: "Category",
+            cell: (asset) => (
+                <span className="text-muted-foreground">{asset.asset_categories?.name || "-"}</span>
+            ),
+        },
+        {
+            key: "status",
+            header: "Status",
+            cell: (asset) => (
+                <Badge className={statusColors[asset.status]}>
+                    {statusLabels[asset.status]}
+                </Badge>
+            ),
+        },
+        {
+            key: "barcode",
+            header: "Barcode",
+            cell: (asset) => (
+                <Badge variant="outline" className={barcodeStatusColors[asset.barcode_status]}>
+                    <QrCode className="mr-1 h-3 w-3" />
+                    {barcodeStatusLabels[asset.barcode_status]}
+                </Badge>
+            ),
+        },
+        {
+            key: "location",
+            header: "Location",
+            cell: (asset) => (
+                <span className="text-muted-foreground">{asset.locations?.name || "-"}</span>
+            ),
+        },
+        {
+            key: "refresh_cycle",
+            header: "Refresh Cycle",
+            cell: (asset) => {
+                const { yearsRemaining, percentRemaining } = calculateRefreshCycle(
+                    asset.purchase_date,
+                    asset.useful_life_years
+                );
+                const filledBlocks = Math.round(percentRemaining / 10);
+                const emptyBlocks = 10 - filledBlocks;
+                const progressBar = "\u2588".repeat(filledBlocks) + "\u2591".repeat(emptyBlocks);
+
+                return (
+                    <div>
+                        <p className="text-sm font-medium">
+                            {yearsRemaining > 0
+                                ? `${yearsRemaining.toFixed(1)} years left`
+                                : "Needs refresh"}
+                        </p>
+                        <p className="text-xs font-mono text-muted-foreground">
+                            [{progressBar}] {Math.round(percentRemaining)}%
+                        </p>
+                    </div>
+                );
+            },
+        },
+        {
+            key: "actions",
+            header: "",
+            className: "w-12",
+            cell: (asset) => (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleView(asset)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenEdit(asset)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDelete(asset)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleShowQr(asset)}>
+                            <QrCode className="mr-2 h-4 w-4" />
+                            Show QR Code
+                        </DropdownMenuItem>
+                        {asset.barcode_status !== "installed" && (
+                            <DropdownMenuItem onClick={() => handleUpdateBarcodeStatus(asset.id, "installed")}>
+                                <Check className="mr-2 h-4 w-4" />
+                                Mark as Installed
+                            </DropdownMenuItem>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ),
+        },
+    ];
 
     return (
         <>
