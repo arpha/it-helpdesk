@@ -44,6 +44,7 @@ export default function QRGeneratorPage() {
     const [logo, setLogo] = useState<string | null>(null);
     const [logoId, setLogoId] = useState<string | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const logoImgRef = useRef<HTMLImageElement | null>(null); // cached logo element
     const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
     const [history, setHistory] = useState<CustomQR[]>([]);
     const [logos, setLogosList] = useState<QRLogo[]>([]);
@@ -122,6 +123,17 @@ export default function QRGeneratorPage() {
         toast.info("Siap untuk membuat QR baru");
     };
 
+    // Preload logo image once when logo src changes — avoids reloading every QR generation
+    useEffect(() => {
+        if (!logo) {
+            logoImgRef.current = null;
+            return;
+        }
+        const img = new window.Image();
+        img.onload = () => { logoImgRef.current = img; };
+        img.src = logo;
+    }, [logo]);
+
     useEffect(() => {
         // Debounce generation for better performance
         const timer = setTimeout(() => {
@@ -130,7 +142,7 @@ export default function QRGeneratorPage() {
         return () => clearTimeout(timer);
     }, [text, logo]);
 
-    const generateQR = async () => {
+    const generateQR = () => {
         if (!text) {
             setQrDataUrl(null);
             return;
@@ -219,13 +231,9 @@ export default function QRGeneratorPage() {
             drawEye(startX + (moduleCount - 7) * cellSize, startY); // Top Right
             drawEye(startX, startY + (moduleCount - 7) * cellSize); // Bottom Left
 
-            // 5. Draw Logo
-            if (logo) {
-                const logoImg = new window.Image();
-                logoImg.src = logo;
-                await new Promise((resolve) => {
-                    logoImg.onload = resolve;
-                });
+            // 5. Draw Logo (use cached image element)
+            if (logo && logoImgRef.current) {
+                const logoImg = logoImgRef.current;
 
                 const logoSize = qrSize * 0.25;
                 const center = size / 2;
@@ -242,6 +250,15 @@ export default function QRGeneratorPage() {
                 ctx.clip();
                 ctx.drawImage(logoImg, center - logoSize / 2, center - logoSize / 2, logoSize, logoSize);
                 ctx.restore();
+            } else if (logo && !logoImgRef.current) {
+                // Logo not yet cached, load it once and trigger redraw
+                const logoImg = new window.Image();
+                logoImg.onload = () => {
+                    logoImgRef.current = logoImg;
+                    generateQR();
+                };
+                logoImg.src = logo;
+                return; // wait for onload to redraw
             }
 
             // 6. Text
