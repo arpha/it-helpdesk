@@ -97,28 +97,10 @@ export default function QRGeneratorPage() {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = async (event) => {
+            reader.onload = (event) => {
                 const base64Data = event.target?.result as string;
                 setLogo(base64Data);
-                setLogoId(null); // Reset library selection
-
-                // Prompt to save to library
-                toast.promise(
-                    saveLogo(file.name, base64Data),
-                    {
-                        loading: 'Menyimpan logo ke perpustakaan...',
-                        success: (res) => {
-                            if (res.success && res.data) {
-                                setLogoId(res.data.id);
-                                fetchLogos();
-                                setActiveTab("library");
-                                return 'Logo ditambahkan ke perpustakaan';
-                            }
-                            return 'Gagal menyimpan logo ke perpustakaan';
-                        },
-                        error: 'Gagal menyimpan logo'
-                    }
-                );
+                setLogoId(null); // Will be saved to library when QR is saved
             };
             reader.readAsDataURL(file);
         }
@@ -310,15 +292,16 @@ export default function QRGeneratorPage() {
 
         setIsSaving(true);
         let finalLogoId = logoId;
+        let finalLogoData = finalLogoId ? null : logo;
 
-        // If we have a logo but no ID (not in library yet), save it now
+        // If we have a logo but no ID yet (not in library), save it first
         if (logo && !finalLogoId) {
             const logoRes = await saveLogo(`Logo for ${name}`, logo);
             if (logoRes.success && logoRes.data) {
                 finalLogoId = logoRes.data.id;
+                finalLogoData = null;
                 setLogoId(finalLogoId);
                 fetchLogos();
-                toast.success("Logo juga disimpan ke perpustakaan");
             }
         }
 
@@ -327,13 +310,34 @@ export default function QRGeneratorPage() {
             name,
             content: text,
             logo_id: finalLogoId,
-            logo_data: finalLogoId ? null : logo
+            logo_data: finalLogoData
         });
 
         if (res.success) {
             toast.success(editingId ? "QR Code diperbarui" : "QR Code disimpan");
-            setEditingId(res.data.id);
-            fetchHistory();
+            const savedId = res.data.id;
+            setEditingId(savedId);
+
+            // Optimistic update: insert or update item directly in local state
+            const newItem: CustomQR = {
+                id: savedId,
+                name,
+                content: text,
+                logo_data: logo,
+                logo_id: finalLogoId,
+                created_at: res.data.created_at || new Date().toISOString(),
+                created_by: res.data.created_by || null,
+            };
+
+            setHistory(prev => {
+                if (editingId) {
+                    // Update existing entry in place
+                    return prev.map(item => item.id === editingId ? newItem : item);
+                } else {
+                    // Prepend new entry
+                    return [newItem, ...prev];
+                }
+            });
         } else {
             toast.error("Gagal menyimpan: " + res.error);
         }

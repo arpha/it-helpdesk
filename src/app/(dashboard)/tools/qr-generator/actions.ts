@@ -110,31 +110,18 @@ export async function getQRCodes(params?: {
 
     if (!user) return { success: false, error: "Unauthorized" };
 
-    // Fetch user role
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-    const role = profile?.role || "user";
-
     const page = params?.page || 1;
     const pageSize = params?.pageSize || 10;
     const start = (page - 1) * pageSize;
     const end = start + pageSize - 1;
 
+    // RLS handles row-level security; admin sees all, user sees own
     let query = supabase
         .from("custom_qrs")
         .select(`
             *,
             qr_logos (data)
         `, { count: "exact" });
-
-    // Apply role-based filtering
-    if (role === "user") {
-        query = query.eq("created_by", user.id);
-    }
 
     if (params?.search) {
         query = query.or(`name.ilike.%${params.search}%,content.ilike.%${params.search}%`);
@@ -150,7 +137,7 @@ export async function getQRCodes(params?: {
     }
 
     // Map logo_id data back to logo_data if present
-    const mappedData = data.map((qr: any) => {
+    const mappedData = (data ?? []).map((qr: any) => {
         const logoData = Array.isArray(qr.qr_logos)
             ? qr.qr_logos[0]?.data
             : qr.qr_logos?.data;
@@ -177,23 +164,11 @@ export async function deleteQRCode(id: string) {
 
     if (!user) return { success: false, error: "Unauthorized" };
 
-    // Fetch user role
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-    const role = profile?.role || "user";
-
-    let query = supabase.from("custom_qrs").delete().eq("id", id);
-
-    // Apply ownership check for "user" role
-    if (role === "user") {
-        query = query.eq("created_by", user.id);
-    }
-
-    const { error } = await query;
+    // RLS handles ownership; just delete by id (user can only delete their own)
+    const { error } = await supabase
+        .from("custom_qrs")
+        .delete()
+        .eq("id", id);
 
     if (error) {
         console.error("Error deleting QR:", error);
