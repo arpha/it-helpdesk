@@ -9,7 +9,6 @@ import {
     Package,
     AlertTriangle,
     ClipboardList,
-    TrendingUp,
     Monitor,
     Wrench,
     HandCoins,
@@ -79,12 +78,6 @@ async function getDashboardStats() {
         .order("created_at", { ascending: false })
         .limit(5);
 
-    // Urgent restock
-    const { count: urgentRestock } = await supabase
-        .from("atk_predictions")
-        .select("*", { count: "exact", head: true })
-        .lte("days_until_min_stock", 14);
-
     return {
         userCount: userCount || 0,
         openTickets: openTickets || 0,
@@ -99,7 +92,6 @@ async function getDashboardStats() {
         pendingRequests: pendingRequests || 0,
         pendingBorrowings: pendingBorrowings || 0,
         pendingDistributions: pendingDistributions || 0,
-        urgentRestock: urgentRestock || 0,
         recentTickets: recentTickets || [],
         recentBorrowings: recentBorrowings || [],
     };
@@ -350,20 +342,6 @@ export default async function DashboardPage() {
                             </div>
                             <Link href="/atk/requests" className="text-xs text-muted-foreground hover:underline">
                                 View requests →
-                            </Link>
-                        </CardContent>
-                    </Card>
-                    <Card className={stats.urgentRestock > 0 ? "border-orange-500/50 bg-orange-500/5" : ""}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Urgent Restock</CardTitle>
-                            <TrendingUp className={`h-4 w-4 ${stats.urgentRestock > 0 ? "text-orange-500" : "text-muted-foreground"}`} />
-                        </CardHeader>
-                        <CardContent>
-                            <div className={`text-2xl font-bold ${stats.urgentRestock > 0 ? "text-orange-500" : ""}`}>
-                                {stats.urgentRestock}
-                            </div>
-                            <Link href="/atk/predictions" className="text-xs text-muted-foreground hover:underline">
-                                View AI predictions →
                             </Link>
                         </CardContent>
                     </Card>

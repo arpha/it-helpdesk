@@ -18,7 +18,6 @@ import {
     ShoppingCart,
     PackagePlus,
     PackageMinus,
-    TrendingUp,
     BarChart3,
     FileText,
     Activity,
@@ -144,11 +143,6 @@ const menuGroups: MenuGroup[] = [
                 title: "Reports",
                 href: "/atk/reports",
                 icon: BarChart3,
-            },
-            {
-                title: "AI Predictions",
-                href: "/atk/predictions",
-                icon: TrendingUp,
             },
             {
                 title: "Reorder",
