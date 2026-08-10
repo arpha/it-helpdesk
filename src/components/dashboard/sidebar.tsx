@@ -151,11 +151,6 @@ const menuGroups: MenuGroup[] = [
                 icon: BarChart3,
             },
             {
-                title: "Health",
-                href: "/atk/health",
-                icon: Activity,
-            },
-            {
                 title: "Stock Opname",
                 href: "/atk/stock-opname",
                 icon: ClipboardCheck,
