@@ -25,6 +25,7 @@ import {
     QrCode,
     Fingerprint,
     BookOpen,
+    ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -123,6 +124,11 @@ const menuGroups: MenuGroup[] = [
                 title: "Fingerprint",
                 href: "/master/fingerprints",
                 icon: Fingerprint,
+            },
+            {
+                title: "Logbook Server",
+                href: "/master/server-logbook",
+                icon: ShieldCheck,
             },
         ],
     },
