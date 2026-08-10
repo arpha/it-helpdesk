@@ -17,10 +17,7 @@ export async function getSOPDocuments(params?: SOPFilterParams) {
 
     let query = supabase
         .from("sop_documents")
-        .select(`
-            *,
-            profiles:created_by (full_name, email)
-        `, { count: "exact" });
+        .select("*", { count: "exact" });
 
     if (params?.search) {
         query = query.or(`title.ilike.%${params.search}%,document_number.ilike.%${params.search}%,description.ilike.%${params.search}%`);
