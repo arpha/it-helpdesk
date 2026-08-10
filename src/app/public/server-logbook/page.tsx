@@ -65,9 +65,10 @@ export default function PublicServerLogbookPage() {
         try {
             const res = await getActiveLogById(logId);
             if (res.success && res.data) {
-                setActiveLogId(res.data.id);
-                setCheckInTime(new Date(res.data.check_in_time));
+                const parsedTime = new Date(res.data.check_in_time);
+                setCheckInTime(isNaN(parsedTime.getTime()) ? new Date() : parsedTime);
                 setVisitorName(res.data.visitor_name);
+                setActiveLogId(res.data.id);
             } else {
                 // Session is completed or deleted, reset state and localStorage
                 localStorage.removeItem("active_server_log_id");
@@ -116,9 +117,14 @@ export default function PublicServerLogbookPage() {
 
             if (res.success && res.data) {
                 toast.success("Check-In Berhasil! Silakan masuk.");
-                setActiveLogId(res.data.id);
-                setCheckInTime(new Date(res.data.check_in_time));
                 localStorage.setItem("active_server_log_id", res.data.id);
+                
+                // Parse date securely
+                const parsedTime = new Date(res.data.check_in_time);
+                setCheckInTime(isNaN(parsedTime.getTime()) ? new Date() : parsedTime);
+                
+                setVisitorName(res.data.visitor_name);
+                setActiveLogId(res.data.id);
             } else {
                 toast.error(res.error || "Gagal melakukan Check-In");
             }
