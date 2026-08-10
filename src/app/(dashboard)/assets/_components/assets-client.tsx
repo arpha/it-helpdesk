@@ -854,16 +854,61 @@ export default function AssetsClient() {
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Assigned To</span>
-                                    <p className="font-medium">{selectedAsset.profiles?.full_name || "-"}</p>
+                                    <p className="font-medium">{selectedAsset.profiles?.full_name || selectedAsset.profiles?.username || "-"}</p>
                                 </div>
                                 <div>
                                     <span className="text-muted-foreground">Location</span>
                                     <p className="font-medium">{selectedAsset.locations?.name || "-"}</p>
                                 </div>
+                                <div>
+                                    <span className="text-muted-foreground">Ownership Status</span>
+                                    <p className="font-medium capitalize">
+                                        {selectedAsset.ownership_status === "purchase" ? "Beli (Purchase)" : selectedAsset.ownership_status === "rent" ? "Sewa (Rent)" : selectedAsset.ownership_status || "-"}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-muted-foreground">Barcode Status</span>
+                                    <div className="mt-0.5">
+                                        <Badge variant="outline" className={barcodeStatusColors[selectedAsset.barcode_status] || ""}>
+                                            {barcodeStatusLabels[selectedAsset.barcode_status] || selectedAsset.barcode_status}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-muted-foreground">Bisa Dipinjam</span>
+                                    <p className="font-medium">
+                                        {selectedAsset.is_borrowable ? "Ya (Bisa Dipinjam)" : "Tidak"}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-muted-foreground">Tanggal Dibuat</span>
+                                    <p className="font-medium">
+                                        {selectedAsset.created_at
+                                            ? new Date(selectedAsset.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+                                            : "-"}
+                                    </p>
+                                </div>
                             </div>
 
+                            {/* Dynamic Specifications */}
+                            {selectedAsset.specifications && Object.keys(selectedAsset.specifications).length > 0 && (
+                                <div className="border-t pt-4">
+                                    <h4 className="font-semibold mb-2 text-sm">Spesifikasi Teknis</h4>
+                                    <div className="grid grid-cols-2 gap-3 text-sm bg-muted/30 p-3 rounded-lg border">
+                                        {Object.entries(selectedAsset.specifications).map(([key, val]) => (
+                                            val ? (
+                                                <div key={key}>
+                                                    <span className="text-xs text-muted-foreground capitalize">{key.replace(/_/g, " ")}</span>
+                                                    <p className="font-medium text-xs">{val}</p>
+                                                </div>
+                                            ) : null
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="border-t pt-4">
-                                <h4 className="font-semibold mb-2">Financial Info</h4>
+                                <h4 className="font-semibold mb-2 text-sm">Financial Info</h4>
                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                     <div>
                                         <span className="text-muted-foreground">Purchase Date</span>
@@ -910,8 +955,8 @@ export default function AssetsClient() {
 
                             {selectedAsset.notes && (
                                 <div className="border-t pt-4">
-                                    <span className="text-muted-foreground text-sm">Notes</span>
-                                    <p className="mt-1">{selectedAsset.notes}</p>
+                                    <span className="text-muted-foreground text-sm font-semibold">Notes / Catatan</span>
+                                    <p className="mt-1 text-sm bg-muted/40 p-2.5 rounded border">{selectedAsset.notes}</p>
                                 </div>
                             )}
                         </div>
