@@ -94,17 +94,42 @@ export default function QRGeneratorPage() {
         }
     };
 
-    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const base64Data = event.target?.result as string;
-                setLogo(base64Data);
-                setLogoId(null); // Will be saved to library when QR is saved
+        if (!file) return;
+
+        const originalSizeKB = (file.size / 1024).toFixed(0);
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const raw = event.target?.result as string;
+
+            // Auto-compress: resize to max 300x300 and encode as JPEG 80%
+            const img = new window.Image();
+            img.onload = () => {
+                const MAX = 300;
+                const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+                const w = Math.round(img.width * scale);
+                const h = Math.round(img.height * scale);
+
+                const offscreen = document.createElement("canvas");
+                offscreen.width = w;
+                offscreen.height = h;
+                const ctx = offscreen.getContext("2d")!;
+                ctx.drawImage(img, 0, 0, w, h);
+                const compressed = offscreen.toDataURL("image/jpeg", 0.8);
+
+                const compressedSizeKB = Math.round((compressed.length * 0.75) / 1024);
+                if (file.size > 100 * 1024) {
+                    toast.success(`Logo dikompres: ${originalSizeKB}KB → ${compressedSizeKB}KB`);
+                }
+
+                setLogo(compressed);
+                setLogoId(null);
             };
-            reader.readAsDataURL(file);
-        }
+            img.src = raw;
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleSelectLogo = (l: QRLogo) => {
