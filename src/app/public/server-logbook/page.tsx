@@ -69,8 +69,11 @@ export default function PublicServerLogbookPage() {
                 setCheckInTime(new Date(res.data.check_in_time));
                 setVisitorName(res.data.visitor_name);
             } else {
-                // If not found active on db, clear local storage
+                // Session is completed or deleted, reset state and localStorage
                 localStorage.removeItem("active_server_log_id");
+                setActiveLogId(null);
+                setCheckInTime(null);
+                setVisitorName("");
             }
         } catch (e) {
             console.error(e);
@@ -78,6 +81,17 @@ export default function PublicServerLogbookPage() {
             setIsLoadingSession(false);
         }
     };
+
+    // Poll server room log status every 5 seconds when session is active
+    useEffect(() => {
+        if (!activeLogId) return;
+
+        const interval = setInterval(() => {
+            verifyActiveSession(activeLogId);
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [activeLogId]);
 
     const handleCheckIn = async (e: React.FormEvent) => {
         e.preventDefault();
