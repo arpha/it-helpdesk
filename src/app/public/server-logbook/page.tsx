@@ -82,16 +82,7 @@ export default function PublicServerLogbookPage() {
         }
     };
 
-    // Poll server room log status every 5 seconds when session is active
-    useEffect(() => {
-        if (!activeLogId) return;
-
-        const interval = setInterval(() => {
-            verifyActiveSession(activeLogId);
-        }, 5000);
-
-        return () => clearInterval(interval);
-    }, [activeLogId]);
+    // Verification is only done once on page load
 
     const handleCheckIn = async (e: React.FormEvent) => {
         e.preventDefault();
