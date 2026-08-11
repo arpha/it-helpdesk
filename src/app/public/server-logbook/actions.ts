@@ -151,3 +151,47 @@ export async function deleteServerRoomLog(id: string) {
     revalidatePath("/master/server-logbook");
     return { success: true };
 }
+
+export async function addManualServerRoomLog(data: {
+    visitor_name: string;
+    visitor_type: string;
+    company_or_unit?: string;
+    purpose: string;
+    temperature?: number;
+    check_in_time: string;
+    check_out_time?: string;
+    notes?: string;
+}) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const status = data.check_out_time ? "completed" : "active";
+
+    const insertData = {
+        visitor_name: data.visitor_name,
+        visitor_type: data.visitor_type,
+        company_or_unit: data.company_or_unit || null,
+        purpose: data.purpose,
+        temperature: data.temperature || null,
+        check_in_time: data.check_in_time,
+        check_out_time: data.check_out_time || null,
+        status: status,
+        notes: data.notes || null,
+    };
+
+    const { data: log, error } = await supabase
+        .from("server_room_logs")
+        .insert([insertData])
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error adding manual log:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/master/server-logbook");
+    return { success: true, data: log as ServerRoomLog };
+}

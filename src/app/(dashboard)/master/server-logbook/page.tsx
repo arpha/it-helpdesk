@@ -53,7 +53,7 @@ import {
     FileSpreadsheet,
     QrCode
 } from "lucide-react";
-import { getServerRoomLogs, deleteServerRoomLog } from "@/app/public/server-logbook/actions";
+import { getServerRoomLogs, deleteServerRoomLog, addManualServerRoomLog } from "@/app/public/server-logbook/actions";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
@@ -93,6 +93,18 @@ export default function AdminServerLogbookPage() {
     const [qrDialogOpen, setQrDialogOpen] = useState(false);
     const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    // Manual Entry Form states
+    const [manualDialogOpen, setManualDialogOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [visitorName, setVisitorName] = useState("");
+    const [visitorType, setVisitorType] = useState<VisitorType>("internal_it");
+    const [companyOrUnit, setCompanyOrUnit] = useState("");
+    const [purpose, setPurpose] = useState("");
+    const [temperature, setTemperature] = useState("");
+    const [checkInTime, setCheckInTime] = useState("");
+    const [checkOutTime, setCheckOutTime] = useState("");
+    const [notes, setNotes] = useState("");
 
     const fetchLogs = async (p = page, q = searchQuery, vis = visitorFilter, stat = statusFilter) => {
         setIsLoading(true);
@@ -147,6 +159,68 @@ export default function AdminServerLogbookPage() {
             fetchLogs();
         } else {
             toast.error("Gagal menghapus catatan: " + res.error);
+        }
+    };
+
+    const handleOpenManualDialog = () => {
+        setVisitorName("");
+        setVisitorType("internal_it");
+        setCompanyOrUnit("");
+        setPurpose("");
+        setTemperature("");
+        
+        // Auto fill local check-in time format yyyy-MM-ddThh:mm
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now.getTime() - offset)).toISOString().slice(0, 16);
+        setCheckInTime(localISOTime);
+        setCheckOutTime("");
+        setNotes("");
+        setManualDialogOpen(true);
+    };
+
+    const handleSaveManualLog = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (!visitorName.trim()) {
+            toast.error("Nama pengunjung wajib diisi");
+            return;
+        }
+        if (!purpose.trim()) {
+            toast.error("Tujuan akses wajib diisi");
+            return;
+        }
+        if (!checkInTime) {
+            toast.error("Waktu masuk wajib diisi");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const tempVal = temperature.trim() ? parseFloat(temperature) : undefined;
+            const res = await addManualServerRoomLog({
+                visitor_name: visitorName,
+                visitor_type: visitorType,
+                company_or_unit: companyOrUnit,
+                purpose: purpose,
+                temperature: tempVal,
+                check_in_time: new Date(checkInTime).toISOString(),
+                check_out_time: checkOutTime ? new Date(checkOutTime).toISOString() : undefined,
+                notes: notes
+            });
+
+            if (res.success) {
+                toast.success("Catatan manual berhasil disimpan");
+                setManualDialogOpen(false);
+                fetchLogs();
+            } else {
+                toast.error(res.error || "Gagal menyimpan log manual");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Terjadi kesalahan koneksi");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -271,7 +345,11 @@ export default function AdminServerLogbookPage() {
                     </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    <Button onClick={handleOpenManualDialog}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Tambah Log Manual
+                    </Button>
                     <Button variant="outline" onClick={generateQRLabel}>
                         <QrCode className="h-4 w-4 mr-2" />
                         Cetak QR Pintu
@@ -504,6 +582,123 @@ export default function AdminServerLogbookPage() {
                     </div>
                 )}
             </Card>
+
+            {/* Manual Entry Dialog */}
+            <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Tambah Logbook Manual</DialogTitle>
+                        <DialogDescription>
+                            Input data kunjungan ruang server secara manual untuk keperluan pencatatan audit.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleSaveManualLog} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="visitor_name">Nama Pengunjung <span className="text-destructive">*</span></Label>
+                            <Input
+                                id="visitor_name"
+                                value={visitorName}
+                                onChange={(e) => setVisitorName(e.target.value)}
+                                placeholder="Nama lengkap pengunjung..."
+                                required
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Tipe Pengunjung</Label>
+                                <Select value={visitorType} onValueChange={(val) => setVisitorType(val as VisitorType)}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="internal_it">Petugas IT</SelectItem>
+                                        <SelectItem value="vendor">Vendor Luar</SelectItem>
+                                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                                        <SelectItem value="other">Lainnya</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="unit">Instansi / Unit</Label>
+                                <Input
+                                    id="unit"
+                                    value={companyOrUnit}
+                                    onChange={(e) => setCompanyOrUnit(e.target.value)}
+                                    placeholder="SIMRS / CV. Tech"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="purpose">Tujuan Akses <span className="text-destructive">*</span></Label>
+                                <Input
+                                    id="purpose"
+                                    value={purpose}
+                                    onChange={(e) => setPurpose(e.target.value)}
+                                    placeholder="Misal: Perbaikan UPS"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="temp">Suhu Ruangan (°C)</Label>
+                                <Input
+                                    id="temp"
+                                    type="number"
+                                    step="0.1"
+                                    value={temperature}
+                                    onChange={(e) => setTemperature(e.target.value)}
+                                    placeholder="Misal: 20.5"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="in_time">Waktu Masuk <span className="text-destructive">*</span></Label>
+                                <Input
+                                    id="in_time"
+                                    type="datetime-local"
+                                    value={checkInTime}
+                                    onChange={(e) => setCheckInTime(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="out_time">Waktu Keluar (Opsional)</Label>
+                                <Input
+                                    id="out_time"
+                                    type="datetime-local"
+                                    value={checkOutTime}
+                                    onChange={(e) => setCheckOutTime(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="notes">Keterangan / Catatan</Label>
+                            <Textarea
+                                id="notes"
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Tambahan catatan khusus..."
+                                rows={2}
+                            />
+                        </div>
+
+                        <DialogFooter className="pt-2">
+                            <Button type="button" variant="outline" onClick={() => setManualDialogOpen(false)} disabled={isSubmitting}>
+                                Batal
+                            </Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? "Menyimpan..." : "Simpan Catatan"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             {/* Print QR Code Pintu Dialog */}
             <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
