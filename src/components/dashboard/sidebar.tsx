@@ -99,11 +99,6 @@ const menuGroups: MenuGroup[] = [
                 href: "/tools/convert",
                 icon: FileText,
             },
-            {
-                title: "SOP & Pedoman",
-                href: "/sop",
-                icon: BookOpen,
-            },
         ],
     },
     {
@@ -129,6 +124,11 @@ const menuGroups: MenuGroup[] = [
                 title: "Logbook Server",
                 href: "/master/server-logbook",
                 icon: ShieldCheck,
+            },
+            {
+                title: "SOP & Pedoman",
+                href: "/sop",
+                icon: BookOpen,
             },
         ],
     },
