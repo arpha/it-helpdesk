@@ -168,6 +168,7 @@ export default function AssetsClient() {
     const [formAssignedTo, setFormAssignedTo] = useState("");
     const [userPopoverOpen, setUserPopoverOpen] = useState(false);
     const [locationPopoverOpen, setLocationPopoverOpen] = useState(false);
+    const [categoryPopoverOpen, setCategoryPopoverOpen] = useState(false);
     const [formNotes, setFormNotes] = useState("");
     const [formSpecifications, setFormSpecifications] = useState<Record<string, string>>({});
     const [formImageFile, setFormImageFile] = useState<File | null>(null);
@@ -996,18 +997,59 @@ export default function AssetsClient() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Category</Label>
-                                <Select value={formCategoryId} onValueChange={setFormCategoryId}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categories?.map((cat) => (
-                                            <SelectItem key={cat.id} value={cat.id}>
-                                                {cat.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Popover open={categoryPopoverOpen} onOpenChange={setCategoryPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={categoryPopoverOpen}
+                                            className="w-full justify-between font-normal"
+                                        >
+                                            {formCategoryId
+                                                ? categories?.find((c) => c.id === formCategoryId)?.name ||
+                                                "Selected Category"
+                                                : "Select category..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0" align="start">
+                                        <Command>
+                                            <CommandInput placeholder="Search category..." />
+                                            <CommandList className="max-h-48 overflow-y-auto touch-pan-y overscroll-contain">
+                                                <CommandEmpty>No category found.</CommandEmpty>
+                                                <CommandGroup>
+                                                    <CommandItem
+                                                        value="__none__"
+                                                        onSelect={() => {
+                                                            setFormCategoryId("");
+                                                            setCategoryPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={`mr-2 h-4 w-4 ${formCategoryId === "" ? "opacity-100" : "opacity-0"}`}
+                                                        />
+                                                        None
+                                                    </CommandItem>
+                                                    {categories?.map((cat) => (
+                                                        <CommandItem
+                                                            key={cat.id}
+                                                            value={cat.name}
+                                                            onSelect={() => {
+                                                                setFormCategoryId(cat.id);
+                                                                setCategoryPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={`mr-2 h-4 w-4 ${formCategoryId === cat.id ? "opacity-100" : "opacity-0"}`}
+                                                            />
+                                                            {cat.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                         </div>
 
