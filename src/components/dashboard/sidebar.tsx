@@ -72,6 +72,11 @@ const menuItems: MenuItem[] = [
         href: "/dashboard",
         icon: LayoutDashboard,
     },
+    {
+        title: "SOP & Pedoman",
+        href: "/sop",
+        icon: BookOpen,
+    },
 ];
 
 const menuGroups: MenuGroup[] = [
@@ -124,11 +129,6 @@ const menuGroups: MenuGroup[] = [
                 title: "Logbook Server",
                 href: "/master/server-logbook",
                 icon: ShieldCheck,
-            },
-            {
-                title: "SOP & Pedoman",
-                href: "/sop",
-                icon: BookOpen,
             },
         ],
     },
@@ -241,7 +241,7 @@ export function Sidebar() {
     const filteredMenuItems = menuItems.filter(item => {
         if (role === "admin") return true;
         if (role === "user") {
-            return item.href === "/dashboard";
+            return item.href === "/dashboard" || item.href === "/sop";
         }
         return true; // Default for staff_it and manager_it
     });
