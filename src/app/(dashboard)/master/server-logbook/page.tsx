@@ -51,7 +51,8 @@ import {
     ChevronLeft,
     ChevronRight,
     FileSpreadsheet,
-    QrCode
+    QrCode,
+    Plus
 } from "lucide-react";
 import { getServerRoomLogs, deleteServerRoomLog, addManualServerRoomLog } from "@/app/public/server-logbook/actions";
 import { toast } from "sonner";
