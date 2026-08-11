@@ -185,6 +185,14 @@ export function SOPDialog({ open, onOpenChange, documentToEdit, onSuccess }: SOP
                                             e.target.value = "";
                                             return;
                                         }
+                                        // Limit to 4 MB max due to serverless payload limits
+                                        const maxBytes = 4 * 1024 * 1024;
+                                        if (file.size > maxBytes) {
+                                            toast.error("Ukuran file PDF terlalu besar. Batas maksimal adalah 4 MB.");
+                                            e.target.value = "";
+                                            setSelectedFile(null);
+                                            return;
+                                        }
                                         setSelectedFile(file);
                                     }
                                 }}
