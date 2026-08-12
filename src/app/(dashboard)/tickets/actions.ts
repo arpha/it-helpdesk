@@ -23,6 +23,7 @@ type UpdateTicketInput = {
     status?: string;
     assigned_to?: string;
     asset_id?: string;
+    requester_id?: string;
 };
 
 type CompleteTicketInput = {
@@ -189,6 +190,7 @@ export async function updateTicket(input: UpdateTicketInput): Promise<ActionResu
         if (input.status) updateData.status = input.status;
         if (input.assigned_to) updateData.assigned_to = input.assigned_to;
         if (input.asset_id !== undefined) updateData.asset_id = input.asset_id || null;
+        if (input.requester_id !== undefined) updateData.requester_id = input.requester_id || null;
 
         const { error } = await supabase
             .from("tickets")

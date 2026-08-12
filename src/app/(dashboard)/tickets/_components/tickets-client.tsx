@@ -219,6 +219,7 @@ export function TicketsClient() {
                 category: formCategory,
                 priority: formPriority,
                 asset_id: formAssetId || undefined,
+                requester_id: formRequester || undefined,
             });
 
             if (result.success) {
@@ -660,6 +661,53 @@ export function TicketsClient() {
                                 rows={3}
                             />
                         </div>
+                        {isStaff && (
+                            <div className="space-y-2">
+                                <Label>Requester / Pelapor (optional)</Label>
+                                <Popover open={requesterPopoverOpen} onOpenChange={setRequesterPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={requesterPopoverOpen}
+                                            className="w-full justify-between font-normal"
+                                        >
+                                            {formRequester ? (
+                                                allUsersData?.data?.find((u) => u.id === formRequester)?.full_name || "Unknown"
+                                            ) : (
+                                                <span className="text-muted-foreground">Select requester...</span>
+                                            )}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[400px] p-0" align="start" side="bottom" sideOffset={8} avoidCollisions={true}>
+                                        <Command shouldFilter={true}>
+                                            <CommandInput placeholder="Search requester..." className="h-9" />
+                                            <CommandList className="max-h-[200px]">
+                                                <CommandEmpty>User tidak ditemukan.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {allUsersData?.data?.map((u) => (
+                                                        <CommandItem
+                                                            key={u.id}
+                                                            value={u.full_name || u.username || ""}
+                                                            onSelect={() => {
+                                                                setFormRequester(u.id === formRequester ? "" : u.id);
+                                                                setRequesterPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={`mr-2 h-4 w-4 ${formRequester === u.id ? "opacity-100" : "opacity-0"}`}
+                                                            />
+                                                            <span>{u.full_name || u.username}</span>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Category</Label>
