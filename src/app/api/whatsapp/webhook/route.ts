@@ -34,6 +34,42 @@ function cleanupOldConversations() {
     }
 }
 
+// Helper to determine if technician WA notification should be sent based on Jakarta (WIB) local time
+export function shouldSendTechnicianNotification(date: Date = new Date()): boolean {
+    const formatter = new Intl.DateTimeFormat("id-ID", {
+        timeZone: "Asia/Jakarta",
+        hour: "numeric",
+        minute: "numeric",
+        weekday: "short"
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const partMap = new Map(parts.map(p => [p.type, p.value]));
+    
+    const weekday = partMap.get("weekday"); // "Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"
+    const hour = parseInt(partMap.get("hour") || "0", 10);
+    const minute = parseInt(partMap.get("minute") || "0", 10);
+    
+    const currentTimeInMinutes = hour * 60 + minute;
+
+    // Minggu: 24 jam penuh
+    if (weekday === "Min") {
+        return true;
+    }
+
+    // Sabtu: 00.00-08.00 wib dan 13.00-23.59 wib
+    if (weekday === "Sab") {
+        const morningEnd = 8 * 60; // 08:00
+        const afternoonStart = 13 * 60; // 13:00
+        return currentTimeInMinutes < morningEnd || currentTimeInMinutes >= afternoonStart;
+    }
+
+    // Senin - Jumat: 00.00-08.00 wib dan 14.00-23.59 wib
+    const morningEnd = 8 * 60; // 08:00
+    const afternoonStart = 14 * 60; // 14:00
+    return currentTimeInMinutes < morningEnd || currentTimeInMinutes >= afternoonStart;
+}
+
 const CATEGORIES = ["hardware", "software", "data", "network"];
 const PRIORITIES = ["low", "medium", "high", "urgent"];
 
@@ -369,10 +405,13 @@ Aduan Anda telah terdaftar di IT Helpdesk.${assigneeId ? "\n✅ Tiket sudah ditu
 
             console.log("Fonnte send result:", JSON.stringify(sendResult));
 
-            // 5. Send notification to assigned technician's private WhatsApp
+            // 5. Send notification to assigned technician's private WhatsApp (only during scheduled hours)
             if (assigneeId) {
-                try {
-                    const { data: assignee } = await supabase
+                if (!shouldSendTechnicianNotification()) {
+                    console.log("Technician notification skipped: outside scheduled notification hours.");
+                } else {
+                    try {
+                        const { data: assignee } = await supabase
                         .from("profiles")
                         .select("full_name, whatsapp_phone")
                         .eq("id", assigneeId)
@@ -399,6 +438,7 @@ Silakan login ke IT Helpdesk untuk menindaklanjuti.`;
                 } catch (techNotifyErr) {
                     console.error("Error sending notification to technician:", techNotifyErr);
                 }
+               }
             }
 
             return NextResponse.json({ status: "group_ticket_created", ticketId: newTicket.id, sendResult });
