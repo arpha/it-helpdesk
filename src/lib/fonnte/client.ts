@@ -131,3 +131,123 @@ export function parseFonnteWebhook(body: unknown): FonnteWebhookPayload | null {
 }
 
 export type { SendMessageParams, SendMessageResponse, FonnteWebhookPayload };
+
+// In-memory cache for group ID mapping (LID -> real group ID)
+const groupIdCache = new Map<string, string>();
+let groupCacheTimestamp = 0;
+const GROUP_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Fetch/sync WhatsApp groups from Fonnte
+ */
+export async function fetchGroups(): Promise<boolean> {
+    const apiKey = process.env.FONNTE_API_KEY;
+    if (!apiKey) return false;
+
+    try {
+        const response = await fetch(`${FONNTE_BASE_URL}/fetch-group`, {
+            method: "POST",
+            headers: { Authorization: apiKey },
+        });
+        const data = await response.json();
+        console.log("Fonnte fetch-group result:", JSON.stringify(data));
+        return data.status === true;
+    } catch (error) {
+        console.error("Fonnte fetch-group error:", error);
+        return false;
+    }
+}
+
+/**
+ * Get list of WhatsApp groups with their IDs
+ */
+export async function getWhatsAppGroups(): Promise<{ id: string; name: string }[]> {
+    const apiKey = process.env.FONNTE_API_KEY;
+    if (!apiKey) return [];
+
+    try {
+        const response = await fetch(`${FONNTE_BASE_URL}/get-whatsapp-group`, {
+            method: "POST",
+            headers: { Authorization: apiKey },
+        });
+        const data = await response.json();
+        console.log("Fonnte get-whatsapp-group count:", Array.isArray(data) ? data.length : "not array");
+        
+        if (Array.isArray(data)) {
+            return data.map((g: { id: string; name: string }) => ({
+                id: g.id,
+                name: g.name,
+            }));
+        }
+        
+        // Some Fonnte responses wrap in { data: [...] }
+        if (data.data && Array.isArray(data.data)) {
+            return data.data.map((g: { id: string; name: string }) => ({
+                id: g.id,
+                name: g.name,
+            }));
+        }
+
+        console.log("Fonnte get-whatsapp-group full response:", JSON.stringify(data));
+        return [];
+    } catch (error) {
+        console.error("Fonnte get-whatsapp-group error:", error);
+        return [];
+    }
+}
+
+/**
+ * Resolve a group sender ID (possibly LID format) to a valid Fonnte group ID.
+ * Falls back to the member's phone number if group ID cannot be resolved.
+ */
+export async function resolveGroupTarget(senderGroupId: string, memberPhone?: string): Promise<string> {
+    // If sender already contains a dash (standard format), use it directly
+    if (senderGroupId.includes("-") && senderGroupId.includes("@g.us")) {
+        return senderGroupId;
+    }
+
+    // Check cache first
+    if (groupIdCache.has(senderGroupId) && (Date.now() - groupCacheTimestamp) < GROUP_CACHE_TTL) {
+        console.log("Using cached group ID for:", senderGroupId, "->", groupIdCache.get(senderGroupId));
+        return groupIdCache.get(senderGroupId)!;
+    }
+
+    // Sync groups then get list
+    console.log("Syncing Fonnte groups to resolve LID:", senderGroupId);
+    await fetchGroups();
+    
+    // Wait a moment for sync to complete
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const groups = await getWhatsAppGroups();
+    groupCacheTimestamp = Date.now();
+
+    // Cache all group IDs
+    for (const group of groups) {
+        console.log("Found group:", group.name, "->", group.id);
+        groupIdCache.set(group.id, group.id);
+    }
+
+    // Try to find a matching group
+    if (groupIdCache.has(senderGroupId)) {
+        return groupIdCache.get(senderGroupId)!;
+    }
+
+    // If we have groups, try to find one - for LID format we just pick the first matching @g.us group
+    // since we can't directly map LID to standard format
+    for (const group of groups) {
+        if (group.id.includes("@g.us") && group.id.includes("-")) {
+            console.log("Resolved LID", senderGroupId, "to group:", group.name, "->", group.id);
+            groupIdCache.set(senderGroupId, group.id);
+            return group.id;
+        }
+    }
+
+    // Fallback: send to member's phone number directly
+    if (memberPhone) {
+        console.log("Could not resolve group ID, falling back to member phone:", memberPhone);
+        return memberPhone;
+    }
+
+    return senderGroupId;
+}

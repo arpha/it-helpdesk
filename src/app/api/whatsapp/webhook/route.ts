@@ -4,6 +4,7 @@ import {
     parseFonnteWebhook,
     sendWhatsAppMessage,
     formatPhoneNumber,
+    resolveGroupTarget,
 } from "@/lib/fonnte/client";
 
 // In-memory conversation state (use Redis in production for multi-instance)
@@ -242,11 +243,13 @@ export async function POST(request: NextRequest) {
 
 Aduan Anda telah terdaftar di IT Helpdesk.${assigneeId ? "\n✅ Tiket sudah ditugaskan ke Teknisi IT." : ""}`;
 
-            console.log("Sending WA reply to:", sender);
+            // Resolve LID group ID to valid Fonnte group ID
+            const resolvedTarget = await resolveGroupTarget(sender, senderPhone);
+            console.log("Sending WA reply to:", sender, "-> resolved:", resolvedTarget);
             console.log("Reply message:", replyMessage);
 
             const sendResult = await sendWhatsAppMessage({
-                target: sender,
+                target: resolvedTarget,
                 message: replyMessage
             });
 
