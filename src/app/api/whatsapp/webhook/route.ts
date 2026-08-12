@@ -234,14 +234,26 @@ export async function POST(request: NextRequest) {
             const ticketIdShort = newTicket.id.slice(0, 8).toUpperCase();
 
             // 4. Send response message to WhatsApp Group
-            const replyMessage = `🎫 *TIKET BERHASIL DIBUAT!*\n\n🆔 *ID Tiket:* ${ticketIdShort}\n👤 *Pelapor:* ${reporterName}\n🏢 *Unit:* ${unitName}\n📝 *Kendala:* ${aduanText}\n\nAduan Anda telah terdaftar di IT Helpdesk.${assigneeId ? "\n✅ Tiket sudah ditugaskan ke Teknisi IT." : ""}`;
+            const replyMessage = `🎫 *TIKET BERHASIL DIBUAT!*
 
-            await sendWhatsAppMessage({
+🆔 *ID Tiket:* ${ticketIdShort}
+👤 *Pelapor:* ${reporterName}
+🏢 *Unit:* ${unitName}
+📝 *Kendala:* ${aduanText}
+
+Aduan Anda telah terdaftar di IT Helpdesk.${assigneeId ? "\n✅ Tiket sudah ditugaskan ke Teknisi IT." : ""}`;
+
+            console.log("Sending WA reply to:", sender);
+            console.log("Reply message:", replyMessage);
+
+            const sendResult = await sendWhatsAppMessage({
                 target: sender,
                 message: replyMessage
             });
 
-            return NextResponse.json({ status: "group_ticket_created", ticketId: newTicket.id });
+            console.log("Fonnte send result:", JSON.stringify(sendResult));
+
+            return NextResponse.json({ status: "group_ticket_created", ticketId: newTicket.id, sendResult });
         }
 
         const normalizedPhone = formatPhoneNumber(sender);

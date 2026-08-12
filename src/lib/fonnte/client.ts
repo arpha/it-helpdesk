@@ -47,6 +47,10 @@ export async function sendWhatsAppMessage(
             formData.append("countryCode", params.countryCode);
         }
 
+        console.log("Fonnte API - Sending to target:", params.target);
+        console.log("Fonnte API - Message length:", params.message.length);
+        console.log("Fonnte API - API Key present:", !!apiKey, "Key prefix:", apiKey.substring(0, 8) + "...");
+
         const response = await fetch(`${FONNTE_BASE_URL}/send`, {
             method: "POST",
             headers: {
@@ -55,7 +59,18 @@ export async function sendWhatsAppMessage(
             body: formData,
         });
 
-        const data = await response.json();
+        const responseText = await response.text();
+        console.log("Fonnte API - Response status:", response.status);
+        console.log("Fonnte API - Response body:", responseText);
+
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch {
+            console.error("Fonnte API - Failed to parse response as JSON:", responseText);
+            return { status: false, detail: `Non-JSON response: ${responseText}` };
+        }
+
         return {
             status: data.status === true,
             detail: data.detail,
