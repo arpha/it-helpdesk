@@ -147,7 +147,7 @@ export async function getServerRoomStats() {
 
         if (activeErr) throw activeErr;
 
-        // 2. Get today's logs for today count and average temperature
+        // 2. Get today's logs for today count
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
         const startOfTodayISO = startOfToday.toISOString();
@@ -161,8 +161,21 @@ export async function getServerRoomStats() {
 
         const todayCount = todayLogs?.length || 0;
 
-        // Calculate average temperature of today
-        const temps = todayLogs
+        // 3. Get monthly logs for average temperature
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const startOfMonthISO = startOfMonth.toISOString();
+
+        const { data: monthlyLogs, error: monthlyErr } = await supabase
+            .from("server_room_logs")
+            .select("temperature")
+            .gte("check_in_time", startOfMonthISO);
+
+        if (monthlyErr) throw monthlyErr;
+
+        // Calculate average temperature of this month
+        const temps = monthlyLogs
             ?.filter(l => l.temperature !== null && l.temperature !== undefined)
             .map(l => l.temperature as number) || [];
 

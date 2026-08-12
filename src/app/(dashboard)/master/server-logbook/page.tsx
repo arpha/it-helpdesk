@@ -379,7 +379,7 @@ export default function AdminServerLogbookPage() {
                 <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
                     <CardContent className="pt-6 flex items-center justify-between">
                         <div className="space-y-1">
-                            <span className="text-sm font-medium text-muted-foreground">Rata-Rata Suhu Ruangan</span>
+                            <span className="text-sm font-medium text-muted-foreground">Rata-Rata Suhu Bulanan</span>
                             <div className="text-3xl font-bold text-green-500">
                                 {avgTemp ? `${avgTemp.toFixed(1)} °C` : "N/A"}
                             </div>
