@@ -40,17 +40,19 @@ export async function sendWhatsAppMessage(
     }
 
     try {
+        const formData = new FormData();
+        formData.append("target", params.target);
+        formData.append("message", params.message);
+        if (params.countryCode) {
+            formData.append("countryCode", params.countryCode);
+        }
+
         const response = await fetch(`${FONNTE_BASE_URL}/send`, {
             method: "POST",
             headers: {
                 Authorization: apiKey,
-                "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-                target: params.target,
-                message: params.message,
-                countryCode: params.countryCode || "62",
-            }),
+            body: formData,
         });
 
         const data = await response.json();
