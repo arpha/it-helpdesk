@@ -220,7 +220,6 @@ export async function POST(request: NextRequest) {
                     priority: "medium",
                     status: assigneeId ? "in_progress" : "open",
                     created_by: creatorProfile.id,
-                    requester_id: creatorProfile.id,
                     assigned_to: assigneeId
                 })
                 .select("id")
