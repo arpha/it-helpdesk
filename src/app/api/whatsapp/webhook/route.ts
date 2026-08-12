@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         // Detect if this is a group message or explicit tag
         const isGroupMessage = sender.includes("@g.us") || sender.includes("-") || !!member;
         const lowerMsg = message.toLowerCase();
-        const hasHelpdeskTag = lowerMsg.includes("#ithelpdesk");
+        const hasHelpdeskTag = lowerMsg.includes("#halokangit");
         const hasCheckTag = lowerMsg.includes("#cektiket");
         const hasAnyTag = hasHelpdeskTag || hasCheckTag;
 
@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
             }
 
             // ============================================
-            // HANDLER: #ithelpdesk (Buat Tiket Baru)
+            // HANDLER: #halokangit (Buat Tiket Baru)
             // ============================================
 
             // 1. Parse ticket info from the message
@@ -253,7 +253,7 @@ export async function POST(request: NextRequest) {
 
             const reporterName = nameMatch ? nameMatch[1].trim() : (name || "User WA");
             const unitName = unitMatch ? unitMatch[1].trim() : "-";
-            const aduanText = kendalaMatch ? kendalaMatch[1].trim() : message.replace(/#ithelpdesk/gi, "").trim();
+            const aduanText = kendalaMatch ? kendalaMatch[1].trim() : message.replace(/#halokangit/gi, "").replace(/#ithelpdesk/gi, "").trim();
 
             // 2. Find profile by sender's phone
             let creatorProfile = null;
