@@ -123,15 +123,128 @@ export async function POST(request: NextRequest) {
         const { sender, message, member, name } = payload;
         const supabase = createAdminClient();
 
-        // Detect if this is a group message or explicit tag #ithelpdesk
+        // Detect if this is a group message or explicit tag
         const isGroupMessage = sender.includes("@g.us") || sender.includes("-") || !!member;
-        const hasHelpdeskTag = message.toLowerCase().includes("#ithelpdesk");
+        const lowerMsg = message.toLowerCase();
+        const hasHelpdeskTag = lowerMsg.includes("#ithelpdesk");
+        const hasCheckTag = lowerMsg.includes("#cektiket");
+        const hasAnyTag = hasHelpdeskTag || hasCheckTag;
 
-        if (isGroupMessage || hasHelpdeskTag) {
-            // Ignore group messages without the #ithelpdesk tag to prevent bot spam
-            if (!hasHelpdeskTag) {
+        if (isGroupMessage || hasAnyTag) {
+            // Ignore group messages without any recognized tag to prevent bot spam
+            if (!hasAnyTag) {
                 return NextResponse.json({ status: "ignored_no_tag" });
             }
+
+            const senderPhone = member || sender;
+
+            // ============================================
+            // HANDLER: #cektiket [ID Tiket]
+            // ============================================
+            if (hasCheckTag) {
+                const ticketIdMatch = message.match(/#cektiket\s+([a-zA-Z0-9\-]+)/i);
+                
+                if (!ticketIdMatch) {
+                    const resolvedTarget = await resolveGroupTarget(sender, senderPhone);
+                    await sendWhatsAppMessage({
+                        target: resolvedTarget,
+                        message: `❌ Format salah.\n\nGunakan format:\n*#cektiket [ID Tiket]*\n\nContoh:\n#cektiket 651EEEC1`
+                    });
+                    return NextResponse.json({ status: "check_ticket_invalid_format" });
+                }
+
+                const ticketIdInput = ticketIdMatch[1].toLowerCase();
+                console.log("Checking ticket status for:", ticketIdInput);
+
+                // Search ticket by ID prefix (short ID)
+                const { data: tickets, error: searchErr } = await supabase
+                    .from("tickets")
+                    .select("id, title, description, category, priority, status, created_at, assigned_to, resolved_at, resolution_notes")
+                    .order("created_at", { ascending: false })
+                    .limit(50);
+
+                if (searchErr || !tickets) {
+                    console.error("Error searching tickets:", searchErr);
+                    const resolvedTarget = await resolveGroupTarget(sender, senderPhone);
+                    await sendWhatsAppMessage({
+                        target: resolvedTarget,
+                        message: "❌ Terjadi kesalahan saat mencari tiket. Silakan coba lagi."
+                    });
+                    return NextResponse.json({ status: "check_ticket_error" });
+                }
+
+                // Find ticket matching the short ID prefix
+                const matchedTicket = tickets.find(t => 
+                    t.id.toLowerCase().startsWith(ticketIdInput)
+                );
+
+                const resolvedTarget = await resolveGroupTarget(sender, senderPhone);
+
+                if (!matchedTicket) {
+                    await sendWhatsAppMessage({
+                        target: resolvedTarget,
+                        message: `❌ Tiket dengan ID *${ticketIdInput.toUpperCase()}* tidak ditemukan.\n\nPastikan ID tiket sudah benar.`
+                    });
+                    return NextResponse.json({ status: "ticket_not_found" });
+                }
+
+                // Map status to emoji and label
+                const statusMap: Record<string, string> = {
+                    open: "🟡 Open (Menunggu)",
+                    in_progress: "🔵 In Progress (Dikerjakan)",
+                    resolved: "🟢 Resolved (Selesai)",
+                    closed: "⚫ Closed (Ditutup)",
+                    draft: "⚪ Draft"
+                };
+
+                const priorityMap: Record<string, string> = {
+                    low: "🟢 Low",
+                    medium: "🟡 Medium",
+                    high: "🟠 High",
+                    urgent: "🔴 Urgent"
+                };
+
+                const ticketStatus = statusMap[matchedTicket.status] || matchedTicket.status;
+                const ticketPriority = priorityMap[matchedTicket.priority] || matchedTicket.priority;
+                const createdDate = new Date(matchedTicket.created_at).toLocaleString("id-ID", { 
+                    timeZone: "Asia/Jakarta",
+                    day: "2-digit", month: "short", year: "numeric",
+                    hour: "2-digit", minute: "2-digit"
+                });
+
+                let statusMessage = `📋 *STATUS TIKET*
+
+🆔 *ID:* ${matchedTicket.id.slice(0, 8).toUpperCase()}
+📌 *Judul:* ${matchedTicket.title}
+📊 *Status:* ${ticketStatus}
+⚡ *Prioritas:* ${ticketPriority}
+📂 *Kategori:* ${matchedTicket.category}
+📅 *Dibuat:* ${createdDate}`;
+
+                if (matchedTicket.status === "resolved" && matchedTicket.resolution_notes) {
+                    statusMessage += `\n\n✅ *Catatan Penyelesaian:*\n${matchedTicket.resolution_notes}`;
+                }
+
+                if (matchedTicket.resolved_at) {
+                    const resolvedDate = new Date(matchedTicket.resolved_at).toLocaleString("id-ID", {
+                        timeZone: "Asia/Jakarta",
+                        day: "2-digit", month: "short", year: "numeric",
+                        hour: "2-digit", minute: "2-digit"
+                    });
+                    statusMessage += `\n📅 *Diselesaikan:* ${resolvedDate}`;
+                }
+
+                await sendWhatsAppMessage({
+                    target: resolvedTarget,
+                    message: statusMessage
+                });
+
+                return NextResponse.json({ status: "ticket_status_sent" });
+            }
+
+            // ============================================
+            // HANDLER: #ithelpdesk (Buat Tiket Baru)
+            // ============================================
 
             // 1. Parse ticket info from the message
             const nameMatch = message.match(/Nama\s*:\s*(.+)/i);
@@ -141,8 +254,6 @@ export async function POST(request: NextRequest) {
             const reporterName = nameMatch ? nameMatch[1].trim() : (name || "User WA");
             const unitName = unitMatch ? unitMatch[1].trim() : "-";
             const aduanText = kendalaMatch ? kendalaMatch[1].trim() : message.replace(/#ithelpdesk/gi, "").trim();
-
-            const senderPhone = member || sender;
 
             // 2. Find profile by sender's phone
             let creatorProfile = null;
