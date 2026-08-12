@@ -107,8 +107,130 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
         }
 
-        const { sender, message } = payload;
+        const { sender, message, member, name } = payload;
         const supabase = createAdminClient();
+
+        // Detect if this is a group message or explicit tag #ithelpdesk
+        const isGroupMessage = sender.includes("@g.us") || sender.includes("-") || !!member;
+        const hasHelpdeskTag = message.toLowerCase().includes("#ithelpdesk");
+
+        if (isGroupMessage || hasHelpdeskTag) {
+            // Ignore group messages without the #ithelpdesk tag to prevent bot spam
+            if (!hasHelpdeskTag) {
+                return NextResponse.json({ status: "ignored_no_tag" });
+            }
+
+            // 1. Parse ticket info from the message
+            const nameMatch = message.match(/Nama\s*:\s*(.+)/i);
+            const unitMatch = message.match(/Unit\s*:\s*(.+)/i);
+            const kendalaMatch = message.match(/Kendala\s*:\s*(.+)/i);
+
+            const reporterName = nameMatch ? nameMatch[1].trim() : (name || "User WA");
+            const unitName = unitMatch ? unitMatch[1].trim() : "-";
+            const aduanText = kendalaMatch ? kendalaMatch[1].trim() : message.replace(/#ithelpdesk/gi, "").trim();
+
+            const senderPhone = member || sender;
+
+            // 2. Find profile by sender's phone
+            let creatorProfile = null;
+            const normalizedSenderPhone = formatPhoneNumber(senderPhone);
+            const last9Digits = normalizedSenderPhone.slice(-9);
+
+            const { data: matchedProfile } = await supabase
+                .from("profiles")
+                .select("id, full_name, is_active")
+                .ilike("whatsapp_phone", `%${last9Digits}`)
+                .single();
+
+            if (matchedProfile && matchedProfile.is_active !== false) {
+                creatorProfile = matchedProfile;
+            }
+
+            // Fallback to first Admin profile if sender is unregistered
+            if (!creatorProfile) {
+                const { data: adminProfiles } = await supabase
+                    .from("profiles")
+                    .select("id")
+                    .eq("role", "admin")
+                    .limit(1);
+
+                if (adminProfiles && adminProfiles.length > 0) {
+                    creatorProfile = adminProfiles[0];
+                }
+            }
+
+            if (!creatorProfile) {
+                console.error("No admin profile found for fallback creation");
+                return NextResponse.json({ error: "No fallback admin profile available" }, { status: 500 });
+            }
+
+            // 3. Create ticket in database
+            const cleanTitle = `[WA] ${aduanText.slice(0, 50)}${aduanText.length > 50 ? '...' : ''}`;
+            const fullDescription = `Aduan via WhatsApp Group\nPelapor: ${reporterName}\nUnit: ${unitName}\nPengirim (WA): ${senderPhone}\n\nDetail Masalah:\n${aduanText}`;
+
+            // Auto-assign to least busy technician
+            const { data: technicians } = await supabase
+                .from("profiles")
+                .select("id")
+                .in("role", ["staff_it", "admin"]);
+
+            let assigneeId: string | null = null;
+            if (technicians && technicians.length > 0) {
+                const { data: ticketCounts } = await supabase
+                    .from("tickets")
+                    .select("assigned_to")
+                    .in("status", ["open", "in_progress"])
+                    .not("assigned_to", "is", null);
+
+                const countMap = new Map<string, number>();
+                technicians.forEach(t => countMap.set(t.id, 0));
+                ticketCounts?.forEach(t => {
+                    if (t.assigned_to && countMap.has(t.assigned_to)) {
+                        countMap.set(t.assigned_to, (countMap.get(t.assigned_to) || 0) + 1);
+                    }
+                });
+
+                let minCount = Infinity;
+                for (const [id, count] of countMap) {
+                    if (count < minCount) {
+                        minCount = count;
+                        assigneeId = id;
+                    }
+                }
+            }
+
+            const { data: newTicket, error: insertErr } = await supabase
+                .from("tickets")
+                .insert({
+                    title: cleanTitle,
+                    description: fullDescription,
+                    category: "hardware",
+                    priority: "medium",
+                    status: assigneeId ? "in_progress" : "open",
+                    created_by: creatorProfile.id,
+                    requester_id: creatorProfile.id,
+                    assigned_to: assigneeId
+                })
+                .select("id")
+                .single();
+
+            if (insertErr || !newTicket) {
+                console.error("Failed to insert WA ticket:", insertErr);
+                return NextResponse.json({ error: "Database error" }, { status: 500 });
+            }
+
+            const ticketIdShort = newTicket.id.slice(0, 8).toUpperCase();
+
+            // 4. Send response message to WhatsApp Group
+            const replyMessage = `🎫 *TIKET BERHASIL DIBUAT!*\n\n🆔 *ID Tiket:* ${ticketIdShort}\n👤 *Pelapor:* ${reporterName}\n🏢 *Unit:* ${unitName}\n📝 *Kendala:* ${aduanText}\n\nAduan Anda telah terdaftar di IT Helpdesk.${assigneeId ? "\n✅ Tiket sudah ditugaskan ke Teknisi IT." : ""}`;
+
+            await sendWhatsAppMessage({
+                target: sender,
+                message: replyMessage
+            });
+
+            return NextResponse.json({ status: "group_ticket_created", ticketId: newTicket.id });
+        }
 
         const normalizedPhone = formatPhoneNumber(sender);
         console.log("Sender:", sender, "Normalized:", normalizedPhone);
