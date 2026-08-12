@@ -132,6 +132,58 @@ export async function getServerRoomLogs(params?: ServerRoomLogFilterParams) {
     };
 }
 
+export async function getServerRoomStats() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    try {
+        // 1. Get current active visitors count (any time)
+        const { count: activeCount, error: activeErr } = await supabase
+            .from("server_room_logs")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "active");
+
+        if (activeErr) throw activeErr;
+
+        // 2. Get today's logs for today count and average temperature
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const startOfTodayISO = startOfToday.toISOString();
+
+        const { data: todayLogs, error: todayErr } = await supabase
+            .from("server_room_logs")
+            .select("temperature")
+            .gte("check_in_time", startOfTodayISO);
+
+        if (todayErr) throw todayErr;
+
+        const todayCount = todayLogs?.length || 0;
+
+        // Calculate average temperature of today
+        const temps = todayLogs
+            ?.filter(l => l.temperature !== null && l.temperature !== undefined)
+            .map(l => l.temperature as number) || [];
+
+        const avgTemp = temps.length > 0
+            ? temps.reduce((acc, curr) => acc + curr, 0) / temps.length
+            : null;
+
+        return {
+            success: true,
+            data: {
+                activeCount: activeCount || 0,
+                todayCount,
+                avgTemp
+            }
+        };
+    } catch (error: any) {
+        console.error("Error getting server room stats:", error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function deleteServerRoomLog(id: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

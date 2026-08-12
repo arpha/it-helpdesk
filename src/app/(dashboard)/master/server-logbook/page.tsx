@@ -56,7 +56,7 @@ import {
     QrCode,
     Plus
 } from "lucide-react";
-import { getServerRoomLogs, deleteServerRoomLog, addManualServerRoomLog } from "@/app/public/server-logbook/actions";
+import { getServerRoomLogs, deleteServerRoomLog, addManualServerRoomLog, getServerRoomStats } from "@/app/public/server-logbook/actions";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
@@ -85,6 +85,7 @@ export default function AdminServerLogbookPage() {
     
     // Stats
     const [activeCount, setActiveCount] = useState(0);
+    const [todayCount, setTodayCount] = useState(0);
     const [avgTemp, setAvgTemp] = useState<number | null>(null);
 
     // Pagination
@@ -109,6 +110,15 @@ export default function AdminServerLogbookPage() {
     const [checkOutTime, setCheckOutTime] = useState("");
     const [notes, setNotes] = useState("");
 
+    const fetchStats = async () => {
+        const res = await getServerRoomStats();
+        if (res.success && res.data) {
+            setActiveCount(res.data.activeCount);
+            setTodayCount(res.data.todayCount);
+            setAvgTemp(res.data.avgTemp);
+        }
+    };
+
     const fetchLogs = async (p = page, q = searchQuery, vis = visitorFilter, stat = statusFilter) => {
         setIsLoading(true);
         const res = await getServerRoomLogs({
@@ -123,25 +133,15 @@ export default function AdminServerLogbookPage() {
             setLogs(res.data);
             setTotalPages(res.totalPages || 1);
             setTotalCount(res.count || 0);
-
-            // Calculate active visitors count in current fetch (or general logic)
-            // Realistically to get active visitor stats we query from DB
-            const activeItems = res.data.filter(l => l.status === "active").length;
-            setActiveCount(activeItems);
-
-            // Calculate Average Temp
-            const logsWithTemp = res.data.filter(l => l.temperature !== null && l.temperature !== undefined);
-            if (logsWithTemp.length > 0) {
-                const totalTemp = logsWithTemp.reduce((acc, curr) => acc + (curr.temperature || 0), 0);
-                setAvgTemp(totalTemp / logsWithTemp.length);
-            } else {
-                setAvgTemp(null);
-            }
         } else if (res.error) {
             toast.error("Gagal memuat logbook: " + res.error);
         }
         setIsLoading(false);
     };
+
+    useEffect(() => {
+        fetchStats();
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -153,6 +153,7 @@ export default function AdminServerLogbookPage() {
 
     useEffect(() => {
         fetchLogs(page, searchQuery, visitorFilter, statusFilter);
+        fetchStats();
     }, [page, visitorFilter, statusFilter]);
 
     const handleDelete = async (id: string) => {
@@ -390,7 +391,7 @@ export default function AdminServerLogbookPage() {
                     <CardContent className="pt-6 flex items-center justify-between">
                         <div className="space-y-1">
                             <span className="text-sm font-medium text-muted-foreground">Total Log Hari Ini</span>
-                            <div className="text-3xl font-bold text-purple-500">{totalCount} Akses</div>
+                            <div className="text-3xl font-bold text-purple-500">{todayCount} Akses</div>
                         </div>
                         <Clock className="h-10 w-10 text-purple-500/50" />
                     </CardContent>
