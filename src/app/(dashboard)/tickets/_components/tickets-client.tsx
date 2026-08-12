@@ -72,6 +72,7 @@ import {
     ChevronsUpDown,
     Check,
     RefreshCw,
+    Pencil,
 } from "lucide-react";
 import {
     createTicket,
@@ -142,7 +143,7 @@ export function TicketsClient() {
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [isCompleteOpen, setIsCompleteOpen] = useState(false);
     const [isAssignOpen, setIsAssignOpen] = useState(false);
-    const [isReassignOpen, setIsReassignOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
@@ -190,6 +191,39 @@ export function TicketsClient() {
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
                 setIsCreateOpen(false);
+                resetForm();
+            }
+        });
+    };
+
+    const openEditDialog = (ticket: Ticket) => {
+        setSelectedTicket(ticket);
+        setFormTitle(ticket.title);
+        setFormDescription(ticket.description || "");
+        setFormCategory(ticket.category);
+        setFormPriority(ticket.priority);
+        setFormAssetId(ticket.asset_id || "");
+        setFormRequester(ticket.requester_id || "");
+        setIsEditOpen(true);
+    };
+
+    const handleEdit = () => {
+        if (!selectedTicket) return;
+
+        startTransition(async () => {
+            const result = await updateTicket({
+                id: selectedTicket.id,
+                title: formTitle,
+                description: formDescription,
+                category: formCategory,
+                priority: formPriority,
+                asset_id: formAssetId || undefined,
+            });
+
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["tickets"] });
+                setIsEditOpen(false);
+                setSelectedTicket(null);
                 resetForm();
             }
         });
@@ -351,6 +385,11 @@ export function TicketsClient() {
                                     <CheckCircle className="mr-2 h-4 w-4" /> Complete
                                 </DropdownMenuItem>
                             </>
+                        )}
+                        {(ticket.status === "open" || ticket.status === "in_progress" || isStaff) && (
+                            <DropdownMenuItem onClick={() => openEditDialog(ticket)}>
+                                <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
                         )}
                         {(ticket.status !== "resolved" || user?.role === "admin") && (
                             <>
@@ -589,6 +628,129 @@ export function TicketsClient() {
                             <Button onClick={handleCreate} disabled={isPending || !formTitle}>
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Create Ticket
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Dialog */}
+            <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) resetForm(); }}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Edit Ticket</DialogTitle>
+                        <DialogDescription>Update ticket details</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Title *</Label>
+                            <Input
+                                value={formTitle}
+                                onChange={(e) => setFormTitle(e.target.value)}
+                                placeholder="Brief description of the issue"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Description</Label>
+                            <Textarea
+                                value={formDescription}
+                                onChange={(e) => setFormDescription(e.target.value)}
+                                placeholder="Detailed description..."
+                                rows={3}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Category</Label>
+                                <Select value={formCategory} onValueChange={setFormCategory}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="hardware">Hardware</SelectItem>
+                                        <SelectItem value="software">Software</SelectItem>
+                                        <SelectItem value="data">Data</SelectItem>
+                                        <SelectItem value="network">Network</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Priority</Label>
+                                <Select value={formPriority} onValueChange={setFormPriority}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="low">Low</SelectItem>
+                                        <SelectItem value="medium">Medium</SelectItem>
+                                        <SelectItem value="high">High</SelectItem>
+                                        <SelectItem value="urgent">Urgent</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Related Asset (optional)</Label>
+                            <Popover open={assetPopoverOpen} onOpenChange={setAssetPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={assetPopoverOpen}
+                                        className="w-full justify-between font-normal"
+                                    >
+                                        {formAssetId ? (
+                                            <div className="flex flex-col items-start text-left">
+                                                <span className="truncate">
+                                                    {assetsData?.data?.find((a) => a.id === formAssetId)?.name} ({assetsData?.data?.find((a) => a.id === formAssetId)?.asset_code})
+                                                </span>
+                                                {assetsData?.data?.find((a) => a.id === formAssetId)?.locations?.name && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {assetsData?.data?.find((a) => a.id === formAssetId)?.locations?.name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-muted-foreground">Search asset...</span>
+                                        )}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Cari asset..." />
+                                        <CommandList>
+                                            <CommandEmpty>Asset tidak ditemukan.</CommandEmpty>
+                                            <CommandGroup>
+                                                {assetsData?.data?.map((asset) => (
+                                                    <CommandItem
+                                                        key={asset.id}
+                                                        value={`${asset.name} ${asset.asset_code} ${asset.locations?.name || ""}`}
+                                                        onSelect={() => {
+                                                            setFormAssetId(asset.id === formAssetId ? "" : asset.id);
+                                                            setAssetPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={`mr-2 h-4 w-4 ${formAssetId === asset.id ? "opacity-100" : "opacity-0"}`}
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span>{asset.name} ({asset.asset_code})</span>
+                                                            {asset.locations?.name && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {asset.locations.name}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => { setIsEditOpen(false); resetForm(); }}>Cancel</Button>
+                            <Button onClick={handleEdit} disabled={isPending || !formTitle}>
+                                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                Save Changes
                             </Button>
                         </div>
                     </div>
