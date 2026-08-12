@@ -40,8 +40,8 @@ type ActionResult = {
     id?: string;
 };
 
-// Get least busy technician (staff_it or admin with fewest active tickets)
-async function getLeastBusyTechnician(): Promise<string | null> {
+// Get technician using Round Robin (giliran berdasarkan tugas terakhir)
+async function getRoundRobinTechnician(): Promise<string | null> {
     const supabase = createAdminClient();
 
     // Get all active technicians (staff_it and admin)
@@ -55,34 +55,38 @@ async function getLeastBusyTechnician(): Promise<string | null> {
         return null;
     }
 
-    // Count active tickets per technician
-    const { data: ticketCounts } = await supabase
+    // Get last assigned tickets to determine order
+    const { data: lastAssignedTickets } = await supabase
         .from("tickets")
-        .select("assigned_to")
-        .in("status", ["open", "in_progress"])
-        .not("assigned_to", "is", null);
+        .select("assigned_to, created_at")
+        .not("assigned_to", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-    // Create count map
-    const countMap = new Map<string, number>();
-    technicians.forEach(t => countMap.set(t.id, 0));
-    ticketCounts?.forEach(t => {
-        if (t.assigned_to && countMap.has(t.assigned_to)) {
-            countMap.set(t.assigned_to, (countMap.get(t.assigned_to) || 0) + 1);
-        }
-    });
+    const lastAssignedTimeMap = new Map<string, number>();
+    technicians.forEach(t => lastAssignedTimeMap.set(t.id, 0)); // Default 0 (longest ago)
 
-    // Find technician with least tickets
-    let minCount = Infinity;
-    let leastBusyId: string | null = null;
-
-    for (const [id, count] of countMap) {
-        if (count < minCount) {
-            minCount = count;
-            leastBusyId = id;
+    if (lastAssignedTickets) {
+        for (const ticket of lastAssignedTickets) {
+            if (ticket.assigned_to && lastAssignedTimeMap.has(ticket.assigned_to)) {
+                if (lastAssignedTimeMap.get(ticket.assigned_to) === 0) {
+                    lastAssignedTimeMap.set(ticket.assigned_to, new Date(ticket.created_at).getTime());
+                }
+            }
         }
     }
 
-    return leastBusyId;
+    // Choose technician with oldest assignment time
+    let oldestAssignmentTime = Infinity;
+    let assignedId: string | null = null;
+    for (const [id, lastTime] of lastAssignedTimeMap) {
+        if (lastTime < oldestAssignmentTime) {
+            oldestAssignmentTime = lastTime;
+            assignedId = id;
+        }
+    }
+
+    return assignedId;
 }
 
 export async function createTicket(input: CreateTicketInput): Promise<ActionResult> {
@@ -102,8 +106,8 @@ export async function createTicket(input: CreateTicketInput): Promise<ActionResu
             .eq("id", user.id)
             .single();
 
-        // Get least busy technician for auto-assign
-        const assigneeId = await getLeastBusyTechnician();
+        // Get technician using Round Robin (giliran)
+        const assigneeId = await getRoundRobinTechnician();
 
         // Get requester's profile for location fallback
         const requesterId = input.requester_id || null;

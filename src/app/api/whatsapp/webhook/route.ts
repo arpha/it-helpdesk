@@ -331,32 +331,41 @@ export async function POST(request: NextRequest) {
             const cleanTitle = `[WA] ${aduanText.slice(0, 50)}${aduanText.length > 50 ? '...' : ''}`;
             const fullDescription = `Aduan via WhatsApp Group\nPelapor: ${reporterName}\nUnit: ${unitName}\nPengirim (WA): ${displaySenderPhone}\n\nDetail Masalah:\n${aduanText}`;
 
-            // Auto-assign to least busy technician
+            // Auto-assign using Round Robin (giliran berdasarkan tugas terakhir)
             const { data: technicians } = await supabase
                 .from("profiles")
                 .select("id")
-                .in("role", ["staff_it", "admin"]);
+                .in("role", ["staff_it", "admin"])
+                .neq("is_active", false);
 
             let assigneeId: string | null = null;
             if (technicians && technicians.length > 0) {
-                const { data: ticketCounts } = await supabase
+                // Get last assigned tickets to determine order
+                const { data: lastAssignedTickets } = await supabase
                     .from("tickets")
-                    .select("assigned_to")
-                    .in("status", ["open", "in_progress"])
-                    .not("assigned_to", "is", null);
+                    .select("assigned_to, created_at")
+                    .not("assigned_to", "is", null)
+                    .order("created_at", { ascending: false })
+                    .limit(100);
 
-                const countMap = new Map<string, number>();
-                technicians.forEach(t => countMap.set(t.id, 0));
-                ticketCounts?.forEach(t => {
-                    if (t.assigned_to && countMap.has(t.assigned_to)) {
-                        countMap.set(t.assigned_to, (countMap.get(t.assigned_to) || 0) + 1);
+                const lastAssignedTimeMap = new Map<string, number>();
+                technicians.forEach(t => lastAssignedTimeMap.set(t.id, 0)); // Default 0 (longest ago)
+
+                if (lastAssignedTickets) {
+                    for (const ticket of lastAssignedTickets) {
+                        if (ticket.assigned_to && lastAssignedTimeMap.has(ticket.assigned_to)) {
+                            if (lastAssignedTimeMap.get(ticket.assigned_to) === 0) {
+                                lastAssignedTimeMap.set(ticket.assigned_to, new Date(ticket.created_at).getTime());
+                            }
+                        }
                     }
-                });
+                }
 
-                let minCount = Infinity;
-                for (const [id, count] of countMap) {
-                    if (count < minCount) {
-                        minCount = count;
+                // Choose technician with oldest assignment time
+                let oldestAssignmentTime = Infinity;
+                for (const [id, lastTime] of lastAssignedTimeMap) {
+                    if (lastTime < oldestAssignmentTime) {
+                        oldestAssignmentTime = lastTime;
                         assigneeId = id;
                     }
                 }
