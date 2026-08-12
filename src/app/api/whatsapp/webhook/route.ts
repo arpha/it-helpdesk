@@ -288,9 +288,12 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: "No fallback admin profile available" }, { status: 500 });
             }
 
+            const formattedPhone = formatPhoneNumber(senderPhone);
+            const displaySenderPhone = formattedPhone.startsWith("+") ? formattedPhone : `+${formattedPhone}`;
+
             // 3. Create ticket in database
             const cleanTitle = `[WA] ${aduanText.slice(0, 50)}${aduanText.length > 50 ? '...' : ''}`;
-            const fullDescription = `Aduan via WhatsApp Group\nPelapor: ${reporterName}\nUnit: ${unitName}\nPengirim (WA): ${senderPhone}\n\nDetail Masalah:\n${aduanText}`;
+            const fullDescription = `Aduan via WhatsApp Group\nPelapor: ${reporterName}\nUnit: ${unitName}\nPengirim (WA): ${displaySenderPhone}\n\nDetail Masalah:\n${aduanText}`;
 
             // Auto-assign to least busy technician
             const { data: technicians } = await supabase
@@ -383,7 +386,7 @@ Aduan Anda telah terdaftar di IT Helpdesk.${assigneeId ? "\n✅ Tiket sudah ditu
 📋 *Judul:* ${cleanTitle}
 👤 *Pelapor:* ${reporterName}
 🏢 *Unit:* ${unitName}
-📱 *Pengirim:* ${senderPhone}
+📱 *Pengirim:* ${displaySenderPhone}
 
 Anda telah di-assign otomatis ke tiket ini.
 Silakan login ke IT Helpdesk untuk menindaklanjuti.`;
