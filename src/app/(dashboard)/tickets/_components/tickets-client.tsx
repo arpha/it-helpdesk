@@ -143,6 +143,7 @@ export function TicketsClient() {
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [isCompleteOpen, setIsCompleteOpen] = useState(false);
     const [isAssignOpen, setIsAssignOpen] = useState(false);
+    const [isReassignOpen, setIsReassignOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
