@@ -97,8 +97,20 @@ export async function POST(request: NextRequest) {
     try {
         cleanupOldConversations();
 
-        const body = await request.json();
-        console.log("Webhook received:", JSON.stringify(body));
+        let body: any = {};
+        const contentType = request.headers.get("content-type") || "";
+        
+        if (contentType.includes("application/json")) {
+            body = await request.json();
+        } else {
+            // Support form data (x-www-form-urlencoded) sent by Fonnte
+            const formData = await request.formData();
+            formData.forEach((value, key) => {
+                body[key] = value;
+            });
+        }
+        
+        console.log("Webhook received body:", JSON.stringify(body));
 
         const payload = parseFonnteWebhook(body);
 
