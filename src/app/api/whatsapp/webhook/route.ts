@@ -366,6 +366,38 @@ Aduan Anda telah terdaftar di IT Helpdesk.${assigneeId ? "\n✅ Tiket sudah ditu
 
             console.log("Fonnte send result:", JSON.stringify(sendResult));
 
+            // 5. Send notification to assigned technician's private WhatsApp
+            if (assigneeId) {
+                try {
+                    const { data: assignee } = await supabase
+                        .from("profiles")
+                        .select("full_name, whatsapp_phone")
+                        .eq("id", assigneeId)
+                        .single();
+
+                    if (assignee?.whatsapp_phone) {
+                        console.log("Sending assignment notification to technician WA:", assignee.whatsapp_phone);
+                        const techMessage = `🎫 *TICKET BARU UNTUK ANDA (VIA WA GROUP)*
+
+🆔 *ID Tiket:* ${ticketIdShort}
+📋 *Judul:* ${cleanTitle}
+👤 *Pelapor:* ${reporterName}
+🏢 *Unit:* ${unitName}
+📱 *Pengirim:* ${senderPhone}
+
+Anda telah di-assign otomatis ke tiket ini.
+Silakan login ke IT Helpdesk untuk menindaklanjuti.`;
+
+                        await sendWhatsAppMessage({
+                            target: formatPhoneNumber(assignee.whatsapp_phone),
+                            message: techMessage,
+                        });
+                    }
+                } catch (techNotifyErr) {
+                    console.error("Error sending notification to technician:", techNotifyErr);
+                }
+            }
+
             return NextResponse.json({ status: "group_ticket_created", ticketId: newTicket.id, sendResult });
         }
 
