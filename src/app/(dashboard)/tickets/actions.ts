@@ -136,38 +136,6 @@ export async function createTicket(input: CreateTicketInput): Promise<ActionResu
             return { success: false, error: error.message };
         }
 
-        // Send WhatsApp notification to assigned technician
-        if (assigneeId && data) {
-            const { data: assignee } = await supabase
-                .from("profiles")
-                .select("full_name, whatsapp_phone")
-                .eq("id", assigneeId)
-                .single();
-
-            const { data: creator } = await supabase
-                .from("profiles")
-                .select("full_name")
-                .eq("id", user.id)
-                .single();
-
-            if (assignee?.whatsapp_phone) {
-                const { sendWhatsAppMessage, formatPhoneNumber } = await import("@/lib/fonnte/client");
-
-                await sendWhatsAppMessage({
-                    target: formatPhoneNumber(assignee.whatsapp_phone),
-                    message: `🎫 *TICKET BARU UNTUK ANDA*
-
-📋 *Judul:* ${data.title}
-📂 *Kategori:* ${data.category}
-⚡ *Prioritas:* ${data.priority?.toUpperCase()}
-👤 *Pelapor:* ${creator?.full_name || "User"}
-
-Anda telah di-assign otomatis ke tiket ini.
-Silakan login ke IT Helpdesk untuk detail lebih lanjut.`,
-                });
-            }
-        }
-
         revalidatePath("/tickets");
         return { success: true, id: data.id };
     } catch (error) {
