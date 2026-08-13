@@ -273,55 +273,6 @@ export async function reassignTicket(ticketId: string, newAssigneeId: string): P
             return { success: false, error: error.message };
         }
 
-        const { sendWhatsAppMessage, formatPhoneNumber } = await import("@/lib/fonnte/client");
-        const creatorName = Array.isArray(ticket.profiles)
-            ? ticket.profiles[0]?.full_name
-            : (ticket.profiles as { full_name: string } | null)?.full_name || "User";
-
-        // Notify previous technician
-        if (previousAssigneeId) {
-            const { data: prevAssignee } = await supabase
-                .from("profiles")
-                .select("full_name, whatsapp_phone")
-                .eq("id", previousAssigneeId)
-                .single();
-
-            if (prevAssignee?.whatsapp_phone) {
-                await sendWhatsAppMessage({
-                    target: formatPhoneNumber(prevAssignee.whatsapp_phone),
-                    message: `🔄 *TICKET DIALIHKAN*
-
-📋 *Judul:* ${ticket.title}
-📂 *Kategori:* ${ticket.category}
-
-Ticket ini telah dialihkan ke teknisi lain.
-Terima kasih atas kerjasamanya.`,
-                });
-            }
-        }
-
-        // Notify new technician
-        const { data: newAssignee } = await supabase
-            .from("profiles")
-            .select("full_name, whatsapp_phone")
-            .eq("id", newAssigneeId)
-            .single();
-
-        if (newAssignee?.whatsapp_phone) {
-            await sendWhatsAppMessage({
-                target: formatPhoneNumber(newAssignee.whatsapp_phone),
-                message: `🔄 *TICKET DIALIHKAN KEPADA ANDA*
-
-📋 *Judul:* ${ticket.title}
-📂 *Kategori:* ${ticket.category}
-⚡ *Prioritas:* ${ticket.priority?.toUpperCase()}
-👤 *Pelapor:* ${creatorName}
-
-Ticket ini dialihkan dari teknisi lain kepada Anda.
-Silakan login ke IT Helpdesk untuk detail lebih lanjut.`,
-            });
-        }
-
         revalidatePath("/tickets");
         return { success: true };
     } catch (error) {
