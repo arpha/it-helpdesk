@@ -248,8 +248,9 @@ export async function askGeminiRAG(
     sopDocuments: { id: string; title: string; category: string; description?: string }[] = [],
     history: Message[] = []
 ): Promise<string> {
-    if (!GEMINI_API_KEY) {
-        throw new Error("GOOGLE_GEMINI_API_KEY tidak dikonfigurasi di .env.local");
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
+    if (!apiKey) {
+        throw new Error("GOOGLE_GEMINI_API_KEY belum dikonfigurasi di Environment Variables server/Vercel.");
     }
 
     const kbContext = kbArticles.length > 0
@@ -282,7 +283,7 @@ ${historyText ? `RIWAYAT PERCAKAPAN:\n${historyText}\n` : ""}`;
 
     try {
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

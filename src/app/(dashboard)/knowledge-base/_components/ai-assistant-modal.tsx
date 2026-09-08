@@ -97,9 +97,23 @@ export function AIAssistantModal({ open, onOpenChange }: AIAssistantModalProps) 
         setMessages((prev) => [...prev, aiMsg]);
       } else {
         toast.error(data.error || "Gagal menghubungi AI Assistant");
+        const errorMsg: AIChatMessage = {
+          id: `ai-err-${Date.now()}`,
+          role: "assistant",
+          content: `⚠️ ${data.error || "Maaf, AI Assistant belum dapat memproses jawaban saat ini."}\n\nSilakan pastikan \`GOOGLE_GEMINI_API_KEY\` sudah diset di Vercel, atau Anda dapat langsung menekan tombol **Buat Tiket IT** di bawah.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+        setMessages((prev) => [...prev, errorMsg]);
       }
     } catch (err) {
       toast.error("Terjadi kesalahan jaringan");
+      const errorMsg: AIChatMessage = {
+        id: `ai-err-${Date.now()}`,
+        role: "assistant",
+        content: "⚠️ Terjadi kesalahan jaringan server. Silakan coba beberapa saat lagi atau buat Tiket IT.",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
     } finally {
       setLoading(false);
     }
