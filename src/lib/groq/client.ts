@@ -54,13 +54,11 @@ async function callGroqChatCompletions(
             const errorText = await response.text();
             console.warn(`Groq model ${model} failed (${response.status}):`, errorText);
 
-            // If error is model_not_found or 404, loop to try next model
             if (response.status === 404 || errorText.includes("model_not_found") || errorText.includes("does not exist")) {
                 lastError = new Error(`Model ${model} tidak ditemukan.`);
                 continue;
             }
 
-            // Other errors (e.g. 401 unauthorized)
             throw new Error(`Groq API error (${response.status}): ${errorText}`);
         } catch (err: any) {
             lastError = err;
@@ -74,77 +72,38 @@ async function callGroqChatCompletions(
 }
 
 /**
- * Get relevant database schema based on message content
+ * Get full database schema for robust SQL generation
  */
-function getRelevantSchema(message: string): string {
-    const msgLower = message.toLowerCase();
-    const schemas: string[] = [];
+function getRelevantSchema(): string {
+    return `DATABASE SCHEMA SI MANTAP (Gunakan untuk generate SQL query jika user menanyakan data/stok/aset/tiket):
 
-    schemas.push(`DATABASE SCHEMA (gunakan untuk generate SQL query jika diperlukan):`);
-
-    // Check for asset-related keywords
-    const assetKeywords = ["aset", "asset", "perangkat", "device", "laptop", "printer", "komputer", "pc",
-        "monitor", "scanner", "server", "cctv", "ac", "ups", "telepon", "hub", "switch", "router",
-        "keyboard", "mouse", "kabel", "di ruang", "di lantai", "di gedung", "di lokasi", "di kinanti",
-        "aktif", "rusak", "damage", "maintenance", "serial", "sn", "kode", "code", "nomor"];
-
-    const hasAssetCode = /\bAST-\d{4}-\d{4}\b/i.test(message);
-
-    if (hasAssetCode || assetKeywords.some(k => msgLower.includes(k))) {
-        schemas.push(`
-TABEL: assets (Aset IT)
+TABEL 1: assets (Aset IT / Perangkat / Komputer / Laptop / Printer / Monitor / Scanner / Server / UPS / CCTV / Telepon / Switch / Router)
 - id, asset_code, name, serial_number, status ('active','maintenance','damage','disposed')
 - category_id → asset_categories(id)
 - location_id → locations(id)
 
-TABEL: asset_categories
-- id, name (Laptop, Printer, Komputer, Telepon, Hub, Switch, Monitor, dll)
+TABEL 2: asset_categories (Kategori Aset)
+- id, name (Laptop, Printer, Komputer, Telepon, Hub, Switch, Monitor, Scanner, Server, dll)
 
-TABEL: locations
-- id, name (contoh: "Kinanti 3A", "Instalasi Farmasi")
+TABEL 3: locations (Lokasi / Ruangan / Gedung)
+- id, name (contoh: "Kinanti 3A", "Instalasi Farmasi", "IGD", "Poliklinik", "Ruang Direksi")
 
-CONTOH QUERY ASSETS:
-- List aset: SELECT a.name, a.asset_code, a.status FROM assets a JOIN asset_categories ac ON a.category_id = ac.id JOIN locations l ON a.location_id = l.id WHERE ac.name ILIKE '%laptop%' AND l.name ILIKE '%Kinanti%' LIMIT 20
-- Jumlah aset: SELECT COUNT(*) as total FROM assets a JOIN asset_categories ac ON a.category_id = ac.id WHERE ac.name ILIKE '%printer%'`);
-    }
-
-    // Check for stock/ATK keywords
-    const stockKeywords = ["stok", "stock", "atk", "tinta", "kertas", "sparepart", "consumable", "barang", "persediaan"];
-
-    if (stockKeywords.some(k => msgLower.includes(k))) {
-        schemas.push(`
-TABEL: atk_items (Stok Barang/ATK)
+TABEL 4: atk_items (Stok Barang / ATK / Consumable / Tinta / Kertas / Mouse / Keyboard / Cable / Sparepart)
 - id, name, stock_quantity, unit, category, price
 
-CONTOH QUERY STOK:
-- Jumlah stok: SELECT SUM(stock_quantity) as total FROM atk_items WHERE name ILIKE '%tinta%' AND name ILIKE '%canon%'
-- List stok: SELECT name, stock_quantity, unit FROM atk_items WHERE name ILIKE '%keyboard%' LIMIT 20`);
-    }
-
-    // Check for ticket/maintenance keywords
-    const ticketKeywords = ["tiket", "ticket", "keluhan", "masalah", "laporan", "open", "resolved", "pending",
-        "maintenance", "perbaikan", "solusi", "error", "rusak", "kendala", "trouble", "fix"];
-
-    if (ticketKeywords.some(k => msgLower.includes(k))) {
-        schemas.push(`
-TABEL: tickets (Tiket Helpdesk & Maintenance Log)
+TABEL 5: tickets (Tiket Helpdesk / Masalah / Kendala / Maintenance Log)
 - id, title, description, category ('hardware','software','network','data')
 - priority ('low','medium','high','urgent'), status ('open','in_progress','resolved','closed')
-- resolution_notes (catatan penyelesaian/solusi teknis), resolved_at
+- resolution_notes (catatan solusi teknis), created_at, resolved_at
 - created_by → profiles(id), assigned_to → profiles(id)
 
-CONTOH QUERY TIKET/SOLUSI:
-- Cari solusi printer: SELECT title, resolution_notes FROM tickets WHERE title ILIKE '%printer%' AND status = 'resolved' AND resolution_notes IS NOT NULL LIMIT 5
-- List tiket open: SELECT title, status, priority FROM tickets WHERE status = 'open' LIMIT 20`);
-    }
-
-    if (schemas.length === 1) {
-        schemas.push(`
-Tidak ada query database yang diperlukan untuk pertanyaan ini.
-Berikan jawaban troubleshooting IT umum berdasarkan pengetahuan Anda.`);
-    }
-
-    return schemas.join("\n");
+CONTOH KONDISI & QUERY SQL VALID:
+- Mencari Aset atau Perangkat berdasarkan Nama/Tipe/Lokasi:
+  SELECT a.name, a.asset_code, a.status, l.name as location_name FROM assets a JOIN asset_categories ac ON a.category_id = ac.id JOIN locations l ON a.location_id = l.id WHERE a.name ILIKE '%laptop%' OR l.name ILIKE '%farmasi%' LIMIT 20
+- Mencari Stok Barang/ATK/Tinta:
+  SELECT name, stock_quantity, unit FROM atk_items WHERE name ILIKE '%tinta%' OR name ILIKE '%kertas%' LIMIT 20
+- Mencari Tiket atau Solusi Perbaikan Terkait:
+  SELECT title, status, resolution_notes FROM tickets WHERE title ILIKE '%printer%' OR description ILIKE '%printer%' LIMIT 10`;
 }
 
 /**
@@ -154,31 +113,32 @@ export async function askGroqNatural(
     message: string,
     history: Message[] = []
 ): Promise<{ response: string; sql?: string; data?: unknown }> {
-    const relevantSchema = getRelevantSchema(message);
+    const schema = getRelevantSchema();
 
     const systemPrompt = `Kamu adalah AI Assistant IT Helpdesk untuk rumah sakit SI MANTAP.
 
 KEMAMPUAN:
-1. Menjawab pertanyaan troubleshooting IT
-2. Query database untuk mencari informasi aset, tiket, stok barang
+1. Menjawab pertanyaan troubleshooting IT umum dan teknis
+2. Mengambil data riil dari database (Aset IT, Stok Barang/ATK, Tiket Helpdesk) dengan membuat query SQL
 3. Memahami konteks percakapan sebelumnya
 
-${relevantSchema}
+${schema}
 
-ATURAN PENTING:
-1. Jawab dalam Bahasa Indonesia
-2. Jika perlu query database, generate SQL yang valid
-3. Untuk SQL: HANYA SELECT, selalu gunakan LIMIT, gunakan ILIKE untuk search
-4. Untuk warna tinta: biru=cyan, merah=magenta, kuning=yellow, hitam=hitam
-5. Jika ada riwayat percakapan tentang lokasi, gunakan lokasi tersebut untuk pertanyaan lanjutan
+ATURAN PENTING GENERATE SQL:
+1. Jawab selalu dalam Bahasa Indonesia yang ramah dan profesional.
+2. Jika pertanyaan pengguna membutuhkan data riil (misal: cek stok, list aset, jumlah barang, status tiket, lokasi perangkat, solusi tiket sebelumnya), WAJIB buat query SQL yang valid.
+3. HANYA gunakan perintah SELECT untuk SQL. Selalu sertakan LIMIT (maksimal 20).
+4. Gunakan operator ILIKE untuk pencarian teks agar tidak case-sensitive (contoh: ILIKE '%printer%').
+5. Pemetaan warna tinta printer: biru=cyan, merah=magenta, kuning=yellow, hitam=hitam.
+6. Jika pengguna menanyakan lokasi lanjutan (misal: "lalu kalau di ruangan IGD?"), gunakan konteks lokasi dari percakapan sebelumnya.
 
-FORMAT RESPONSE:
-- Jika PERLU query database, response dengan format:
-  [SQL]
-  <query sql di sini>
-  [/SQL]
-  
-- Jika TIDAK perlu query, langsung jawab dengan teks biasa.`;
+FORMAT RESPONSE KETIKA PERLU QUERY DATABASE:
+[SQL]
+SELECT ... FROM ... WHERE ... LIMIT 20
+[/SQL]
+
+FORMAT RESPONSE KETIKA TIDAK PERLU DATABASE (Hanya konsultasi/pertanyaan umum):
+Langsung jawab dengan teks penjelasan biasa tanpa tag [SQL].`;
 
     const formattedMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
         { role: "system", content: systemPrompt }
@@ -194,7 +154,7 @@ FORMAT RESPONSE:
     formattedMessages.push({ role: "user", content: message });
 
     try {
-        const aiResponse = await callGroqChatCompletions(formattedMessages, 0.3, 2048);
+        const aiResponse = await callGroqChatCompletions(formattedMessages, 0.2, 2048);
 
         // Check if response contains SQL
         const sqlMatch = aiResponse.match(/\[SQL\]([\s\S]*?)\[\/SQL\]/);
@@ -241,7 +201,7 @@ Jawab pertanyaan user secara natural berdasarkan Data dari Database di atas.
 - Gunakan Bahasa Indonesia yang luwes dan membantu.`;
 
     try {
-        return await callGroqChatCompletions([{ role: "user", content: prompt }], 0.4, 1024);
+        return await callGroqChatCompletions([{ role: "user", content: prompt }], 0.3, 1024);
     } catch (e) {
         console.error("Groq Summarize error:", e);
     }
