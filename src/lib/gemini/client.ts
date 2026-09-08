@@ -238,3 +238,75 @@ export async function askGemini(
     const result = await askGeminiNatural(question, []);
     return result.response;
 }
+
+/**
+ * Knowledge Base RAG Assistant function
+ */
+export async function askGeminiRAG(
+    userQuery: string,
+    kbArticles: { id: string; title: string; category: string; summary?: string; content: string }[],
+    sopDocuments: { id: string; title: string; category: string; description?: string }[] = [],
+    history: Message[] = []
+): Promise<string> {
+    if (!GEMINI_API_KEY) {
+        throw new Error("GOOGLE_GEMINI_API_KEY tidak dikonfigurasi di .env.local");
+    }
+
+    const kbContext = kbArticles.length > 0
+        ? kbArticles.map((art, i) => `[Artikel #${i + 1}] Judul: ${art.title} (Kategori: ${art.category})\nSolusi: ${art.content}`).join("\n\n")
+        : "Tidak ada artikel KB khusus.";
+
+    const sopContext = sopDocuments.length > 0
+        ? sopDocuments.map((sop, i) => `[SOP #${i + 1}] ${sop.title} (Kategori: ${sop.category})`).join("\n")
+        : "Tidak ada SOP khusus.";
+
+    const historyText = history.length > 0
+        ? history.map(m => `${m.role === 'user' ? 'Pengguna' : 'Asisten'}: ${m.content}`).join("\n")
+        : "";
+
+    const systemPrompt = `Kamu adalah Asisten IT Helpdesk Pintar untuk SI MANTAP (Rumah Sakit).
+Tugasmu adalah membantu staf dan pengguna memecahkan masalah IT mandiri (Self-Service Troubleshooting) secara ramah, cepat, dan jelas.
+
+DOKUMEN PENGETAHUAN YANG TERSEDIA:
+${kbContext}
+
+${sopContext}
+
+ATURAN JAWABAN:
+1. Berikan langkah-langkah penanganan mandiri secara terstruktur (menggunakan nomor/bullet point markdown).
+2. Jika ada informasi dari artikel KB atau SOP di atas yang relevan, utamakan mengutip solusi dari dokumen tersebut.
+3. Gunakan bahasa Indonesia yang santun, profesional, dan mudah dipahami oleh pengguna non-teknis.
+4. Di akhir jawaban, tanyakan apakah panduan ini berhasil menyelesaikan kendala mereka atau jika mereka butuh bantuan teknisi IT.
+
+${historyText ? `RIWAYAT PERCAKAPAN:\n${historyText}\n` : ""}`;
+
+    try {
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: `${systemPrompt}\n\nPengguna: ${userQuery}` }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.3,
+                        maxOutputTokens: 2048,
+                    }
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Gemini API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, saya tidak dapat memproses panduan saat ini.";
+    } catch (error) {
+        console.error("Gemini RAG error:", error);
+        throw error;
+    }
+}
+

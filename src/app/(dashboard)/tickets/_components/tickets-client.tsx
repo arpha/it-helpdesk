@@ -393,6 +393,19 @@ export function TicketsClient() {
                                 <Pencil className="mr-2 h-4 w-4" /> Edit
                             </DropdownMenuItem>
                         )}
+                        {isStaff && (ticket.status === "resolved" || ticket.status === "closed") && (
+                            <DropdownMenuItem onClick={async () => {
+                                const { convertTicketToKB } = await import("@/app/(dashboard)/knowledge-base/actions");
+                                const res = await convertTicketToKB(ticket.id);
+                                if (res.success && res.data) {
+                                    const { toast } = await import("sonner");
+                                    toast.success("Draft Artikel KB berhasil dibuat dari tiket ini!");
+                                    window.location.href = `/knowledge-base?id=${res.data.id}`;
+                                }
+                            }}>
+                                <Plus className="mr-2 h-4 w-4 text-emerald-600" /> Jadikan Artikel KB
+                            </DropdownMenuItem>
+                        )}
                         {(ticket.status !== "resolved" || user?.role === "admin") && (
                             <>
                                 <DropdownMenuSeparator />

@@ -90,6 +90,11 @@ const menuGroups: MenuGroup[] = [
                 icon: ClipboardList,
             },
             {
+                title: "Knowledge Base",
+                href: "/knowledge-base",
+                icon: BookOpen,
+            },
+            {
                 title: "Reports",
                 href: "/tickets/reports",
                 icon: BarChart3,
