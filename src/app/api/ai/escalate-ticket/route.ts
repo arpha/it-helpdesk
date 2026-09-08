@@ -4,7 +4,7 @@ import { createTicket } from "@/app/(dashboard)/tickets/actions";
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, logId, userQuery, aiSummary, category = "Software", priority = "medium" } = await request.json();
+    const { action, logId, userQuery, aiSummary, category, priority = "medium" } = await request.json();
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -33,6 +33,20 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
+    // Auto-detect & sanitize valid category for check constraint ('hardware' | 'software' | 'network' | 'data')
+    let ticketCategory = (category || "").toString().toLowerCase();
+    const queryLower = userQuery.toLowerCase();
+
+    if (queryLower.includes("printer") || queryLower.includes("laptop") || queryLower.includes("komputer") || queryLower.includes("pc") || queryLower.includes("hardware") || queryLower.includes("layar") || queryLower.includes("mouse") || queryLower.includes("keyboard") || queryLower.includes("monitor") || queryLower.includes("perangkat")) {
+      ticketCategory = "hardware";
+    } else if (queryLower.includes("wifi") || queryLower.includes("internet") || queryLower.includes("jaringan") || queryLower.includes("lan") || queryLower.includes("router") || queryLower.includes("network")) {
+      ticketCategory = "network";
+    } else if (queryLower.includes("data") || queryLower.includes("database") || queryLower.includes("export") || queryLower.includes("laporan")) {
+      ticketCategory = "data";
+    } else if (!["hardware", "software", "network", "data"].includes(ticketCategory)) {
+      ticketCategory = "software";
+    }
+
     // 1. Create ticket
     const title = userQuery.length > 80 ? userQuery.slice(0, 77) + "..." : userQuery;
     const description = `[Dibuat via AI Assistant Self-Service]\n\n**Kendala Pengguna:**\n${userQuery}\n\n**Upaya Troubleshooting AI:**\n${aiSummary || "Pengguna sudah mencoba solusi mandiri namun kendala belum teratasi."}`;
@@ -40,7 +54,7 @@ export async function POST(request: NextRequest) {
     const ticketResult = await createTicket({
       title,
       description,
-      category,
+      category: ticketCategory,
       priority,
     });
 
