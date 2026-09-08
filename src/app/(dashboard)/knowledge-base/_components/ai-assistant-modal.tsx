@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import type { AIChatMessage, KBArticle } from "@/types/kb";
+import type { AIChatMessage } from "@/types/kb";
 
 interface AIAssistantModalProps {
   open: boolean;
@@ -44,6 +44,7 @@ export function AIAssistantModal({ open, onOpenChange }: AIAssistantModalProps) 
   const [loading, setLoading] = useState(false);
   const [currentLogId, setCurrentLogId] = useState<string | null>(null);
   const [escalating, setEscalating] = useState(false);
+  const [resolvedStatus, setResolvedStatus] = useState<"none" | "resolved" | "escalated">("none");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -70,7 +71,6 @@ export function AIAssistantModal({ open, onOpenChange }: AIAssistantModalProps) 
     setLoading(true);
 
     try {
-      // Build history
       const history = messages
         .filter((m) => m.id !== "welcome")
         .map((m) => ({ role: m.role, content: m.content }));
@@ -120,13 +120,25 @@ export function AIAssistantModal({ open, onOpenChange }: AIAssistantModalProps) 
   };
 
   const handleEscalateToTicket = async () => {
-    if (escalating) return;
+    if (escalating || resolvedStatus !== "none") return;
     setEscalating(true);
 
     const lastUserQuery =
       messages.filter((m) => m.role === "user").pop()?.content || "Kendala pengguna";
     const lastAIResponse =
       messages.filter((m) => m.role === "assistant").pop()?.content || "";
+
+    // Add immediate visual message in chat
+    const processMsgId = `proc-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: processMsgId,
+        role: "assistant",
+        content: "⏳ Sedang memproses pembuatan tiket IT...",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
 
     try {
       const res = await fetch("/api/ai/escalate-ticket", {
@@ -142,22 +154,89 @@ export function AIAssistantModal({ open, onOpenChange }: AIAssistantModalProps) 
       const data = await res.json();
 
       if (data.success) {
+        setResolvedStatus("escalated");
         toast.success("Tiket Helpdesk berhasil dibuat!");
-        onOpenChange(false);
-        router.push(`/tickets`);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === processMsgId
+              ? {
+                  ...m,
+                  content: "✅ **Tiket IT berhasil dibuat!** Mengalihkan Anda ke daftar tiket...",
+                }
+              : m
+          )
+        );
+        setTimeout(() => {
+          onOpenChange(false);
+          router.push("/tickets");
+        }, 1200);
+      } else if (data.requireAuth) {
+        toast.error(data.error || "Silakan login terlebih dahulu");
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === processMsgId
+              ? {
+                  ...m,
+                  content: `⚠️ **Login Diperlukan**: ${data.error}\n\nMengalihkan ke halaman login...`,
+                }
+              : m
+          )
+        );
+        setTimeout(() => {
+          onOpenChange(false);
+          router.push("/login");
+        }, 1500);
       } else {
         toast.error(data.error || "Gagal mengeskalasi ke tiket");
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === processMsgId
+              ? { ...m, content: `❌ **Gagal membuat tiket**: ${data.error || "Terjadi kesalahan"}` }
+              : m
+          )
+        );
       }
     } catch (err) {
       toast.error("Terjadi kesalahan sistem saat membuat tiket");
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === processMsgId
+            ? { ...m, content: "❌ Terjadi kesalahan jaringan saat membuat tiket." }
+            : m
+        )
+      );
     } finally {
       setEscalating(false);
     }
   };
 
-  const handleResolved = () => {
+  const handleResolved = async () => {
+    if (resolvedStatus !== "none") return;
+    setResolvedStatus("resolved");
     toast.success("Terima kasih! Senang dapat membantu kendala Anda.");
-    onOpenChange(false);
+
+    // Update log status in background
+    if (currentLogId) {
+      fetch("/api/ai/escalate-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resolve", logId: currentLogId }),
+      }).catch(console.warn);
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `res-${Date.now()}`,
+        role: "assistant",
+        content: "🎉 **Terima kasih atas konfirmasinya!** Senang dapat membantu menyelesaikan kendala Anda.",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+
+    setTimeout(() => {
+      onOpenChange(false);
+    }, 1200);
   };
 
   const quickPrompts = [
@@ -180,7 +259,7 @@ export function AIAssistantModal({ open, onOpenChange }: AIAssistantModalProps) 
               <DialogTitle className="flex items-center gap-2 text-base font-semibold">
                 AI Helpdesk Assistant
                 <Badge variant="secondary" className="gap-1 text-xs">
-                  <Sparkles className="h-3 w-3 text-amber-500 fill-amber-500" /> Powered by Gemini
+                  <Sparkles className="h-3 w-3 text-amber-500 fill-amber-500" /> Powered by Groq AI
                 </Badge>
               </DialogTitle>
               <p className="text-xs text-muted-foreground">
@@ -295,6 +374,7 @@ export function AIAssistantModal({ open, onOpenChange }: AIAssistantModalProps) 
               variant="outline"
               className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 text-xs gap-1.5 flex-1"
               onClick={handleResolved}
+              disabled={resolvedStatus !== "none"}
             >
               <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Masalah Selesai
             </Button>
@@ -303,7 +383,7 @@ export function AIAssistantModal({ open, onOpenChange }: AIAssistantModalProps) 
               variant="default"
               className="text-xs gap-1.5 flex-1"
               onClick={handleEscalateToTicket}
-              disabled={escalating}
+              disabled={escalating || resolvedStatus !== "none"}
             >
               {escalating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -4,14 +4,34 @@ import { createTicket } from "@/app/(dashboard)/tickets/actions";
 
 export async function POST(request: NextRequest) {
   try {
-    const { logId, userQuery, aiSummary, category = "Software", priority = "medium" } = await request.json();
+    const { action, logId, userQuery, aiSummary, category = "Software", priority = "medium" } = await request.json();
 
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Handle "Masalah Selesai" resolution status update
+    if (action === "resolve") {
+      if (logId) {
+        await supabase
+          .from("ai_deflection_logs")
+          .update({ status: "deflected_resolved" })
+          .eq("id", logId);
+      }
+      return NextResponse.json({ success: true, message: "Kendala berhasil ditandai selesai." });
+    }
+
+    // Handle Ticket Escalation
     if (!userQuery) {
       return NextResponse.json({ error: "User query is required" }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({
+        success: false,
+        requireAuth: true,
+        error: "Silakan login terlebih dahulu ke sistem SI MANTAP untuk membuat tiket IT."
+      }, { status: 401 });
+    }
 
     // 1. Create ticket
     const title = userQuery.length > 80 ? userQuery.slice(0, 77) + "..." : userQuery;
@@ -25,6 +45,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!ticketResult.success || !ticketResult.id) {
+      if (ticketResult.error === "Not authenticated") {
+        return NextResponse.json({
+          success: false,
+          requireAuth: true,
+          error: "Silakan login terlebih dahulu untuk membuat tiket IT."
+        }, { status: 401 });
+      }
       throw new Error(ticketResult.error || "Gagal membuat tiket Helpdesk");
     }
 
