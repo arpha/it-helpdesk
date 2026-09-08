@@ -1,12 +1,77 @@
 "use server";
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY || "";
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const MODELS_TO_TRY = [
+    process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "mixtral-8x7b-32768"
+];
 
 type Message = {
     role: "user" | "assistant";
     content: string;
 };
+
+/**
+ * Call Groq Chat Completions API with automatic model fallbacks
+ */
+async function callGroqChatCompletions(
+    messages: { role: string; content: string }[],
+    temperature = 0.3,
+    maxTokens = 2048
+): Promise<string> {
+    const apiKey = GROQ_API_KEY;
+    if (!apiKey) {
+        throw new Error("GROQ_API_KEY belum dikonfigurasi di Environment Variables / .env.local");
+    }
+
+    let lastError: Error | null = null;
+
+    // Try models in order until one succeeds
+    for (const model of MODELS_TO_TRY) {
+        try {
+            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model,
+                    messages,
+                    temperature,
+                    max_tokens: maxTokens
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data.choices?.[0]?.message?.content || "";
+            }
+
+            const errorText = await response.text();
+            console.warn(`Groq model ${model} failed (${response.status}):`, errorText);
+
+            // If error is model_not_found or 404, loop to try next model
+            if (response.status === 404 || errorText.includes("model_not_found") || errorText.includes("does not exist")) {
+                lastError = new Error(`Model ${model} tidak ditemukan.`);
+                continue;
+            }
+
+            // Other errors (e.g. 401 unauthorized)
+            throw new Error(`Groq API error (${response.status}): ${errorText}`);
+        } catch (err: any) {
+            lastError = err;
+            if (err.message?.includes("Groq API error (401)")) {
+                throw err;
+            }
+        }
+    }
+
+    throw lastError || new Error("Semua model Groq gagal dipanggil.");
+}
 
 /**
  * Get relevant database schema based on message content
@@ -89,11 +154,6 @@ export async function askGroqNatural(
     message: string,
     history: Message[] = []
 ): Promise<{ response: string; sql?: string; data?: unknown }> {
-    const apiKey = GROQ_API_KEY;
-    if (!apiKey) {
-        throw new Error("GROQ_API_KEY tidak dikonfigurasi di Environment Variables / .env.local");
-    }
-
     const relevantSchema = getRelevantSchema(message);
 
     const systemPrompt = `Kamu adalah AI Assistant IT Helpdesk untuk rumah sakit SI MANTAP.
@@ -134,28 +194,7 @@ FORMAT RESPONSE:
     formattedMessages.push({ role: "user", content: message });
 
     try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: DEFAULT_MODEL,
-                messages: formattedMessages,
-                temperature: 0.3,
-                max_tokens: 2048
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Groq API error status:", response.status, "details:", errorText);
-            throw new Error(`Groq API error: ${response.status} (${errorText})`);
-        }
-
-        const data = await response.json();
-        const aiResponse = data.choices?.[0]?.message?.content || "";
+        const aiResponse = await callGroqChatCompletions(formattedMessages, 0.3, 2048);
 
         // Check if response contains SQL
         const sqlMatch = aiResponse.match(/\[SQL\]([\s\S]*?)\[\/SQL\]/);
@@ -186,8 +225,7 @@ export async function summarizeQueryResultGroq(
     question: string,
     data: any[]
 ): Promise<string> {
-    const apiKey = GROQ_API_KEY;
-    if (!apiKey) return "Data ditemukan.";
+    if (!GROQ_API_KEY) return "Data ditemukan.";
 
     const dataString = JSON.stringify(data).substring(0, 5000);
 
@@ -203,24 +241,7 @@ Jawab pertanyaan user secara natural berdasarkan Data dari Database di atas.
 - Gunakan Bahasa Indonesia yang luwes dan membantu.`;
 
     try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: DEFAULT_MODEL,
-                messages: [{ role: "user", content: prompt }],
-                temperature: 0.4,
-                max_tokens: 1024
-            })
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            return result.choices?.[0]?.message?.content || "";
-        }
+        return await callGroqChatCompletions([{ role: "user", content: prompt }], 0.4, 1024);
     } catch (e) {
         console.error("Groq Summarize error:", e);
     }
@@ -237,11 +258,6 @@ export async function askGroqRAG(
     sopDocuments: { id: string; title: string; category: string; description?: string }[] = [],
     history: Message[] = []
 ): Promise<string> {
-    const apiKey = GROQ_API_KEY;
-    if (!apiKey) {
-        throw new Error("GROQ_API_KEY belum dikonfigurasi di Environment Variables server/Vercel.");
-    }
-
     const kbContext = kbArticles.length > 0
         ? kbArticles.map((art, i) => `[Artikel #${i + 1}] Judul: ${art.title} (Kategori: ${art.category})\nSolusi: ${art.content}`).join("\n\n")
         : "Tidak ada artikel KB khusus.";
@@ -278,28 +294,7 @@ ATURAN JAWABAN:
     formattedMessages.push({ role: "user", content: userQuery });
 
     try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: DEFAULT_MODEL,
-                messages: formattedMessages,
-                temperature: 0.3,
-                max_tokens: 2048
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Groq RAG API error status:", response.status, "details:", errorText);
-            throw new Error(`Groq API error: ${response.status} (${errorText})`);
-        }
-
-        const data = await response.json();
-        return data.choices?.[0]?.message?.content || "Maaf, saya tidak dapat memproses panduan saat ini.";
+        return await callGroqChatCompletions(formattedMessages, 0.3, 2048);
     } catch (error) {
         console.error("Groq RAG error:", error);
         throw error;
