@@ -7,7 +7,8 @@
 ALTER TABLE profiles 
 ADD COLUMN IF NOT EXISTS voice_sample_url TEXT,
 ADD COLUMN IF NOT EXISTS voice_sample_name TEXT,
-ADD COLUMN IF NOT EXISTS voice_model_provider TEXT DEFAULT 'huggingface';
+ADD COLUMN IF NOT EXISTS voice_model_provider TEXT DEFAULT 'huggingface',
+ADD COLUMN IF NOT EXISTS elevenlabs_voice_id TEXT;
 
 -- Create Storage bucket for voice samples if not exists
 INSERT INTO storage.buckets (id, name, public)

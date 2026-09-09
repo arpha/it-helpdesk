@@ -11,43 +11,46 @@ export async function POST(request: NextRequest) {
     }
 
     let voiceSampleUrl = providedVoiceUrl;
+    let voiceId: string | null = null;
 
-    // Fetch user profile voice sample if not directly provided
-    if (!voiceSampleUrl) {
-      try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("voice_sample_url")
-            .eq("id", user.id)
-            .single();
-          if (profile?.voice_sample_url) {
-            voiceSampleUrl = profile.voice_sample_url;
-          }
+    // Fetch user profile voice sample & ElevenLabs Voice ID if not directly provided
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("voice_sample_url, elevenlabs_voice_id")
+          .eq("id", user.id)
+          .single();
+        if (profile?.voice_sample_url) {
+          voiceSampleUrl = profile.voice_sample_url;
         }
-      } catch (err) {
-        console.warn("Could not fetch user profile for TTS:", err);
+        if (profile?.elevenlabs_voice_id) {
+          voiceId = profile.elevenlabs_voice_id;
+        }
       }
+    } catch (err) {
+      console.warn("Could not fetch user profile for TTS:", err);
     }
 
     const ttsResult = await generateSpeechAudio({
       text,
       voiceSampleUrl,
+      voiceId,
     });
 
     if (ttsResult.fallback || !ttsResult.audioBuffer) {
       return NextResponse.json({
         success: false,
         fallback: true,
-        message: "Menggunakan Web Speech API Browser sebagai pemutar cadangan.",
+        message: "Menggunakan pemutar cadangan.",
       });
     }
 
     return new NextResponse(ttsResult.audioBuffer, {
       headers: {
-        "Content-Type": ttsResult.mimeType || "audio/wav",
+        "Content-Type": ttsResult.mimeType || "audio/mpeg",
         "Cache-Control": "public, max-age=3600",
       },
     });

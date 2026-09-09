@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "";
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -13,7 +15,7 @@ export async function GET() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("voice_sample_url, voice_sample_name, voice_model_provider")
+      .select("voice_sample_url, voice_sample_name, voice_model_provider, elevenlabs_voice_id")
       .eq("id", user.id)
       .single();
 
@@ -22,6 +24,8 @@ export async function GET() {
       voiceSampleUrl: profile?.voice_sample_url || null,
       voiceSampleName: profile?.voice_sample_name || null,
       voiceModelProvider: profile?.voice_model_provider || "huggingface",
+      elevenlabsVoiceId: profile?.elevenlabs_voice_id || null,
+      hasElevenLabsKey: !!ELEVENLABS_API_KEY,
     });
   } catch (error) {
     console.error("GET Voice Clone Error:", error);
@@ -72,7 +76,7 @@ export async function POST(request: NextRequest) {
     const supabaseAdmin = createAdminClient();
     const storagePath = `user_${user.id}_${Date.now()}.${ext}`;
 
-    // Ensure bucket exists
+    // 1. Upload file to Supabase Storage
     const { error: uploadError } = await supabaseAdmin.storage
       .from("voice-samples")
       .upload(storagePath, buffer, {
@@ -85,20 +89,54 @@ export async function POST(request: NextRequest) {
       throw new Error(`Gagal mengunggah file ke penyimpanan: ${uploadError.message}`);
     }
 
-    // Get public URL
     const { data: publicUrlData } = supabaseAdmin.storage
       .from("voice-samples")
       .getPublicUrl(storagePath);
 
     const publicUrl = publicUrlData.publicUrl;
+    let elevenLabsVoiceId: string | null = null;
+    let provider = "huggingface";
 
-    // Update profiles table
+    // 2. If ElevenLabs API key is configured, create Instant Voice Clone on ElevenLabs
+    if (ELEVENLABS_API_KEY) {
+      try {
+        console.log("[ElevenLabs] Creating Instant Voice Clone...");
+        const elFormData = new FormData();
+        elFormData.append("name", `SI_MANTAP_${user.id.slice(0, 8)}`);
+        elFormData.append("description", `Custom Voice Clone for user ${user.id}`);
+        const audioBlob = new Blob([buffer], { type: mimeType || "audio/mpeg" });
+        elFormData.append("files", audioBlob, fileName);
+
+        const elRes = await fetch("https://api.elevenlabs.io/v1/voices/add", {
+          method: "POST",
+          headers: {
+            "xi-api-key": ELEVENLABS_API_KEY,
+          },
+          body: elFormData,
+        });
+
+        if (elRes.ok) {
+          const elData = await elRes.json();
+          elevenLabsVoiceId = elData.voice_id;
+          provider = "elevenlabs";
+          console.log("[ElevenLabs] Successfully created Voice Clone ID:", elevenLabsVoiceId);
+        } else {
+          const elErr = await elRes.text();
+          console.warn("[ElevenLabs] Voice clone creation failed:", elErr);
+        }
+      } catch (elErr) {
+        console.warn("[ElevenLabs] Error connecting to ElevenLabs API:", elErr);
+      }
+    }
+
+    // 3. Update profile record
     const { error: dbError } = await supabaseAdmin
       .from("profiles")
       .update({
         voice_sample_url: publicUrl,
         voice_sample_name: fileName,
-        voice_model_provider: "huggingface",
+        voice_model_provider: provider,
+        elevenlabs_voice_id: elevenLabsVoiceId,
       })
       .eq("id", user.id);
 
@@ -109,9 +147,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Sampel suara berhasil diunggah dan dikloning!",
+      message: provider === "elevenlabs" 
+        ? "Sampel suara berhasil diunggah dan dikloning secara instan via ElevenLabs AI!" 
+        : "Sampel suara berhasil diunggah dan disimpan!",
       voiceSampleUrl: publicUrl,
       voiceSampleName: fileName,
+      elevenlabsVoiceId: elevenLabsVoiceId,
+      provider,
     });
   } catch (error) {
     console.error("POST Voice Clone Error:", error);
