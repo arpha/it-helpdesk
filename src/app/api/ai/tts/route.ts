@@ -13,21 +13,31 @@ export async function POST(request: NextRequest) {
     let voiceSampleUrl = providedVoiceUrl;
     let voiceId: string | null = null;
 
-    // Fetch user profile voice sample & ElevenLabs Voice ID if not directly provided
+    // Fetch user profile voice sample & ElevenLabs Voice ID with safe query fallback
     try {
       const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase
+        // Try selecting both columns
+        const { data: profile, error: pErr } = await supabase
           .from("profiles")
           .select("voice_sample_url, elevenlabs_voice_id")
           .eq("id", user.id)
           .single();
-        if (profile?.voice_sample_url) {
-          voiceSampleUrl = profile.voice_sample_url;
-        }
-        if (profile?.elevenlabs_voice_id) {
-          voiceId = profile.elevenlabs_voice_id;
+
+        if (!pErr && profile) {
+          voiceSampleUrl = profile.voice_sample_url || voiceSampleUrl;
+          voiceId = profile.elevenlabs_voice_id || null;
+        } else {
+          // Fallback select if elevenlabs_voice_id column does not exist in DB yet
+          const { data: baseProfile } = await supabase
+            .from("profiles")
+            .select("voice_sample_url")
+            .eq("id", user.id)
+            .single();
+          if (baseProfile?.voice_sample_url) {
+            voiceSampleUrl = baseProfile.voice_sample_url;
+          }
         }
       }
     } catch (err) {
