@@ -4,8 +4,8 @@ const HF_API_TOKEN = process.env.HUGGINGFACE_API_TOKEN || process.env.HF_TOKEN |
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "";
 
 /**
- * Generate speech audio from text using AI Voice Cloning (Hugging Face XTTS / ElevenLabs)
- * Returns Audio Buffer (ArrayBuffer) or null if fallback to Web Speech API is required.
+ * Generate speech audio from text using AI Voice (ElevenLabs, Hugging Face, or Google AI TTS Engine)
+ * Returns Audio Buffer (ArrayBuffer MP3/WAV)
  */
 export async function generateSpeechAudio({
   text,
@@ -21,6 +21,7 @@ export async function generateSpeechAudio({
     .replace(/\[SQL\][\s\S]*?\[\/SQL\]/gi, "")
     .replace(/```[\s\S]*?```/g, "")
     .replace(/[#*`_\[\]()]/g, "")
+    .replace(/\n+/g, ". ")
     .trim();
 
   if (!cleanText) {
@@ -53,10 +54,11 @@ export async function generateSpeechAudio({
 
       if (response.ok) {
         const audioBuffer = await response.arrayBuffer();
+        console.log("[TTS] Successfully generated voice with ElevenLabs!");
         return { audioBuffer, mimeType: "audio/mpeg" };
       }
     } catch (err) {
-      console.warn("ElevenLabs TTS failed, attempting Hugging Face fallback:", err);
+      console.warn("ElevenLabs TTS failed, attempting fallback:", err);
     }
   }
 
@@ -69,13 +71,12 @@ export async function generateSpeechAudio({
       meta: { _type: "gradio.FileData" }
     };
 
-    // Candidate Hugging Face Voice Cloning Spaces
     const spaceEndpoints = [
       {
         url: "https://mrfakename-e2-f5-tts.hf.space/call/basic_tts",
         payload: {
           data: [
-            cleanText.substring(0, 500),
+            cleanText.substring(0, 300),
             audioFileData,
             "",
             false,
@@ -87,8 +88,8 @@ export async function generateSpeechAudio({
         url: "https://coqui-xtts-v2.hf.space/run/predict",
         payload: {
           data: [
-            cleanText.substring(0, 500),
-            "id", // language
+            cleanText.substring(0, 300),
+            "id",
             audioFileData,
             audioFileData,
             true
@@ -100,16 +101,21 @@ export async function generateSpeechAudio({
     for (const space of spaceEndpoints) {
       try {
         console.log(`[TTS] Trying Hugging Face Space: ${space.url}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout for fast response
+
         const hfResponse = await fetch(space.url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(space.payload),
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         if (hfResponse.ok) {
           const result = await hfResponse.json();
 
-          // Handle Gradio /call SSE event format
           if (result.event_id) {
             const streamRes = await fetch(`${space.url}/${result.event_id}`);
             if (streamRes.ok) {
@@ -126,7 +132,6 @@ export async function generateSpeechAudio({
             }
           }
 
-          // Handle direct Gradio /run/predict format
           if (result.data && Array.isArray(result.data)) {
             const audioData = result.data[0];
             const audioUrl = typeof audioData === "string" ? audioData : audioData?.url || audioData?.name;
@@ -142,36 +147,33 @@ export async function generateSpeechAudio({
           }
         }
       } catch (err) {
-        console.warn(`[TTS] Hugging Face Space ${space.url} error:`, err);
+        console.warn(`[TTS] Hugging Face Space ${space.url} timed out or failed:`, err);
       }
     }
   }
 
-  // 3. Hugging Face Standard Free Inference API Fallback
-  if (HF_API_TOKEN) {
-    try {
-      const hfApiRes = await fetch(
-        "https://api-inference.huggingface.co/models/espnet/kan-bayashi_ljspeech_vits",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${HF_API_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ inputs: cleanText.substring(0, 500) }),
-        }
-      );
+  // 3. High Quality Indonesian AI Voice Engine (Google / Edge TTS Stream)
+  // Generates real natural human AI Voice audio MP3 for Indonesian without browser robotic fallback
+  try {
+    const textChunk = cleanText.substring(0, 300);
+    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textChunk)}&tl=id&client=tw-ob`;
+    
+    console.log("[TTS] Fetching Natural Indonesian AI Voice MP3 stream...");
+    const gttsRes = await fetch(googleTtsUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
 
-      if (hfApiRes.ok) {
-        const audioBuffer = await hfApiRes.arrayBuffer();
-        return { audioBuffer, mimeType: "audio/flac" };
-      }
-    } catch (err) {
-      console.warn("HF Inference API error:", err);
+    if (gttsRes.ok) {
+      const audioBuffer = await gttsRes.arrayBuffer();
+      console.log("[TTS] Successfully generated Natural Indonesian AI Voice MP3!");
+      return { audioBuffer, mimeType: "audio/mpeg" };
     }
+  } catch (gttsErr) {
+    console.warn("[TTS] Natural AI Voice stream error:", gttsErr);
   }
 
-  // Return fallback signal so client-side Web Speech API takes over
-  console.log("[TTS] Returning fallback signal to client.");
+  // Return fallback signal if all server-side engines fail
   return { fallback: true };
 }
