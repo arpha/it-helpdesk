@@ -26,6 +26,7 @@ import {
     Fingerprint,
     BookOpen,
     ShieldCheck,
+    Volume2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -108,6 +109,11 @@ const menuGroups: MenuGroup[] = [
                 title: "Convert OCR",
                 href: "/tools/convert",
                 icon: FileText,
+            },
+            {
+                title: "Suara AI & Kloning",
+                href: "/settings/voice",
+                icon: Volume2,
             },
         ],
     },

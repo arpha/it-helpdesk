@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import type { AIChatMessage } from "@/types/kb";
+import { AudioSpeakerButton } from "@/components/ui/audio-speaker-button";
 
 interface AIAssistantModalProps {
   open: boolean;
@@ -319,9 +320,12 @@ export function AIAssistantModal({ open, onOpenChange }: AIAssistantModalProps) 
                   </div>
                 )}
 
-                <span className="text-[10px] text-muted-foreground block px-1">
-                  {msg.timestamp}
-                </span>
+                <div className="flex items-center justify-between px-1 text-[10px] text-muted-foreground">
+                  <span>{msg.timestamp}</span>
+                  {msg.role === "assistant" && (
+                    <AudioSpeakerButton text={msg.content} />
+                  )}
+                </div>
               </div>
 
               {msg.role === "user" && (
