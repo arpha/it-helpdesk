@@ -15,7 +15,7 @@ export async function GET() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("voice_sample_url, voice_sample_name, voice_model_provider, elevenlabs_voice_id")
+      .select("voice_sample_url, voice_sample_name, voice_model_provider")
       .eq("id", user.id)
       .single();
 
@@ -24,7 +24,6 @@ export async function GET() {
       voiceSampleUrl: profile?.voice_sample_url || null,
       voiceSampleName: profile?.voice_sample_name || null,
       voiceModelProvider: profile?.voice_model_provider || "huggingface",
-      elevenlabsVoiceId: profile?.elevenlabs_voice_id || null,
       hasElevenLabsKey: !!ELEVENLABS_API_KEY,
     });
   } catch (error) {
@@ -129,16 +128,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Update profile record
-    const { error: dbError } = await supabaseAdmin
+    // 3. Update profile record with graceful fallback if column is missing
+    const updateData: Record<string, any> = {
+      voice_sample_url: publicUrl,
+      voice_sample_name: fileName,
+      voice_model_provider: provider,
+    };
+
+    if (elevenLabsVoiceId) {
+      updateData.elevenlabs_voice_id = elevenLabsVoiceId;
+    }
+
+    let { error: dbError } = await supabaseAdmin
       .from("profiles")
-      .update({
-        voice_sample_url: publicUrl,
-        voice_sample_name: fileName,
-        voice_model_provider: provider,
-        elevenlabs_voice_id: elevenLabsVoiceId,
-      })
+      .update(updateData)
       .eq("id", user.id);
+
+    // If missing elevenlabs_voice_id column error occurs, fallback to update without elevenlabs_voice_id
+    if (dbError && dbError.message.includes("elevenlabs_voice_id")) {
+      console.warn("elevenlabs_voice_id column missing in DB, falling back to base columns.");
+      delete updateData.elevenlabs_voice_id;
+      const fallbackRes = await supabaseAdmin
+        .from("profiles")
+        .update(updateData)
+        .eq("id", user.id);
+      dbError = fallbackRes.error;
+    }
 
     if (dbError) {
       console.error("Profile update error:", dbError);
