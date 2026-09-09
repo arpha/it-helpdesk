@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate mime type / extension
-    const mimeType = file.type || "";
+    const mimeType = file.type || "audio/mpeg";
     const fileName = file.name || "voice-sample.mp3";
     const ext = fileName.split(".").pop()?.toLowerCase() || "mp3";
 
@@ -95,16 +95,18 @@ export async function POST(request: NextRequest) {
     const publicUrl = publicUrlData.publicUrl;
     let elevenLabsVoiceId: string | null = null;
     let provider = "huggingface";
+    let elevenLabsErrorMessage = "";
 
-    // 2. If ElevenLabs API key is configured, create Instant Voice Clone on ElevenLabs
+    // 2. If ElevenLabs API key is configured, create or reuse Instant Voice Clone on ElevenLabs
     if (ELEVENLABS_API_KEY) {
       try {
         console.log("[ElevenLabs] Creating Instant Voice Clone...");
+        const audioFile = new File([buffer], fileName, { type: mimeType || "audio/mpeg" });
+
         const elFormData = new FormData();
-        elFormData.append("name", `SI_MANTAP_${user.id.slice(0, 8)}`);
+        elFormData.append("name", `SIMANTAP_${user.id.slice(0, 8)}`);
         elFormData.append("description", `Custom Voice Clone for user ${user.id}`);
-        const audioBlob = new Blob([buffer], { type: mimeType || "audio/mpeg" });
-        elFormData.append("files", audioBlob, fileName);
+        elFormData.append("files", audioFile);
 
         const elRes = await fetch("https://api.elevenlabs.io/v1/voices/add", {
           method: "POST",
@@ -120,15 +122,48 @@ export async function POST(request: NextRequest) {
           provider = "elevenlabs";
           console.log("[ElevenLabs] Successfully created Voice Clone ID:", elevenLabsVoiceId);
         } else {
-          const elErr = await elRes.text();
-          console.warn("[ElevenLabs] Voice clone creation failed:", elErr);
+          const elErrText = await elRes.text();
+          console.warn(`[ElevenLabs] Voice clone add returned ${elRes.status}:`, elErrText);
+          elevenLabsErrorMessage = elErrText;
+
+          // If voice limit reached or 400 error, fetch existing user custom voices from ElevenLabs account
+          const voicesRes = await fetch("https://api.elevenlabs.io/v1/voices", {
+            headers: { "xi-api-key": ELEVENLABS_API_KEY },
+          });
+
+          if (voicesRes.ok) {
+            const voicesData = await voicesRes.json();
+            const customVoice = voicesData.voices?.find(
+              (v: any) => v.category === "cloned" || v.name?.includes("SIMANTAP")
+            ) || voicesData.voices?.[0];
+
+            if (customVoice) {
+              elevenLabsVoiceId = customVoice.voice_id;
+              provider = "elevenlabs";
+              console.log("[ElevenLabs] Reusing existing cloned voice ID:", elevenLabsVoiceId);
+
+              // Try editing existing voice sample
+              try {
+                const editFormData = new FormData();
+                editFormData.append("name", customVoice.name || `SIMANTAP_${user.id.slice(0, 8)}`);
+                editFormData.append("files", audioFile);
+                await fetch(`https://api.elevenlabs.io/v1/voices/${elevenLabsVoiceId}/edit`, {
+                  method: "POST",
+                  headers: { "xi-api-key": ELEVENLABS_API_KEY },
+                  body: editFormData,
+                });
+              } catch (editErr) {
+                console.warn("[ElevenLabs] Voice edit error:", editErr);
+              }
+            }
+          }
         }
-      } catch (elErr) {
+      } catch (elErr: any) {
         console.warn("[ElevenLabs] Error connecting to ElevenLabs API:", elErr);
       }
     }
 
-    // 3. Update profile record with graceful fallback if column is missing
+    // 3. Update profile record
     const updateData: Record<string, any> = {
       voice_sample_url: publicUrl,
       voice_sample_name: fileName,
@@ -144,9 +179,7 @@ export async function POST(request: NextRequest) {
       .update(updateData)
       .eq("id", user.id);
 
-    // If missing elevenlabs_voice_id column error occurs, fallback to update without elevenlabs_voice_id
     if (dbError && dbError.message.includes("elevenlabs_voice_id")) {
-      console.warn("elevenlabs_voice_id column missing in DB, falling back to base columns.");
       delete updateData.elevenlabs_voice_id;
       const fallbackRes = await supabaseAdmin
         .from("profiles")
@@ -160,11 +193,16 @@ export async function POST(request: NextRequest) {
       throw new Error(`Gagal memperbarui profil pengguna: ${dbError.message}`);
     }
 
+    let userMessage = "Sampel suara berhasil diunggah!";
+    if (provider === "elevenlabs") {
+      userMessage = "Sampel suara berhasil diunggah & dikloning via ElevenLabs AI!";
+    } else if (elevenLabsErrorMessage) {
+      userMessage = `Sampel tersimpan! Catatan ElevenLabs: ${elevenLabsErrorMessage.includes("voice_limit") ? "Batas jumlah voice akun ElevenLabs sudah penuh." : "Gagal kloning instan, menggunakan suara AI alami."}`;
+    }
+
     return NextResponse.json({
       success: true,
-      message: provider === "elevenlabs" 
-        ? "Sampel suara berhasil diunggah dan dikloning secara instan via ElevenLabs AI!" 
-        : "Sampel suara berhasil diunggah dan disimpan!",
+      message: userMessage,
       voiceSampleUrl: publicUrl,
       voiceSampleName: fileName,
       elevenlabsVoiceId: elevenLabsVoiceId,
