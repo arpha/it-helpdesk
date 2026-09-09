@@ -27,8 +27,9 @@ export async function POST(request: NextRequest) {
 
         if (!pErr && profile) {
           voiceSampleUrl = profile.voice_sample_url || voiceSampleUrl;
-          voiceId = profile.elevenlabs_voice_id || null;
+          voiceId = profile.elevenlabs_voice_id || "BfwyZzLnL4udYd1qYpiN";
         } else {
+          voiceId = "BfwyZzLnL4udYd1qYpiN";
           // Fallback select if elevenlabs_voice_id column does not exist in DB yet
           const { data: baseProfile } = await supabase
             .from("profiles")

@@ -35,7 +35,7 @@ export async function generateSpeechAudio({
     try {
       let targetVoiceId = voiceId;
 
-      // If voiceId is not passed, attempt to fetch custom voice ID from ElevenLabs account
+      // If voiceId is not passed, attempt to fetch custom voice ID from ElevenLabs account, or fallback to default specified voice ID
       if (!targetVoiceId) {
         try {
           const listRes = await fetch("https://api.elevenlabs.io/v1/voices", {
@@ -52,12 +52,16 @@ export async function generateSpeechAudio({
               targetVoiceId = customVoice.voice_id;
               console.log(`[TTS ElevenLabs] Auto-discovered user custom voice: ${customVoice.name} (${targetVoiceId})`);
             } else if (voices.length > 0) {
-              // Fallback to first available voice in ElevenLabs if no cloned voice found
               targetVoiceId = voices[0].voice_id;
             }
           }
         } catch (e) {
           console.warn("[TTS ElevenLabs] Error fetching voice list:", e);
+        }
+
+        // Hardcoded target fallback voice ID specified by user if list fetch didn't yield a voice
+        if (!targetVoiceId) {
+          targetVoiceId = "BfwyZzLnL4udYd1qYpiN";
         }
       }
 
