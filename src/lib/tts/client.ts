@@ -30,32 +30,66 @@ export async function generateSpeechAudio({
 
   console.log(`[TTS Generate] Processing text (${cleanText.length} chars), voiceSampleUrl: ${voiceSampleUrl || 'none'}`);
 
-  // 1. If ElevenLabs API Key is provided and user has a voiceId
-  if (ELEVENLABS_API_KEY && voiceId) {
+  // 1. If ElevenLabs API Key is provided
+  if (ELEVENLABS_API_KEY) {
     try {
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "xi-api-key": ELEVENLABS_API_KEY,
-          },
-          body: JSON.stringify({
-            text: cleanText.substring(0, 1000),
-            model_id: "eleven_multilingual_v2",
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-            },
-          }),
-        }
-      );
+      let targetVoiceId = voiceId;
 
-      if (response.ok) {
-        const audioBuffer = await response.arrayBuffer();
-        console.log("[TTS] Successfully generated voice with ElevenLabs!");
-        return { audioBuffer, mimeType: "audio/mpeg" };
+      // If voiceId is not passed, attempt to fetch custom voice ID from ElevenLabs account
+      if (!targetVoiceId) {
+        try {
+          const listRes = await fetch("https://api.elevenlabs.io/v1/voices", {
+            headers: { "xi-api-key": ELEVENLABS_API_KEY },
+          });
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            const voices = listData.voices || [];
+            // Find custom/cloned voice first
+            const customVoice = voices.find(
+              (v: any) => v.category !== "premade" && v.category !== "famous" && v.category !== "standard"
+            );
+            if (customVoice) {
+              targetVoiceId = customVoice.voice_id;
+              console.log(`[TTS ElevenLabs] Auto-discovered user custom voice: ${customVoice.name} (${targetVoiceId})`);
+            } else if (voices.length > 0) {
+              // Fallback to first available voice in ElevenLabs if no cloned voice found
+              targetVoiceId = voices[0].voice_id;
+            }
+          }
+        } catch (e) {
+          console.warn("[TTS ElevenLabs] Error fetching voice list:", e);
+        }
+      }
+
+      if (targetVoiceId) {
+        console.log(`[TTS ElevenLabs] Synthesizing speech with voice ID: ${targetVoiceId}`);
+        const response = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "xi-api-key": ELEVENLABS_API_KEY,
+            },
+            body: JSON.stringify({
+              text: cleanText.substring(0, 1000),
+              model_id: "eleven_multilingual_v2",
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75,
+              },
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const audioBuffer = await response.arrayBuffer();
+          console.log("[TTS] Successfully generated voice with ElevenLabs!");
+          return { audioBuffer, mimeType: "audio/mpeg" };
+        } else {
+          const errText = await response.text();
+          console.warn(`[TTS ElevenLabs] API error (${response.status}):`, errText);
+        }
       }
     } catch (err) {
       console.warn("ElevenLabs TTS failed, attempting fallback:", err);
