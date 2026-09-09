@@ -15,7 +15,7 @@ export async function GET() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("voice_sample_url, voice_sample_name, voice_model_provider")
+      .select("voice_sample_url, voice_sample_name, voice_model_provider, elevenlabs_voice_id")
       .eq("id", user.id)
       .single();
 
@@ -24,6 +24,7 @@ export async function GET() {
       voiceSampleUrl: profile?.voice_sample_url || null,
       voiceSampleName: profile?.voice_sample_name || null,
       voiceModelProvider: profile?.voice_model_provider || "huggingface",
+      elevenlabsVoiceId: profile?.elevenlabs_voice_id || null,
       hasElevenLabsKey: !!ELEVENLABS_API_KEY,
     });
   } catch (error) {
@@ -57,7 +58,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate mime type / extension
     const mimeType = file.type || "audio/mpeg";
     const fileName = file.name || "voice-sample.mp3";
     const ext = fileName.split(".").pop()?.toLowerCase() || "mp3";
@@ -97,65 +97,102 @@ export async function POST(request: NextRequest) {
     let provider = "huggingface";
     let elevenLabsErrorMessage = "";
 
-    // 2. If ElevenLabs API key is configured, create or reuse Instant Voice Clone on ElevenLabs
+    // 2. ElevenLabs Instant Voice Cloning (Strictly Cloned Voices Only)
     if (ELEVENLABS_API_KEY) {
       try {
-        console.log("[ElevenLabs] Creating Instant Voice Clone...");
+        console.log("[ElevenLabs] Starting Instant Voice Clone process...");
         const audioFile = new File([buffer], fileName, { type: mimeType || "audio/mpeg" });
 
-        const elFormData = new FormData();
-        elFormData.append("name", `SIMANTAP_${user.id.slice(0, 8)}`);
-        elFormData.append("description", `Custom Voice Clone for user ${user.id}`);
-        elFormData.append("files", audioFile);
-
-        const elRes = await fetch("https://api.elevenlabs.io/v1/voices/add", {
-          method: "POST",
-          headers: {
-            "xi-api-key": ELEVENLABS_API_KEY,
-          },
-          body: elFormData,
+        // Check existing cloned voices in ElevenLabs account
+        const listRes = await fetch("https://api.elevenlabs.io/v1/voices", {
+          headers: { "xi-api-key": ELEVENLABS_API_KEY },
         });
 
-        if (elRes.ok) {
-          const elData = await elRes.json();
-          elevenLabsVoiceId = elData.voice_id;
-          provider = "elevenlabs";
-          console.log("[ElevenLabs] Successfully created Voice Clone ID:", elevenLabsVoiceId);
-        } else {
-          const elErrText = await elRes.text();
-          console.warn(`[ElevenLabs] Voice clone add returned ${elRes.status}:`, elErrText);
-          elevenLabsErrorMessage = elErrText;
+        let existingClonedVoice: { voice_id: string; name: string } | null = null;
+        let allClonedVoices: { voice_id: string; name: string }[] = [];
 
-          // If voice limit reached or 400 error, fetch existing user custom voices from ElevenLabs account
-          const voicesRes = await fetch("https://api.elevenlabs.io/v1/voices", {
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          allClonedVoices = (listData.voices || []).filter(
+            (v: any) => v.category === "cloned" || v.name?.includes("SIMANTAP")
+          );
+
+          if (allClonedVoices.length > 0) {
+            existingClonedVoice = allClonedVoices[0];
+          }
+        }
+
+        // Option A: Edit existing cloned voice if found
+        if (existingClonedVoice) {
+          console.log("[ElevenLabs] Editing existing cloned voice ID:", existingClonedVoice.voice_id);
+          const editFormData = new FormData();
+          editFormData.append("name", `SIMANTAP_${user.id.slice(0, 8)}`);
+          editFormData.append("files", audioFile);
+
+          const editRes = await fetch(`https://api.elevenlabs.io/v1/voices/${existingClonedVoice.voice_id}/edit`, {
+            method: "POST",
             headers: { "xi-api-key": ELEVENLABS_API_KEY },
+            body: editFormData,
           });
 
-          if (voicesRes.ok) {
-            const voicesData = await voicesRes.json();
-            const customVoice = voicesData.voices?.find(
-              (v: any) => v.category === "cloned" || v.name?.includes("SIMANTAP")
-            ) || voicesData.voices?.[0];
+          if (editRes.ok) {
+            elevenLabsVoiceId = existingClonedVoice.voice_id;
+            provider = "elevenlabs";
+            console.log("[ElevenLabs] Successfully updated custom voice ID:", elevenLabsVoiceId);
+          } else {
+            console.warn("[ElevenLabs] Edit voice failed status:", editRes.status, await editRes.text());
+          }
+        }
 
-            if (customVoice) {
-              elevenLabsVoiceId = customVoice.voice_id;
-              provider = "elevenlabs";
-              console.log("[ElevenLabs] Reusing existing cloned voice ID:", elevenLabsVoiceId);
+        // Option B: Add new voice if no existing cloned voice updated
+        if (!elevenLabsVoiceId) {
+          console.log("[ElevenLabs] Creating new custom voice via /v1/voices/add...");
+          const elFormData = new FormData();
+          elFormData.append("name", `SIMANTAP_${user.id.slice(0, 8)}`);
+          elFormData.append("description", `Custom Voice Clone for user ${user.id}`);
+          elFormData.append("files", audioFile);
 
-              // Try editing existing voice sample
-              try {
-                const editFormData = new FormData();
-                editFormData.append("name", customVoice.name || `SIMANTAP_${user.id.slice(0, 8)}`);
-                editFormData.append("files", audioFile);
-                await fetch(`https://api.elevenlabs.io/v1/voices/${elevenLabsVoiceId}/edit`, {
+          let elRes = await fetch("https://api.elevenlabs.io/v1/voices/add", {
+            method: "POST",
+            headers: { "xi-api-key": ELEVENLABS_API_KEY },
+            body: elFormData,
+          });
+
+          if (!elRes.ok) {
+            const elErrText = await elRes.text();
+            console.warn(`[ElevenLabs] Voice clone add returned ${elRes.status}:`, elErrText);
+            elevenLabsErrorMessage = elErrText;
+
+            // If account voice limit reached, delete the oldest cloned voice and retry add
+            if (elErrText.includes("can_not_add_voice") || elErrText.includes("voice_limit") || elRes.status === 400) {
+              if (allClonedVoices.length > 0) {
+                const voiceToDelete = allClonedVoices[allClonedVoices.length - 1];
+                console.log("[ElevenLabs] Deleting old cloned voice ID:", voiceToDelete.voice_id);
+                await fetch(`https://api.elevenlabs.io/v1/voices/${voiceToDelete.voice_id}`, {
+                  method: "DELETE",
+                  headers: { "xi-api-key": ELEVENLABS_API_KEY },
+                }).catch(console.warn);
+
+                // Retry adding voice
+                const retryRes = await fetch("https://api.elevenlabs.io/v1/voices/add", {
                   method: "POST",
                   headers: { "xi-api-key": ELEVENLABS_API_KEY },
-                  body: editFormData,
+                  body: elFormData,
                 });
-              } catch (editErr) {
-                console.warn("[ElevenLabs] Voice edit error:", editErr);
+
+                if (retryRes.ok) {
+                  const retryData = await retryRes.json();
+                  elevenLabsVoiceId = retryData.voice_id;
+                  provider = "elevenlabs";
+                  console.log("[ElevenLabs] Successfully created voice on retry:", elevenLabsVoiceId);
+                }
               }
             }
+          } else {
+            const elData = await elRes.json();
+            elevenLabsVoiceId = elData.voice_id;
+            provider = "elevenlabs";
+            console.log("[ElevenLabs] Successfully created new voice clone ID:", elevenLabsVoiceId);
           }
         }
       } catch (elErr: any) {
@@ -194,8 +231,8 @@ export async function POST(request: NextRequest) {
     }
 
     let userMessage = "Sampel suara berhasil diunggah!";
-    if (provider === "elevenlabs") {
-      userMessage = "Sampel suara berhasil diunggah & dikloning via ElevenLabs AI!";
+    if (provider === "elevenlabs" && elevenLabsVoiceId) {
+      userMessage = "Sampel suara MP3 Anda berhasil dikloning secara instan via ElevenLabs AI!";
     } else if (elevenLabsErrorMessage) {
       userMessage = `Sampel tersimpan! Catatan ElevenLabs: ${elevenLabsErrorMessage.includes("voice_limit") ? "Batas jumlah voice akun ElevenLabs sudah penuh." : "Gagal kloning instan, menggunakan suara AI alami."}`;
     }
