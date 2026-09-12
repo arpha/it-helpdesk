@@ -27,6 +27,7 @@ export type Ticket = {
     assignee?: { full_name: string };
     location?: { name: string };
     asset?: { name: string; asset_code: string };
+    parts?: { id: string; item_id: string; quantity: number; item?: { id: string; name: string } }[];
 };
 
 type UseTicketsParams = {
@@ -52,7 +53,8 @@ export function useTickets(params: UseTicketsParams = {}) {
                     requester:profiles!tickets_requester_id_fkey(full_name),
                     assignee:profiles!tickets_assigned_to_fkey(full_name),
                     location:locations(name),
-                    asset:assets(name, asset_code)
+                    asset:assets(name, asset_code),
+                    parts:ticket_parts(id, item_id, quantity, item:atk_items(id, name))
                 `, { count: "exact" });
 
             if (status && status !== "all") {

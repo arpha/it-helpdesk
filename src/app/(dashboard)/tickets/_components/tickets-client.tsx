@@ -205,6 +205,11 @@ export function TicketsClient() {
         setFormPriority(ticket.priority);
         setFormAssetId(ticket.asset_id || "");
         setFormRequester(ticket.requester_id || "");
+        if (ticket.parts && ticket.parts.length > 0) {
+            setFormParts(ticket.parts.map(p => ({ item_id: p.item_id, quantity: p.quantity })));
+        } else {
+            setFormParts([]);
+        }
         setIsEditOpen(true);
     };
 
@@ -220,10 +225,12 @@ export function TicketsClient() {
                 priority: formPriority,
                 asset_id: formAssetId || undefined,
                 requester_id: formRequester || undefined,
+                parts: formParts.filter(p => p.item_id && p.quantity > 0),
             });
 
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
+                queryClient.invalidateQueries({ queryKey: ["atk-items"] });
                 setIsEditOpen(false);
                 setSelectedTicket(null);
                 resetForm();
@@ -808,6 +815,75 @@ export function TicketsClient() {
                                 </PopoverContent>
                             </Popover>
                         </div>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label>Parts / Spareparts Used (optional)</Label>
+                                <Button type="button" variant="outline" size="sm" onClick={addPart}>
+                                    <Plus className="h-3 w-3 mr-1" /> Add Part
+                                </Button>
+                            </div>
+                            {formParts.map((part, idx) => (
+                                <div key={idx} className="flex gap-2">
+                                    <Popover
+                                        open={partsPopoverOpenIdx === idx}
+                                        onOpenChange={(open) => setPartsPopoverOpenIdx(open ? idx : null)}
+                                    >
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                className="flex-1 justify-between font-normal"
+                                            >
+                                                {part.item_id
+                                                    ? itemsData?.data?.find((i) => i.id === part.item_id)?.name
+                                                    : "Select part..."}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[300px] p-0" align="start">
+                                            <Command>
+                                                <CommandInput placeholder="Cari part..." />
+                                                <CommandList>
+                                                    <CommandEmpty>Part tidak ditemukan.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {itemsData?.data?.map((item) => (
+                                                            <CommandItem
+                                                                key={item.id}
+                                                                value={item.name}
+                                                                onSelect={() => {
+                                                                    updatePart(idx, "item_id", item.id);
+                                                                    setPartsPopoverOpenIdx(null);
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={`mr-2 h-4 w-4 ${part.item_id === item.id ? "opacity-100" : "opacity-0"}`}
+                                                                />
+                                                                {item.name} (Stock: {item.stock_quantity})
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <Input
+                                        type="number"
+                                        value={part.quantity}
+                                        onChange={(e) => updatePart(idx, "quantity", parseInt(e.target.value) || 1)}
+                                        className="w-20"
+                                        min={1}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => removePart(idx)}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" onClick={() => { setIsEditOpen(false); resetForm(); }}>Cancel</Button>
                             <Button onClick={handleEdit} disabled={isPending || !formTitle}>
@@ -864,6 +940,18 @@ export function TicketsClient() {
                                 <div>
                                     <Label className="text-muted-foreground">Resolution</Label>
                                     <p>{selectedTicket.resolution_notes}</p>
+                                </div>
+                            )}
+                            {selectedTicket.parts && selectedTicket.parts.length > 0 && (
+                                <div>
+                                    <Label className="text-muted-foreground">Parts / Spareparts Used</Label>
+                                    <ul className="list-disc list-inside text-sm space-y-1 mt-1">
+                                        {selectedTicket.parts.map((p, idx) => (
+                                            <li key={idx}>
+                                                {p.item?.name || "Part"} — Quantity: {p.quantity}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             )}
                         </div>

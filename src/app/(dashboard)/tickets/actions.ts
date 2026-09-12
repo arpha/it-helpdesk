@@ -24,6 +24,7 @@ type UpdateTicketInput = {
     assigned_to?: string;
     asset_id?: string;
     requester_id?: string;
+    parts?: { item_id: string; quantity: number }[];
 };
 
 type CompleteTicketInput = {
@@ -173,7 +174,23 @@ export async function updateTicket(input: UpdateTicketInput): Promise<ActionResu
             return { success: false, error: error.message };
         }
 
+        // Sync parts used if provided
+        if (input.parts !== undefined) {
+            // Delete existing ticket parts
+            await supabase.from("ticket_parts").delete().eq("ticket_id", input.id);
+
+            if (input.parts.length > 0) {
+                const ticketParts = input.parts.map((p) => ({
+                    ticket_id: input.id,
+                    item_id: p.item_id,
+                    quantity: p.quantity,
+                }));
+                await supabase.from("ticket_parts").insert(ticketParts);
+            }
+        }
+
         revalidatePath("/tickets");
+        revalidatePath("/atk/items");
         return { success: true };
     } catch (error) {
         return {
