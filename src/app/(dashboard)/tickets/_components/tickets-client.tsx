@@ -231,6 +231,7 @@ export function TicketsClient() {
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
                 queryClient.invalidateQueries({ queryKey: ["atk-items"] });
+                queryClient.invalidateQueries({ queryKey: ["atk-requests"] });
                 setIsEditOpen(false);
                 setSelectedTicket(null);
                 resetForm();

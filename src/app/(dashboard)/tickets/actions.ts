@@ -176,6 +176,9 @@ export async function updateTicket(input: UpdateTicketInput): Promise<ActionResu
 
         // Sync parts used if provided
         if (input.parts !== undefined) {
+            const authClient = await createClient();
+            const { data: { user } } = await authClient.auth.getUser();
+
             // Delete existing ticket parts
             await supabase.from("ticket_parts").delete().eq("ticket_id", input.id);
 
@@ -187,10 +190,77 @@ export async function updateTicket(input: UpdateTicketInput): Promise<ActionResu
                 }));
                 await supabase.from("ticket_parts").insert(ticketParts);
             }
+
+            // Sync with ATK Request for sparepart tracking
+            // Check if there is an existing ATK Request linked to this ticket
+            const { data: existingAtkReq } = await supabase
+                .from("atk_requests")
+                .select("id, status")
+                .eq("ticket_id", input.id)
+                .single();
+
+            if (input.parts.length > 0) {
+                // Get ticket detail for requester & asset location
+                const { data: ticket } = await supabase
+                    .from("tickets")
+                    .select("created_by, requester_id, asset_id")
+                    .eq("id", input.id)
+                    .single();
+
+                let assetLocationId: string | null = null;
+                if (ticket?.asset_id) {
+                    const { data: asset } = await supabase
+                        .from("assets")
+                        .select("location_id")
+                        .eq("id", ticket.asset_id)
+                        .single();
+                    assetLocationId = asset?.location_id || null;
+                }
+
+                let reqId = existingAtkReq?.id;
+
+                if (!reqId) {
+                    // Create new ATK request for this ticket
+                    const { data: newAtkReq } = await supabase
+                        .from("atk_requests")
+                        .insert({
+                            requester_id: ticket?.requester_id || ticket?.created_by || user?.id,
+                            ticket_id: input.id,
+                            location_id: assetLocationId,
+                            notes: `From Ticket - Auto generated`,
+                            status: "approved",
+                            approved_by: user?.id,
+                            approved_at: new Date().toISOString(),
+                        })
+                        .select("id")
+                        .single();
+
+                    reqId = newAtkReq?.id;
+                }
+
+                if (reqId) {
+                    // Update/Replace ATK request items
+                    await supabase.from("atk_request_items").delete().eq("request_id", reqId);
+
+                    const requestItems = input.parts.map((p) => ({
+                        request_id: reqId,
+                        item_id: p.item_id,
+                        quantity: p.quantity,
+                        approved_quantity: p.quantity,
+                    }));
+
+                    await supabase.from("atk_request_items").insert(requestItems);
+                }
+            } else if (existingAtkReq) {
+                // If parts cleared to 0, delete ATK request & items
+                await supabase.from("atk_request_items").delete().eq("request_id", existingAtkReq.id);
+                await supabase.from("atk_requests").delete().eq("id", existingAtkReq.id);
+            }
         }
 
         revalidatePath("/tickets");
         revalidatePath("/atk/items");
+        revalidatePath("/atk/requests");
         return { success: true };
     } catch (error) {
         return {
