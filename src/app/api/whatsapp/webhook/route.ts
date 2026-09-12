@@ -498,24 +498,14 @@ Silakan login ke IT Helpdesk untuk menindaklanjuti.`;
         }
 
         if (!profile) {
-            await sendWhatsAppMessage({
-                target: normalizedPhone,
-                message: `❌ Nomor WhatsApp Anda belum terdaftar.
-
-Silakan hubungi Admin IT untuk mendaftarkan nomor Anda.`,
-            });
-            return NextResponse.json({ status: "unregistered" });
+            console.log(`Unregistered WA number (${normalizedPhone}), ignoring message without reply.`);
+            return NextResponse.json({ status: "unregistered_ignored" });
         }
 
         // Check if user is active
         if (profile.is_active === false) {
-            await sendWhatsAppMessage({
-                target: normalizedPhone,
-                message: `❌ Akun Anda tidak aktif.
-
-Silakan hubungi Admin IT untuk mengaktifkan kembali akun Anda.`,
-            });
-            return NextResponse.json({ status: "inactive_user" });
+            console.log(`Inactive WA user (${normalizedPhone}), ignoring message without reply.`);
+            return NextResponse.json({ status: "inactive_user_ignored" });
         }
 
         const lowerMessage = message.toLowerCase().trim();
