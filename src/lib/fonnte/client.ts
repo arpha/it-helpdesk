@@ -197,57 +197,25 @@ export async function getWhatsAppGroups(): Promise<{ id: string; name: string }[
 }
 
 /**
- * Resolve a group sender ID (possibly LID format) to a valid Fonnte group ID.
- * Falls back to the member's phone number if group ID cannot be resolved.
+ * Resolve a group sender ID to a valid Fonnte target.
+ * Fast & non-blocking: Returns target directly without artificial delays.
  */
 export async function resolveGroupTarget(senderGroupId: string, memberPhone?: string): Promise<string> {
-    // If sender already contains a dash (standard format), use it directly
-    if (senderGroupId.includes("-") && senderGroupId.includes("@g.us")) {
+    // Standard group format (e.g. 120363xxx@g.us or contains a dash)
+    if (senderGroupId.includes("@g.us") || senderGroupId.includes("-")) {
         return senderGroupId;
     }
 
-    // Check cache first
+    // Check in-memory cache first
     if (groupIdCache.has(senderGroupId) && (Date.now() - groupCacheTimestamp) < GROUP_CACHE_TTL) {
-        console.log("Using cached group ID for:", senderGroupId, "->", groupIdCache.get(senderGroupId));
         return groupIdCache.get(senderGroupId)!;
     }
 
-    // Sync groups then get list
-    console.log("Syncing Fonnte groups to resolve LID:", senderGroupId);
-    await fetchGroups();
-    
-    // Wait a moment for sync to complete
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const groups = await getWhatsAppGroups();
-    groupCacheTimestamp = Date.now();
-
-    // Cache all group IDs
-    for (const group of groups) {
-        console.log("Found group:", group.name, "->", group.id);
-        groupIdCache.set(group.id, group.id);
+    // If member phone exists, fallback to member's phone number or use sender directly
+    const target = senderGroupId || (memberPhone ? formatPhoneNumber(memberPhone) : "");
+    if (target) {
+        groupIdCache.set(senderGroupId, target);
     }
 
-    // Try to find a matching group
-    if (groupIdCache.has(senderGroupId)) {
-        return groupIdCache.get(senderGroupId)!;
-    }
-
-    // If we have groups, try to find one - for LID format we just pick the first matching @g.us group
-    // since we can't directly map LID to standard format
-    for (const group of groups) {
-        if (group.id.includes("@g.us") && group.id.includes("-")) {
-            console.log("Resolved LID", senderGroupId, "to group:", group.name, "->", group.id);
-            groupIdCache.set(senderGroupId, group.id);
-            return group.id;
-        }
-    }
-
-    // Fallback: send to member's phone number directly
-    if (memberPhone) {
-        console.log("Could not resolve group ID, falling back to member phone:", memberPhone);
-        return memberPhone;
-    }
-
-    return senderGroupId;
+    return target || memberPhone || senderGroupId;
 }

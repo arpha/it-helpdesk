@@ -402,33 +402,27 @@ export async function POST(request: NextRequest) {
 
 Aduan Anda telah terdaftar di IT Helpdesk.${assigneeId ? "\n✅ Tiket sudah ditugaskan ke Teknisi IT." : ""}`;
 
-            // Resolve LID group ID to valid Fonnte group ID
+            // 4. Send response message to WhatsApp Group (Instant & Fast)
             const resolvedTarget = await resolveGroupTarget(sender, senderPhone);
-            console.log("Sending WA reply to:", sender, "-> resolved:", resolvedTarget);
-            console.log("Reply message:", replyMessage);
+            console.log("Sending WA reply to target:", resolvedTarget);
 
-            const sendResult = await sendWhatsAppMessage({
+            const sendResultPromise = sendWhatsAppMessage({
                 target: resolvedTarget,
                 message: replyMessage
             });
 
-            console.log("Fonnte send result:", JSON.stringify(sendResult));
-
-            // 5. Send notification to assigned technician's private WhatsApp (only during scheduled hours)
-            if (assigneeId) {
-                if (!shouldSendTechnicianNotification()) {
-                    console.log("Technician notification skipped: outside scheduled notification hours.");
-                } else {
+            // 5. Send notification to assigned technician's private WhatsApp asynchronously (Non-blocking background job)
+            if (assigneeId && shouldSendTechnicianNotification()) {
+                (async () => {
                     try {
                         const { data: assignee } = await supabase
-                        .from("profiles")
-                        .select("full_name, whatsapp_phone")
-                        .eq("id", assigneeId)
-                        .single();
+                            .from("profiles")
+                            .select("full_name, whatsapp_phone")
+                            .eq("id", assigneeId)
+                            .single();
 
-                    if (assignee?.whatsapp_phone) {
-                        console.log("Sending assignment notification to technician WA:", assignee.whatsapp_phone);
-                        const techMessage = `🎫 *TICKET BARU UNTUK ANDA (VIA WA GROUP)*
+                        if (assignee?.whatsapp_phone) {
+                            const techMessage = `🎫 *TICKET BARU UNTUK ANDA (VIA WA GROUP)*
 
 🆔 *ID Tiket:* ${ticketIdShort}
 📋 *Judul:* ${cleanTitle}
@@ -439,17 +433,18 @@ Aduan Anda telah terdaftar di IT Helpdesk.${assigneeId ? "\n✅ Tiket sudah ditu
 Anda telah di-assign otomatis ke tiket ini.
 Silakan login ke IT Helpdesk untuk menindaklanjuti.`;
 
-                        await sendWhatsAppMessage({
-                            target: formatPhoneNumber(assignee.whatsapp_phone),
-                            message: techMessage,
-                        });
+                            await sendWhatsAppMessage({
+                                target: formatPhoneNumber(assignee.whatsapp_phone),
+                                message: techMessage,
+                            });
+                        }
+                    } catch (techNotifyErr) {
+                        console.error("Async technician notification error:", techNotifyErr);
                     }
-                } catch (techNotifyErr) {
-                    console.error("Error sending notification to technician:", techNotifyErr);
-                }
-               }
+                })();
             }
 
+            const sendResult = await sendResultPromise;
             return NextResponse.json({ status: "group_ticket_created", ticketId: newTicket.id, sendResult });
         }
 
