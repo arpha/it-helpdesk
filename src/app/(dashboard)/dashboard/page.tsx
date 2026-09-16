@@ -106,6 +106,17 @@ const statusColors: Record<string, string> = {
     returned: "bg-green-500/10 text-green-600",
 };
 
+const statusLabels: Record<string, string> = {
+    draft: "Draf",
+    open: "Terbuka",
+    in_progress: "Diproses",
+    resolved: "Selesai",
+    closed: "Ditutup",
+    pending: "Menunggu",
+    borrowed: "Dipinjam",
+    returned: "Dikembalikan",
+};
+
 const priorityColors: Record<string, string> = {
     low: "text-gray-500",
     medium: "text-yellow-500",
@@ -137,7 +148,7 @@ export default async function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
+                        <CardTitle className="text-sm font-medium">Tiket Terbuka</CardTitle>
                         <Ticket className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
@@ -147,7 +158,7 @@ export default async function DashboardPage() {
                 </Card>
                 <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border-yellow-500/20">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+                        <CardTitle className="text-sm font-medium">Sedang Diproses</CardTitle>
                         <Clock className="h-4 w-4 text-yellow-500" />
                     </CardHeader>
                     <CardContent>
@@ -157,7 +168,7 @@ export default async function DashboardPage() {
                 </Card>
                 <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Resolved Today</CardTitle>
+                        <CardTitle className="text-sm font-medium">Selesai Hari Ini</CardTitle>
                         <CheckCircle className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
@@ -167,7 +178,7 @@ export default async function DashboardPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Pengguna</CardTitle>
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -191,21 +202,21 @@ export default async function DashboardPage() {
                             {stats.pendingRequests > 0 && (
                                 <Link href="/atk/requests" className="flex items-center gap-2 text-sm hover:underline">
                                     <ClipboardList className="h-4 w-4" />
-                                    <span className="font-medium text-orange-500">{stats.pendingRequests}</span> request ATK pending
+                                    <span className="font-medium text-orange-500">{stats.pendingRequests}</span> permintaan ATK menunggu persetujuan
                                     <ArrowRight className="h-3 w-3" />
                                 </Link>
                             )}
                             {stats.pendingBorrowings > 0 && (
                                 <Link href="/assets/borrowing" className="flex items-center gap-2 text-sm hover:underline">
                                     <HandCoins className="h-4 w-4" />
-                                    <span className="font-medium text-orange-500">{stats.pendingBorrowings}</span> peminjaman pending
+                                    <span className="font-medium text-orange-500">{stats.pendingBorrowings}</span> peminjaman menunggu persetujuan
                                     <ArrowRight className="h-3 w-3" />
                                 </Link>
                             )}
                             {stats.pendingDistributions > 0 && (
                                 <Link href="/assets/distribution" className="flex items-center gap-2 text-sm hover:underline">
                                     <Truck className="h-4 w-4" />
-                                    <span className="font-medium text-orange-500">{stats.pendingDistributions}</span> distribusi pending
+                                    <span className="font-medium text-orange-500">{stats.pendingDistributions}</span> distribusi menunggu persetujuan
                                     <ArrowRight className="h-3 w-3" />
                                 </Link>
                             )}
@@ -246,7 +257,7 @@ export default async function DashboardPage() {
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0">
                                             <span className="text-xs text-muted-foreground">{formatDate(ticket.created_at)}</span>
-                                            <Badge className={statusColors[ticket.status]}>{ticket.status}</Badge>
+                                            <Badge className={statusColors[ticket.status]}>{statusLabels[ticket.status] || ticket.status}</Badge>
                                         </div>
                                     </Link>
                                 ))
@@ -260,7 +271,7 @@ export default async function DashboardPage() {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div>
-                                <CardTitle className="text-lg">Asset Overview</CardTitle>
+                                <CardTitle className="text-lg">Ringkasan Aset</CardTitle>
                                 <CardDescription>Status aset saat ini</CardDescription>
                             </div>
                             <Link href="/assets" className="text-sm text-primary hover:underline">
@@ -274,28 +285,28 @@ export default async function DashboardPage() {
                                 <Monitor className="h-8 w-8 text-muted-foreground" />
                                 <div>
                                     <p className="text-2xl font-bold">{stats.totalAssets}</p>
-                                    <p className="text-xs text-muted-foreground">Total Assets</p>
+                                    <p className="text-xs text-muted-foreground">Total Aset</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10">
                                 <CheckCircle className="h-8 w-8 text-green-500" />
                                 <div>
                                     <p className="text-2xl font-bold text-green-500">{stats.activeAssets}</p>
-                                    <p className="text-xs text-muted-foreground">Active</p>
+                                    <p className="text-xs text-muted-foreground">Aktif</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 p-3 rounded-lg bg-yellow-500/10">
                                 <Wrench className="h-8 w-8 text-yellow-500" />
                                 <div>
                                     <p className="text-2xl font-bold text-yellow-500">{stats.maintenanceAssets}</p>
-                                    <p className="text-xs text-muted-foreground">Maintenance</p>
+                                    <p className="text-xs text-muted-foreground">Pemeliharaan</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                                 <Building2 className="h-8 w-8 text-muted-foreground" />
                                 <div>
                                     <p className="text-2xl font-bold">{stats.locationCount}</p>
-                                    <p className="text-xs text-muted-foreground">Locations</p>
+                                    <p className="text-xs text-muted-foreground">Lokasi</p>
                                 </div>
                             </div>
                         </div>
@@ -305,35 +316,35 @@ export default async function DashboardPage() {
 
             {/* ATK Stats */}
             <div>
-                <h2 className="text-lg font-semibold mb-3">Management Stuffs</h2>
+                <h2 className="text-lg font-semibold mb-3">Manajemen ATK & Perlengkapan</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+                            <CardTitle className="text-sm font-medium">Total Barang</CardTitle>
                             <Package className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">{stats.totalItems}</div>
                             <Link href="/atk/items" className="text-xs text-muted-foreground hover:underline">
-                                View all items →
+                                Lihat semua barang →
                             </Link>
                         </CardContent>
                     </Card>
                     <Card className={stats.lowStockCount > 0 ? "border-red-500/50 bg-red-500/5" : ""}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
+                            <CardTitle className="text-sm font-medium">Stok Menipis</CardTitle>
                             <AlertTriangle className={`h-4 w-4 ${stats.lowStockCount > 0 ? "text-red-500" : "text-muted-foreground"}`} />
                         </CardHeader>
                         <CardContent>
                             <div className={`text-2xl font-bold ${stats.lowStockCount > 0 ? "text-red-500" : ""}`}>
                                 {stats.lowStockCount}
                             </div>
-                            <p className="text-xs text-muted-foreground">Items below minimum</p>
+                            <p className="text-xs text-muted-foreground">Di bawah batas minimum</p>
                         </CardContent>
                     </Card>
                     <Card className={stats.pendingRequests > 0 ? "border-yellow-500/50 bg-yellow-500/5" : ""}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+                            <CardTitle className="text-sm font-medium">Permintaan Tertunda</CardTitle>
                             <ClipboardList className={`h-4 w-4 ${stats.pendingRequests > 0 ? "text-yellow-500" : "text-muted-foreground"}`} />
                         </CardHeader>
                         <CardContent>
@@ -341,7 +352,7 @@ export default async function DashboardPage() {
                                 {stats.pendingRequests}
                             </div>
                             <Link href="/atk/requests" className="text-xs text-muted-foreground hover:underline">
-                                View requests →
+                                Lihat permintaan →
                             </Link>
                         </CardContent>
                     </Card>
