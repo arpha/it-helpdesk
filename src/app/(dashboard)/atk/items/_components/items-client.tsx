@@ -286,7 +286,7 @@ export default function ItemsClient() {
                     unit: String(row["Satuan"] || "pcs"),
                     price: Number(row["Harga"]) || 0,
                     stock_quantity: Number(row["Stock"]) || 0,
-                    min_stock: Number(row["Min Stock"]) || 5,
+                    min_stock: row["Min Stock"] !== undefined && !isNaN(Number(row["Min Stock"])) ? Math.max(0, Number(row["Min Stock"])) : 5,
                     is_active: String(row["Status"] || "Aktif").toLowerCase() !== "non-aktif",
                     description: row["Deskripsi"] ? String(row["Deskripsi"]) : null,
                 }));
@@ -341,7 +341,7 @@ export default function ItemsClient() {
                 description: formDescription || null,
                 unit: formUnit,
                 price: parseFloat(formPrice),
-                min_stock: parseInt(formMinStock) || 5,
+                min_stock: formMinStock === "" || isNaN(parseInt(formMinStock)) ? 0 : Math.max(0, parseInt(formMinStock)),
                 image_url: imageUrl,
                 is_active: formIsActive,
             });
@@ -386,7 +386,7 @@ export default function ItemsClient() {
                 description: formDescription || null,
                 unit: formUnit,
                 price: parseFloat(formPrice),
-                min_stock: parseInt(formMinStock) || 5,
+                min_stock: formMinStock === "" || isNaN(parseInt(formMinStock)) ? 0 : Math.max(0, parseInt(formMinStock)),
                 image_url: imageUrl || formImageUrl || null,
                 is_active: formIsActive,
             });
@@ -628,7 +628,7 @@ export default function ItemsClient() {
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="min_stock">Min Stock</Label>
-                    <Input id="min_stock" type="number" value={formMinStock} onChange={(e) => setFormMinStock(e.target.value)} />
+                    <Input id="min_stock" type="number" min="0" value={formMinStock} onChange={(e) => setFormMinStock(e.target.value)} />
                 </div>
             </div>
 
@@ -920,7 +920,7 @@ export default function ItemsClient() {
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit_min_stock">Min Stock</Label>
-                                <Input id="edit_min_stock" type="number" value={formMinStock} onChange={(e) => setFormMinStock(e.target.value)} />
+                                <Input id="edit_min_stock" type="number" min="0" value={formMinStock} onChange={(e) => setFormMinStock(e.target.value)} />
                             </div>
                         </div>
 

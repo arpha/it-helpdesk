@@ -84,7 +84,7 @@ export async function createItem(input: CreateItemInput): Promise<ActionResult> 
             unit: input.unit,
             price: input.price,
             stock_quantity: input.stock_quantity || 0,
-            min_stock: input.min_stock || 5,
+            min_stock: input.min_stock !== undefined ? input.min_stock : 5,
             image_url: input.image_url || null,
             is_active: input.is_active !== undefined ? input.is_active : true,
         });
@@ -115,7 +115,7 @@ export async function updateItem(input: UpdateItemInput): Promise<ActionResult> 
                 description: input.description || null,
                 unit: input.unit,
                 price: input.price,
-                min_stock: input.min_stock || 5,
+                min_stock: input.min_stock !== undefined ? input.min_stock : 5,
                 image_url: input.image_url || null,
                 is_active: input.is_active !== undefined ? input.is_active : true,
             })
@@ -305,7 +305,7 @@ export async function bulkImportItems(items: ImportItemInput[]): Promise<BulkImp
                 unit: item.unit.toLowerCase().trim(),
                 price: Number(item.price) || 0,
                 stock_quantity: Number(item.stock_quantity) || 0,
-                min_stock: Number(item.min_stock) || 5,
+                min_stock: item.min_stock !== undefined && !isNaN(Number(item.min_stock)) ? Number(item.min_stock) : 5,
                 is_active: item.is_active !== undefined ? item.is_active : true,
             });
 

@@ -298,28 +298,31 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
 
     allAtk.forEach(item => {
         const qty = item.stock_quantity ?? 0;
-        const min = item.min_stock ?? 5;
+        const min = item.min_stock !== undefined && item.min_stock !== null ? item.min_stock : 0;
         const price = Number(item.price) || 0;
 
-        if (qty === 0) zeroStockCount++;
-        if (qty <= min) {
-            lowStockCount++;
-            const targetStock = min * 2;
-            const suggestedQty = Math.max(targetStock - qty, 1);
-            const estimatedCost = suggestedQty * price;
-            totalEstimatedBudget += estimatedCost;
+        // Items with min_stock > 0 are monitored for restock
+        if (min > 0) {
+            if (qty === 0) zeroStockCount++;
+            if (qty <= min) {
+                lowStockCount++;
+                const targetStock = min * 2;
+                const suggestedQty = Math.max(targetStock - qty, 1);
+                const estimatedCost = suggestedQty * price;
+                totalEstimatedBudget += estimatedCost;
 
-            criticalReorderItems.push({
-                id: item.id,
-                name: item.name,
-                unit: item.unit,
-                price,
-                stock_quantity: qty,
-                min_stock: min,
-                suggestedQty,
-                estimatedCost,
-                urgency: qty === 0 ? "critical" : "warning",
-            });
+                criticalReorderItems.push({
+                    id: item.id,
+                    name: item.name,
+                    unit: item.unit,
+                    price,
+                    stock_quantity: qty,
+                    min_stock: min,
+                    suggestedQty,
+                    estimatedCost,
+                    urgency: qty === 0 ? "critical" : "warning",
+                });
+            }
         }
     });
 
