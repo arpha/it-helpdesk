@@ -1,6 +1,8 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
 import { SLA_CONFIG, OverdueTicket, ReorderItem, DecisionDashboardData } from "./types";
 
 export async function getDecisionDashboardData(): Promise<DecisionDashboardData> {
@@ -381,4 +383,110 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
             criticalReorderItems: criticalReorderItems.slice(0, 6),
         },
     };
+}
+
+export async function createDraftPurchaseFromDashboard(): Promise<{
+    success: boolean;
+    id?: string;
+    error?: string;
+    count?: number;
+}> {
+    try {
+        const supabase = createAdminClient();
+        const authClient = await createClient();
+        const { data: { user } } = await authClient.auth.getUser();
+
+        if (!user) {
+            return { success: false, error: "Silakan login terlebih dahulu." };
+        }
+
+        // Fetch active items that need reordering
+        const { data: items, error: itemsError } = await supabase
+            .from("atk_items")
+            .select("id, name, unit, price, stock_quantity, min_stock")
+            .eq("is_active", true)
+            .order("stock_quantity", { ascending: true });
+
+        if (itemsError) {
+            return { success: false, error: itemsError.message };
+        }
+
+        // Filter items where min_stock > 0 and stock_quantity <= min_stock
+        const criticalItems = (items || []).filter(item => {
+            const min = item.min_stock ?? 0;
+            const qty = item.stock_quantity ?? 0;
+            return min > 0 && qty <= min;
+        });
+
+        const todayStr = new Date().toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+        });
+
+        const title = criticalItems.length > 0
+            ? `Pengajuan Restock Kritis ATK - ${todayStr}`
+            : `Pengajuan Pembelian ATK - ${todayStr}`;
+        const notes = criticalItems.length > 0
+            ? `Dibuat otomatis dari rekomendasi stok kritis dashboard (${criticalItems.length} item).`
+            : "Dibuat dari dashboard.";
+
+        const purchaseItems = criticalItems.map(item => {
+            const min = item.min_stock ?? 1;
+            const qty = item.stock_quantity ?? 0;
+            const suggestedQty = Math.max(min * 2 - qty, 1);
+            const unitPrice = Number(item.price) || 0;
+            return {
+                item_id: item.id,
+                quantity: suggestedQty,
+                price: unitPrice,
+                subtotal: suggestedQty * unitPrice,
+            };
+        });
+
+        const totalAmount = purchaseItems.reduce((sum, i) => sum + i.subtotal, 0);
+
+        const { data: purchase, error: purchaseError } = await supabase
+            .from("atk_purchase_requests")
+            .insert({
+                title,
+                notes,
+                total_amount: totalAmount,
+                status: "draft",
+                created_by: user.id,
+            })
+            .select("id")
+            .single();
+
+        if (purchaseError) {
+            return { success: false, error: purchaseError.message };
+        }
+
+        if (purchaseItems.length > 0) {
+            const itemsWithPurchaseId = purchaseItems.map(item => ({
+                purchase_id: purchase.id,
+                item_id: item.item_id,
+                quantity: item.quantity,
+                price: item.price,
+                subtotal: item.subtotal,
+            }));
+
+            const { error: insertItemsError } = await supabase
+                .from("atk_purchase_items")
+                .insert(itemsWithPurchaseId);
+
+            if (insertItemsError) {
+                return { success: false, error: insertItemsError.message };
+            }
+        }
+
+        revalidatePath("/atk/purchase");
+        revalidatePath("/dashboard");
+        return { success: true, id: purchase.id, count: criticalItems.length };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
 }

@@ -1,10 +1,14 @@
 "use client";
 
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowRight, DollarSign, Package, ShoppingCart } from "lucide-react";
+import { AlertTriangle, ArrowRight, DollarSign, Loader2, Package, ShoppingCart } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { DecisionDashboardData } from "../types";
+import { createDraftPurchaseFromDashboard } from "../actions";
 
 interface ProcurementProps {
     data: DecisionDashboardData["procurement"];
@@ -19,6 +23,21 @@ function formatCurrency(amount: number) {
 }
 
 export default function ProcurementRecommendations({ data }: ProcurementProps) {
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
+
+    const handleCreateDraftPO = () => {
+        startTransition(async () => {
+            const res = await createDraftPurchaseFromDashboard();
+            if (res.success) {
+                toast.success(`Draft pengajuan PO berhasil dibuat (${res.count || 0} item)! Mengarahkan ke halaman submission...`);
+                router.push("/atk/purchase");
+            } else {
+                toast.error(res.error || "Gagal membuat draft pengajuan pembelian");
+            }
+        });
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -30,9 +49,14 @@ export default function ProcurementRecommendations({ data }: ProcurementProps) {
                         Estimasi belanja kebutuhan restock otomatis untuk mencegah kekosongan barang
                     </p>
                 </div>
-                <Link href="/atk/purchase" className="text-xs text-primary font-medium hover:underline">
+                <button
+                    onClick={handleCreateDraftPO}
+                    disabled={isPending}
+                    className="text-xs text-primary font-medium hover:underline flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                >
+                    {isPending && <Loader2 className="h-3 w-3 animate-spin" />}
                     Buat Pengajuan PO →
-                </Link>
+                </button>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-3">
@@ -69,13 +93,24 @@ export default function ProcurementRecommendations({ data }: ProcurementProps) {
                         </div>
 
                         <div className="flex flex-col gap-2 pt-1">
-                            <Link
-                                href="/atk/purchase"
-                                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                            <button
+                                type="button"
+                                onClick={handleCreateDraftPO}
+                                disabled={isPending}
+                                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer shadow-sm"
                             >
-                                <ShoppingCart className="h-3.5 w-3.5" />
-                                Proses Permintaan Pembelian (PO)
-                            </Link>
+                                {isPending ? (
+                                    <>
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        Membuat Draft Submission...
+                                    </>
+                                ) : (
+                                    <>
+                                        <ShoppingCart className="h-3.5 w-3.5" />
+                                        Proses Permintaan Pembelian (PO)
+                                    </>
+                                )}
+                            </button>
                             <Link
                                 href="/atk/stock-opname"
                                 className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
