@@ -63,10 +63,11 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
             .eq("status", "resolved")
             .gte("resolved_at", new Date(now.getTime() - 14 * 86400000).toISOString()),
 
-        // ATK Items with stock
+        // ATK Items with stock (only active items)
         supabase
             .from("atk_items")
             .select("id, name, unit, price, stock_quantity, min_stock")
+            .eq("is_active", true)
             .order("stock_quantity", { ascending: true }),
 
         // Pending counts
