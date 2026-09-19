@@ -132,7 +132,7 @@ export function TicketsClient() {
         search,
     });
 
-    const { data: itemsData } = useATKItems({ page: 1, limit: 1000 });
+    const { data: itemsData } = useATKItems({ page: 1, limit: 1000, status: "active" });
     const { data: assetsData } = useAssets({ page: 1, limit: 1000 });
     const { data: locations } = useLocations();
     const { data: usersData } = useUsers({ page: 1, limit: 1000, roles: ["staff_it", "admin"], activeOnly: true });

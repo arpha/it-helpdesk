@@ -139,6 +139,52 @@ export async function deleteItem(id: string): Promise<ActionResult> {
     try {
         const supabase = createAdminClient();
 
+        // Soft delete: mark as inactive instead of hard delete
+        // This preserves historical references in ticket_parts, purchase_items, request_items, etc.
+        const { error } = await supabase
+            .from("atk_items")
+            .update({ is_active: false })
+            .eq("id", id);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        revalidatePath("/atk/items");
+        return { success: true };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
+}
+
+export async function hardDeleteItem(id: string): Promise<ActionResult> {
+    try {
+        const supabase = createAdminClient();
+
+        // Check if item has any historical references
+        const [
+            { count: requestCount },
+            { count: purchaseCount },
+            { count: ticketPartCount },
+        ] = await Promise.all([
+            supabase.from("atk_request_items").select("*", { count: "exact", head: true }).eq("item_id", id),
+            supabase.from("atk_purchase_items").select("*", { count: "exact", head: true }).eq("item_id", id),
+            supabase.from("ticket_parts").select("*", { count: "exact", head: true }).eq("item_id", id),
+        ]);
+
+        const totalRefs = (requestCount || 0) + (purchaseCount || 0) + (ticketPartCount || 0);
+
+        if (totalRefs > 0) {
+            return {
+                success: false,
+                error: `Tidak dapat dihapus permanen karena item ini memiliki ${totalRefs} riwayat transaksi (${requestCount || 0} permintaan, ${purchaseCount || 0} pembelian, ${ticketPartCount || 0} pemakaian tiket). Item telah dinonaktifkan sebagai gantinya.`,
+            };
+        }
+
+        // Safe to hard delete — no historical references
         // Get item to check for image
         const { data: item } = await supabase
             .from("atk_items")
@@ -155,6 +201,29 @@ export async function deleteItem(id: string): Promise<ActionResult> {
         }
 
         const { error } = await supabase.from("atk_items").delete().eq("id", id);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        revalidatePath("/atk/items");
+        return { success: true };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
+}
+
+export async function restoreItem(id: string): Promise<ActionResult> {
+    try {
+        const supabase = createAdminClient();
+
+        const { error } = await supabase
+            .from("atk_items")
+            .update({ is_active: true })
+            .eq("id", id);
 
         if (error) {
             return { success: false, error: error.message };

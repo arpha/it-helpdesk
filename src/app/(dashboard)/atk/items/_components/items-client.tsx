@@ -44,7 +44,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MoreHorizontal, Pencil, Trash2, Eye, Loader2, Check, Plus, Upload, X, Package, FileSpreadsheet, Download, Search } from "lucide-react";
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createItem, updateItem, deleteItem, uploadItemImage, bulkImportItems } from "../actions";
+import { createItem, updateItem, deleteItem, restoreItem, hardDeleteItem, uploadItemImage, bulkImportItems } from "../actions";
 import * as XLSX from "xlsx";
 
 const typeLabels: Record<string, string> = {
@@ -92,6 +92,7 @@ export default function ItemsClient() {
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isHardDeleteOpen, setIsHardDeleteOpen] = useState(false);
     const [isAddOpen, setIsAddOpen] = useState(false);
 
     // Form states
@@ -408,7 +409,36 @@ export default function ItemsClient() {
                 queryClient.invalidateQueries({ queryKey: ["atk-items"] });
                 setIsDeleteOpen(false);
             } else {
-                alert(result.error || "Failed");
+                alert(result.error || "Gagal menonaktifkan item");
+            }
+        });
+    };
+
+    const handleRestore = (item: ATKItem) => {
+        startTransition(async () => {
+            const result = await restoreItem(item.id);
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["atk-items"] });
+            } else {
+                alert(result.error || "Gagal mengaktifkan kembali item");
+            }
+        });
+    };
+
+    const handleOpenHardDelete = (item: ATKItem) => {
+        setSelectedItem(item);
+        setIsHardDeleteOpen(true);
+    };
+
+    const handleConfirmHardDelete = () => {
+        if (!selectedItem) return;
+        startTransition(async () => {
+            const result = await hardDeleteItem(selectedItem.id);
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["atk-items"] });
+                setIsHardDeleteOpen(false);
+            } else {
+                alert(result.error || "Gagal menghapus permanen");
             }
         });
     };
@@ -509,9 +539,21 @@ export default function ItemsClient() {
                         <DropdownMenuItem onClick={() => handleEdit(row)} className="cursor-pointer">
                             <Pencil className="mr-2 h-4 w-4" />Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(row)} className="text-destructive cursor-pointer">
-                            <Trash2 className="mr-2 h-4 w-4" />Delete
-                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {row.is_active ? (
+                            <DropdownMenuItem onClick={() => handleDelete(row)} className="text-amber-600 focus:text-amber-600 cursor-pointer">
+                                <Trash2 className="mr-2 h-4 w-4" />Nonaktifkan
+                            </DropdownMenuItem>
+                        ) : (
+                            <>
+                                <DropdownMenuItem onClick={() => handleRestore(row)} className="text-green-600 focus:text-green-600 cursor-pointer">
+                                    <Check className="mr-2 h-4 w-4" />Aktifkan Kembali
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenHardDelete(row)} className="text-destructive focus:text-destructive cursor-pointer">
+                                    <Trash2 className="mr-2 h-4 w-4" />Hapus Permanen
+                                </DropdownMenuItem>
+                            </>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),
@@ -903,19 +945,47 @@ export default function ItemsClient() {
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Confirmation */}
+            {/* Deactivate / Soft Delete Confirmation */}
             <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Item</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete <strong>{selectedItem?.name}</strong>? This action cannot be undone.
+                        <AlertDialogTitle>Nonaktifkan Item</AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-3">
+                            <span className="block">
+                                Apakah Anda yakin ingin menonaktifkan <strong>{selectedItem?.name}</strong>?
+                            </span>
+                            <span className="text-xs text-muted-foreground block bg-muted/60 p-2.5 rounded-md border">
+                                ℹ️ <strong>Histori tetap aman:</strong> Item tidak akan dihapus dari database. Semua riwayat penggunaan sparepart pada aset, tiket perbaikan, maupun permintaan barang sebelumnya tetap dapat dilihat dengan nama lengkap aslinya. Item hanya disembunyikan dari pilihan transaksi baru.
+                            </span>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isPending}>
-                            {isPending ? "Deleting..." : "Delete"}
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmDelete} className="bg-amber-600 hover:bg-amber-700 text-white" disabled={isPending}>
+                            {isPending ? "Memproses..." : "Nonaktifkan"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Hard Delete Confirmation */}
+            <AlertDialog open={isHardDeleteOpen} onOpenChange={setIsHardDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus Permanen Item</AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-3">
+                            <span className="block">
+                                Anda akan menghapus permanen item <strong>{selectedItem?.name}</strong> dari sistem.
+                            </span>
+                            <span className="text-xs text-destructive block bg-destructive/10 p-2.5 rounded-md border border-destructive/20">
+                                ⚠️ <strong>Pencegahan Kehilangan Data:</strong> Penghapusan permanen hanya akan diizinkan jika item ini <strong>belum pernah memiliki transaksi</strong> (tiket, pembelian, atau permintaan). Jika sudah memiliki transaksi, sistem akan menolak demi menjaga integritas data riwayat.
+                            </span>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmHardDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isPending}>
+                            {isPending ? "Menghapus..." : "Hapus Permanen"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -94,7 +94,9 @@ export async function getKBArticleBySlugOrId(idOrSlug: string) {
   };
 }
 
-export async function saveKBArticle(payload: KBArticleFormData & { id?: string }) {
+export async function saveKBArticle(payload: KBArticleFormData & { id?: string }): Promise<
+  { success: true; data: KBArticle } | { success: false; error: string }
+> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -187,7 +189,9 @@ export async function rateKBArticle(id: string, isHelpful: boolean) {
   return { success: true };
 }
 
-export async function convertTicketToKB(ticketId: string) {
+export async function convertTicketToKB(ticketId: string): Promise<
+  { success: true; data: KBArticle } | { success: false; error: string }
+> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
