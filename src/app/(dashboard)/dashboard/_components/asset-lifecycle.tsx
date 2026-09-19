@@ -155,6 +155,12 @@ export default function AssetLifecycle({ data }: AssetLifecycleProps) {
                         </div>
                     </div>
 
+                    {data.aging.unknown > 0 && (
+                        <p className="text-[11px] text-muted-foreground">
+                            💡 <em>Catatan:</em> <strong>{totalCountedAge}</strong> unit terdata siklus usianya ({data.aging.unknown} unit lainnya belum memiliki tanggal perolehan di data master aset).
+                        </p>
+                    )}
+
                     {/* At-risk Assets mini table */}
                     {data.atRiskAssets.length > 0 && (
                         <div className="pt-2 border-t space-y-2">

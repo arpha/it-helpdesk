@@ -77,7 +77,7 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
         // Assets list
         supabase
             .from("assets")
-            .select("id, name, asset_code, purchase_date, useful_life_years, status, condition, location"),
+            .select("id, name, asset_code, purchase_date, useful_life_years, status, condition, location_id, locations(name)"),
 
         // Maintenance records in this month
         supabase
@@ -238,6 +238,8 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
         if (asset.status === "maintenance") maintenanceAssetsCount++;
         if (asset.status === "damage" || asset.status === "disposed") damagedAssetsCount++;
 
+        const locName = (asset.locations as unknown as { name?: string } | null)?.name || null;
+
         let ageYears = 0;
         if (asset.purchase_date) {
             const pDate = new Date(asset.purchase_date);
@@ -255,7 +257,7 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
                     ageYears: Number(ageYears.toFixed(1)),
                     status: asset.status,
                     condition: asset.condition || "good",
-                    location: asset.location,
+                    location: locName,
                 });
             }
         } else {
@@ -272,7 +274,7 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
                     ageYears: Number(ageYears.toFixed(1)),
                     status: asset.status,
                     condition: asset.condition || "good",
-                    location: asset.location,
+                    location: locName,
                 });
             }
         }
