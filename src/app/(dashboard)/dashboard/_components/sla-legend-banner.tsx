@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock, Info } from "lucide-react";
-import { SLA_CONFIG } from "../actions";
+import { SLA_CONFIG } from "../types";
 
 export default function SlaLegendBanner() {
     return (

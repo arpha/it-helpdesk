@@ -26,7 +26,7 @@ import {
     ResponsiveContainer,
     Cell,
 } from "recharts";
-import { DecisionDashboardData, SLA_CONFIG } from "../actions";
+import { DecisionDashboardData, SLA_CONFIG } from "../types";
 
 const CATEGORY_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
 

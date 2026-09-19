@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, Clock, PackageX, User, Wrench } from "lucide-react";
 import Link from "next/link";
-import { DecisionDashboardData } from "../actions";
+import { DecisionDashboardData } from "../types";
 
 interface ActionCenterProps {
     data: DecisionDashboardData["actionCenter"];

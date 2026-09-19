@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ArrowRight, DollarSign, Package, ShoppingCart } from "lucide-react";
 import Link from "next/link";
-import { DecisionDashboardData } from "../actions";
+import { DecisionDashboardData } from "../types";
 
 interface ProcurementProps {
     data: DecisionDashboardData["procurement"];

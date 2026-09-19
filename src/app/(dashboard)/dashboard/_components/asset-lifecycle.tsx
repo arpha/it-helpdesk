@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ArrowRight, Laptop, Monitor, Sparkles, Wrench } from "lucide-react";
 import Link from "next/link";
-import { DecisionDashboardData } from "../actions";
+import { DecisionDashboardData } from "../types";
 
 interface AssetLifecycleProps {
     data: DecisionDashboardData["assets"];
