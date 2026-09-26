@@ -72,11 +72,6 @@ const menuItems: MenuItem[] = [
         href: "/dashboard",
         icon: LayoutDashboard,
     },
-    {
-        title: "SOP & Pedoman",
-        href: "/sop",
-        icon: BookOpen,
-    },
 ];
 
 const menuGroups: MenuGroup[] = [
@@ -88,11 +83,6 @@ const menuGroups: MenuGroup[] = [
                 title: "All Tickets",
                 href: "/tickets",
                 icon: ClipboardList,
-            },
-            {
-                title: "Knowledge Base",
-                href: "/knowledge-base",
-                icon: BookOpen,
             },
             {
                 title: "Reports",
@@ -108,6 +98,22 @@ const menuGroups: MenuGroup[] = [
                 title: "Convert OCR",
                 href: "/tools/convert",
                 icon: FileText,
+            },
+        ],
+    },
+    {
+        title: "SOP & Pedoman",
+        icon: BookOpen,
+        items: [
+            {
+                title: "Dokumen SOP",
+                href: "/sop",
+                icon: FileText,
+            },
+            {
+                title: "Knowledge Base",
+                href: "/knowledge-base",
+                icon: BookOpen,
             },
         ],
     },
@@ -246,7 +252,7 @@ export function Sidebar() {
     const filteredMenuItems = menuItems.filter(item => {
         if (role === "admin") return true;
         if (role === "user") {
-            return item.href === "/dashboard" || item.href === "/sop";
+            return item.href === "/dashboard";
         }
         return true; // Default for staff_it and manager_it
     });
@@ -256,12 +262,15 @@ export function Sidebar() {
 
         // Special case for "user" role
         if (role === "user") {
-            // Only keep "QR Generator" in Helpdesk, hide other groups
+            // Keep QR Generator in Helpdesk, keep SOP & Pedoman, hide other groups
             if (group.title === "Helpdesk") {
                 return {
                     ...group,
                     items: group.items.filter(item => item.href === "/tools/qr-generator")
                 };
+            }
+            if (group.title === "SOP & Pedoman") {
+                return group;
             }
             return null; // Hide other groups
         }

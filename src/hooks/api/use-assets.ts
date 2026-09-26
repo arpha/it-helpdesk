@@ -46,6 +46,7 @@ type UseAssetsParams = {
     status?: string;
     categoryId?: string;
     barcodeStatus?: string;
+    excludeStatuses?: string[];
 };
 
 type AssetsResult = {
@@ -102,6 +103,10 @@ async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
         query = query.eq("status", status);
     }
 
+    if (excludeStatuses && excludeStatuses.length > 0) {
+        query = query.not("status", "in", `(${excludeStatuses.join(",")})`);
+    }
+
     if (categoryId && categoryId !== "all") {
         query = query.eq("category_id", categoryId);
     }
@@ -127,7 +132,7 @@ async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
 
 export function useAssets(params: UseAssetsParams) {
     return useQuery({
-        queryKey: ["assets", params.page, params.limit, params.search, params.status, params.categoryId, params.barcodeStatus],
+        queryKey: ["assets", params.page, params.limit, params.search, params.status, params.categoryId, params.barcodeStatus, params.excludeStatuses],
         queryFn: () => fetchAssets(params),
     });
 }
