@@ -57,7 +57,7 @@ type AssetsResult = {
 
 async function fetchAssets(params: UseAssetsParams): Promise<AssetsResult> {
     const supabase = createClient();
-    const { page, limit, search, status, categoryId, barcodeStatus } = params;
+    const { page, limit, search, status, categoryId, barcodeStatus, excludeStatuses } = params;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
