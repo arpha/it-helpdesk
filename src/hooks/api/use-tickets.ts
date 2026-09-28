@@ -36,15 +36,16 @@ type UseTicketsParams = {
     limit?: number;
     status?: string;
     category?: string;
+    priority?: string;
     search?: string;
 };
 
 export function useTickets(params: UseTicketsParams = {}) {
-    const { page = 1, limit = 10, status, category, search } = params;
+    const { page = 1, limit = 10, status, category, priority, search } = params;
     const supabase = createClient();
 
     return useQuery({
-        queryKey: ["tickets", page, limit, status, category, search],
+        queryKey: ["tickets", page, limit, status, category, priority, search],
         queryFn: async () => {
             let query = supabase
                 .from("tickets")
@@ -65,6 +66,10 @@ export function useTickets(params: UseTicketsParams = {}) {
 
             if (category && category !== "all") {
                 query = query.eq("category", category);
+            }
+
+            if (priority && priority !== "all") {
+                query = query.eq("priority", priority);
             }
 
             if (search) {

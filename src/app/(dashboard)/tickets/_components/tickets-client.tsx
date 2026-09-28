@@ -89,6 +89,9 @@ import {
     Network,
     Database,
     Tag,
+    Ticket as TicketIcon,
+    RotateCcw,
+    Filter,
 } from "lucide-react";
 import {
     createTicket,
@@ -261,6 +264,7 @@ export function TicketsClient() {
     const { user } = useAuthStore();
     const [statusFilter, setStatusFilter] = useState("all");
     const [categoryFilter, setCategoryFilter] = useState("all");
+    const [priorityFilter, setPriorityFilter] = useState("all");
     const [isPending, startTransition] = useTransition();
 
     // Enable realtime updates
@@ -271,6 +275,7 @@ export function TicketsClient() {
         limit,
         status: statusFilter,
         category: categoryFilter,
+        priority: priorityFilter,
         search,
     });
 
@@ -489,19 +494,32 @@ export function TicketsClient() {
     const columns: Column<Ticket>[] = [
         {
             key: "title",
-            header: "Tiket",
+            header: "Tiket & Kendala",
             cell: (ticket) => (
                 <div 
-                    className="cursor-pointer group"
+                    className="cursor-pointer group space-y-1 py-0.5"
                     onClick={() => {
                         setSelectedTicket(ticket);
                         setIsViewOpen(true);
                     }}
                 >
-                    <p className="font-medium group-hover:text-primary transition-colors">{ticket.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                        {ticket.requester?.full_name || ticket.creator?.full_name || "Pemohon"} • {new Date(ticket.created_at).toLocaleDateString("id-ID")}
-                    </p>
+                    <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm group-hover:text-primary transition-colors line-clamp-1">
+                            {ticket.title}
+                        </span>
+                        {ticket.asset && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal text-muted-foreground border">
+                                {ticket.asset.asset_code}
+                            </Badge>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <User className="h-3 w-3 shrink-0" />
+                        <span>{ticket.requester?.full_name || ticket.creator?.full_name || "Pemohon"}</span>
+                        <span>•</span>
+                        <Calendar className="h-3 w-3 shrink-0" />
+                        <span>{formatFullDateTime(ticket.created_at)}</span>
+                    </div>
                 </div>
             ),
         },
@@ -509,34 +527,70 @@ export function TicketsClient() {
             key: "category",
             header: "Kategori",
             cell: (ticket) => (
-                <Badge variant="outline" className="gap-1">
+                <Badge variant="outline" className="gap-1.5 py-1 px-2.5 font-medium border bg-muted/40">
                     {getCategoryIcon(ticket.category)}
-                    {categoryLabels[ticket.category] || ticket.category}
+                    <span>{categoryLabels[ticket.category] || ticket.category}</span>
                 </Badge>
             ),
         },
         {
             key: "priority",
-            header: "Prioritas",
-            cell: (ticket) => (
-                <Badge className={priorityColors[ticket.priority]}>
-                    {priorityLabels[ticket.priority] || ticket.priority}
-                </Badge>
-            ),
+            header: "Prioritas & SLA",
+            cell: (ticket) => {
+                const slaMap: Record<string, string> = {
+                    urgent: "≤ 4 Jam",
+                    high: "≤ 8 Jam",
+                    medium: "≤ 24 Jam",
+                    low: "≤ 48 Jam",
+                };
+                return (
+                    <div className="space-y-0.5">
+                        <Badge variant="outline" className={cn("gap-1.5 font-medium text-xs border shadow-2xs", priorityColors[ticket.priority])}>
+                            <span className={cn(
+                                "h-1.5 w-1.5 rounded-full shrink-0",
+                                ticket.priority === "urgent" ? "bg-red-500 animate-pulse" :
+                                ticket.priority === "high" ? "bg-orange-500" :
+                                ticket.priority === "medium" ? "bg-yellow-500" : "bg-blue-500"
+                            )} />
+                            <span>{priorityLabels[ticket.priority] || ticket.priority}</span>
+                        </Badge>
+                        <p className="text-[10px] font-mono text-muted-foreground pl-0.5">
+                            Target {slaMap[ticket.priority] || "≤ 24 Jam"}
+                        </p>
+                    </div>
+                );
+            },
         },
         {
             key: "status",
             header: "Status",
             cell: (ticket) => (
-                <Badge className={statusColors[ticket.status]}>
-                    {statusLabels[ticket.status] || ticket.status}
+                <Badge variant="outline" className={cn("gap-1.5 py-1 px-2.5 font-medium border shadow-2xs", statusColors[ticket.status])}>
+                    {ticket.status === "open" && <Clock className="h-3 w-3 text-amber-500" />}
+                    {ticket.status === "in_progress" && <RefreshCw className="h-3 w-3 animate-spin text-blue-500" />}
+                    {ticket.status === "resolved" && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
+                    {ticket.status === "closed" && <Check className="h-3 w-3 text-gray-500" />}
+                    {ticket.status === "draft" && <FileText className="h-3 w-3 text-slate-500" />}
+                    <span>{statusLabels[ticket.status] || ticket.status}</span>
                 </Badge>
             ),
         },
         {
             key: "assignee",
             header: "Ditugaskan Ke",
-            cell: (ticket) => ticket.assignee?.full_name || <span className="text-muted-foreground italic">Belum Ditugaskan</span>,
+            cell: (ticket) => ticket.assignee?.full_name ? (
+                <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                        {ticket.assignee.full_name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium truncate max-w-[130px]">{ticket.assignee.full_name}</span>
+                </div>
+            ) : (
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[11px] font-normal gap-1 py-0.5">
+                    <AlertCircle className="h-3 w-3" />
+                    Belum Ditugaskan
+                </Badge>
+            ),
         },
         {
             key: "actions",
@@ -614,63 +668,226 @@ export function TicketsClient() {
     ];
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Tiket IT Helpdesk</h1>
-                    <p className="text-muted-foreground">Kelola laporan kendala dan penugasan perbaikan IT</p>
+        <div className="space-y-6 pb-8">
+            {/* Header Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-2xs">
+                            <TicketIcon className="h-5 w-5" />
+                        </div>
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Tiket IT Helpdesk</h1>
+                        <Badge variant="outline" className="gap-1.5 text-xs font-normal border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 py-0.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Realtime Aktif
+                        </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        Kelola laporan insiden pengguna, penugasan perbaikan teknisi, dan pantau standar batas waktu layanan SLA
+                    </p>
                 </div>
-                <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
-                    <Plus className="h-4 w-4" /> Buat Tiket Baru
-                </Button>
+                <div className="flex items-center gap-2.5 shrink-0">
+                    <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shadow-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90">
+                        <Plus className="h-4 w-4" /> Buat Tiket Baru
+                    </Button>
+                </div>
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-3">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Status Tiket" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Status</SelectItem>
-                        <SelectItem value="open">Menunggu (Open)</SelectItem>
-                        <SelectItem value="in_progress">Diproses (In Progress)</SelectItem>
-                        <SelectItem value="resolved">Selesai (Resolved)</SelectItem>
-                        <SelectItem value="closed">Ditutup (Closed)</SelectItem>
-                    </SelectContent>
-                </Select>
+            {/* SLA Legend Banner (Pedoman Batas Waktu Layanan) */}
+            <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-4 text-card-foreground shadow-xs">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex items-start sm:items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0 shadow-2xs">
+                            <Clock className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold tracking-tight">Pedoman Batas Waktu Layanan (SLA Helpdesk)</span>
+                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
+                                    Target Teknisi
+                                </span>
+                                {priorityFilter !== "all" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setPriorityFilter("all")}
+                                        className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive border transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <span>Filter Aktif: {priorityLabels[priorityFilter] || priorityFilter}</span>
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                Target waktu penyelesaian tiket sejak dibuat pelapor untuk menjaga kepuasan pengguna. Klik kartu prioritas untuk menyaring data.
+                            </p>
+                        </div>
+                    </div>
 
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Kategori Tiket" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Kategori</SelectItem>
-                        <SelectItem value="hardware">Hardware</SelectItem>
-                        <SelectItem value="software">Software</SelectItem>
-                        <SelectItem value="data">Data</SelectItem>
-                        <SelectItem value="network">Jaringan</SelectItem>
-                    </SelectContent>
-                </Select>
+                    {/* Badges for SLA limits with interactive filter */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setPriorityFilter(priorityFilter === "urgent" ? "all" : "urgent")}
+                            className={cn(
+                                "flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-left transition-all cursor-pointer hover:bg-red-500/15",
+                                priorityFilter === "urgent" && "ring-2 ring-red-500 ring-offset-1 bg-red-500/20 shadow-xs"
+                            )}
+                            title="Klik untuk filter tiket Urgent"
+                        >
+                            <div>
+                                <span className="font-semibold text-red-600 dark:text-red-400 block">Urgent</span>
+                                <span className="text-[10px] text-muted-foreground">Kritis / Darurat</span>
+                            </div>
+                            <span className="font-mono font-bold text-red-700 dark:text-red-300 shrink-0">≤ 4 Jam</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setPriorityFilter(priorityFilter === "high" ? "all" : "high")}
+                            className={cn(
+                                "flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs text-left transition-all cursor-pointer hover:bg-orange-500/15",
+                                priorityFilter === "high" && "ring-2 ring-orange-500 ring-offset-1 bg-orange-500/20 shadow-xs"
+                            )}
+                            title="Klik untuk filter tiket High"
+                        >
+                            <div>
+                                <span className="font-semibold text-orange-600 dark:text-orange-400 block">High</span>
+                                <span className="text-[10px] text-muted-foreground">Tinggi</span>
+                            </div>
+                            <span className="font-mono font-bold text-orange-700 dark:text-orange-300 shrink-0">≤ 8 Jam</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setPriorityFilter(priorityFilter === "medium" ? "all" : "medium")}
+                            className={cn(
+                                "flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-left transition-all cursor-pointer hover:bg-yellow-500/15",
+                                priorityFilter === "medium" && "ring-2 ring-yellow-500 ring-offset-1 bg-yellow-500/20 shadow-xs"
+                            )}
+                            title="Klik untuk filter tiket Medium"
+                        >
+                            <div>
+                                <span className="font-semibold text-yellow-600 dark:text-yellow-400 block">Medium</span>
+                                <span className="text-[10px] text-muted-foreground">Sedang / Rutin</span>
+                            </div>
+                            <span className="font-mono font-bold text-yellow-700 dark:text-yellow-300 shrink-0">≤ 24 Jam</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setPriorityFilter(priorityFilter === "low" ? "all" : "low")}
+                            className={cn(
+                                "flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-left transition-all cursor-pointer hover:bg-blue-500/15",
+                                priorityFilter === "low" && "ring-2 ring-blue-500 ring-offset-1 bg-blue-500/20 shadow-xs"
+                            )}
+                            title="Klik untuk filter tiket Low"
+                        >
+                            <div>
+                                <span className="font-semibold text-blue-600 dark:text-blue-400 block">Low</span>
+                                <span className="text-[10px] text-muted-foreground">Rendah</span>
+                            </div>
+                            <span className="font-mono font-bold text-blue-700 dark:text-blue-300 shrink-0">≤ 48 Jam</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {/* Table */}
-            <DataTable
-                columns={columns}
-                data={ticketsData?.data || []}
-                isLoading={isLoading}
-                page={page}
-                limit={limit}
-                totalItems={ticketsData?.totalItems || 0}
-                totalPages={ticketsData?.totalPages || 1}
-                onPageChange={setPage}
-                onLimitChange={setLimit}
-                searchValue={search}
-                onSearchChange={setSearch}
-                searchPlaceholder="Cari tiket atau pemohon..."
-                emptyMessage="Tidak ada tiket yang ditemukan."
-            />
+            {/* Filter Bar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border shadow-xs">
+                {/* Status Segmented Buttons */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                    {[
+                        { key: "all", label: "Semua Status", dot: null },
+                        { key: "open", label: "Menunggu", dot: "bg-amber-500" },
+                        { key: "in_progress", label: "Diproses", dot: "bg-blue-500" },
+                        { key: "resolved", label: "Selesai", dot: "bg-emerald-500" },
+                        { key: "closed", label: "Ditutup", dot: "bg-gray-400" },
+                    ].map((st) => {
+                        const isActive = statusFilter === st.key;
+                        return (
+                            <button
+                                key={st.key}
+                                type="button"
+                                onClick={() => setStatusFilter(st.key)}
+                                className={cn(
+                                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                                    isActive
+                                        ? "bg-primary text-primary-foreground shadow-xs font-semibold"
+                                        : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                )}
+                            >
+                                {st.dot && <span className={cn("h-2 w-2 rounded-full", st.dot)} />}
+                                <span>{st.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Dropdowns */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="w-[150px] h-9 text-xs">
+                            <SelectValue placeholder="Kategori" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Kategori</SelectItem>
+                            <SelectItem value="hardware">Hardware</SelectItem>
+                            <SelectItem value="software">Software</SelectItem>
+                            <SelectItem value="data">Data</SelectItem>
+                            <SelectItem value="network">Jaringan</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                        <SelectTrigger className="w-[145px] h-9 text-xs">
+                            <SelectValue placeholder="Prioritas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Prioritas</SelectItem>
+                            <SelectItem value="urgent">Urgent (≤ 4 Jam)</SelectItem>
+                            <SelectItem value="high">High (≤ 8 Jam)</SelectItem>
+                            <SelectItem value="medium">Medium (≤ 24 Jam)</SelectItem>
+                            <SelectItem value="low">Low (≤ 48 Jam)</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {(statusFilter !== "all" || categoryFilter !== "all" || priorityFilter !== "all" || search) && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setStatusFilter("all");
+                                setCategoryFilter("all");
+                                setPriorityFilter("all");
+                                setSearch("");
+                            }}
+                            className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                        >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Reset
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* Table Card */}
+            <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
+                <DataTable
+                    columns={columns}
+                    data={ticketsData?.data || []}
+                    isLoading={isLoading}
+                    page={page}
+                    limit={limit}
+                    totalItems={ticketsData?.totalItems || 0}
+                    totalPages={ticketsData?.totalPages || 1}
+                    onPageChange={setPage}
+                    onLimitChange={setLimit}
+                    searchValue={search}
+                    onSearchChange={setSearch}
+                    searchPlaceholder="Cari tiket, pemohon, atau nomor aset..."
+                    emptyMessage="Tidak ada tiket yang ditemukan."
+                />
+            </div>
 
             {/* Create Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
