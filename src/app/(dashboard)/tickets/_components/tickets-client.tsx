@@ -154,6 +154,31 @@ const REPAIR_TYPES_BY_CATEGORY: Record<string, string[]> = {
     ],
 };
 
+function formatDateOnly(dateStr?: string | null): string {
+    if (!dateStr) return "-";
+    try {
+        return new Date(dateStr).toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        });
+    } catch {
+        return dateStr;
+    }
+}
+
+function formatTimeOnly(dateStr?: string | null): string {
+    if (!dateStr) return "";
+    try {
+        return new Date(dateStr).toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    } catch {
+        return "";
+    }
+}
+
 function formatFullDateTime(dateStr?: string | null): string {
     if (!dateStr) return "-";
     try {
@@ -1093,59 +1118,80 @@ export function TicketsClient() {
 
                                 {/* Lifecycle Progression Stepper */}
                                 <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
                                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                             Alur Tiket & Durasi
                                         </span>
                                         {duration && (
-                                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                                <Clock className="h-3 w-3" /> Waktu Selesai: {duration}
+                                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                                                <Clock className="h-3.5 w-3.5" /> Waktu Selesai: {duration}
                                             </span>
                                         )}
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                         {/* Step 1: Dibuat */}
-                                        <div className="flex items-start gap-3 p-2.5 rounded-lg bg-background border">
-                                            <div className="h-7 w-7 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                                                <Calendar className="h-3.5 w-3.5" />
+                                        <div className="flex items-start gap-3 p-3 rounded-lg bg-background border shadow-xs">
+                                            <div className="h-8 w-8 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                                                <Calendar className="h-4 w-4" />
                                             </div>
-                                            <div className="min-w-0">
-                                                <p className="text-xs text-muted-foreground">1. Dibuat</p>
-                                                <p className="text-xs font-medium truncate">{formatFullDateTime(selectedTicket.created_at)}</p>
-                                                <p className="text-[11px] text-muted-foreground truncate">Oleh: {selectedTicket.creator?.full_name || "-"}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">1. Dibuat</p>
+                                                <div className="text-xs font-semibold text-foreground mt-0.5">
+                                                    {formatDateOnly(selectedTicket.created_at)}
+                                                    <span className="text-muted-foreground font-normal ml-1">
+                                                        ({formatTimeOnly(selectedTicket.created_at)})
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground mt-1 break-words leading-tight">
+                                                    Oleh: <span className="font-medium text-foreground">{selectedTicket.creator?.full_name || "-"}</span>
+                                                </p>
                                             </div>
                                         </div>
 
                                         {/* Step 2: Penugasan */}
-                                        <div className="flex items-start gap-3 p-2.5 rounded-lg bg-background border">
-                                            <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${selectedTicket.assigned_to ? "bg-amber-500/10 text-amber-600" : "bg-muted text-muted-foreground"}`}>
-                                                <User className="h-3.5 w-3.5" />
+                                        <div className="flex items-start gap-3 p-3 rounded-lg bg-background border shadow-xs">
+                                            <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${selectedTicket.assigned_to ? "bg-amber-500/10 text-amber-600" : "bg-muted text-muted-foreground"}`}>
+                                                <User className="h-4 w-4" />
                                             </div>
-                                            <div className="min-w-0">
-                                                <p className="text-xs text-muted-foreground">2. Teknisi Ditugaskan</p>
-                                                <p className="text-xs font-medium truncate">
-                                                    {selectedTicket.assignee?.full_name || "Belum Ditugaskan"}
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">2. Teknisi Ditugaskan</p>
+                                                <p className="text-xs font-semibold text-foreground mt-0.5 break-words leading-tight">
+                                                    {selectedTicket.assignee?.full_name || <span className="text-muted-foreground italic font-normal">Belum Ditugaskan</span>}
                                                 </p>
-                                                <p className="text-[11px] text-muted-foreground truncate">
-                                                    Status: {statusLabels[selectedTicket.status]}
-                                                </p>
+                                                <div className="flex items-center gap-1.5 mt-1.5">
+                                                    <span className="text-[11px] text-muted-foreground">Status:</span>
+                                                    <Badge className={`${statusColors[selectedTicket.status]} text-[10px] h-5 py-0 px-1.5 font-medium`}>
+                                                        {statusLabels[selectedTicket.status]}
+                                                    </Badge>
+                                                </div>
                                             </div>
                                         </div>
 
                                         {/* Step 3: Penyelesaian */}
-                                        <div className="flex items-start gap-3 p-2.5 rounded-lg bg-background border">
-                                            <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${selectedTicket.resolved_at ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}>
-                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                        <div className="flex items-start gap-3 p-3 rounded-lg bg-background border shadow-xs">
+                                            <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${selectedTicket.resolved_at ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}>
+                                                <CheckCircle2 className="h-4 w-4" />
                                             </div>
-                                            <div className="min-w-0">
-                                                <p className="text-xs text-muted-foreground">3. Diselesaikan</p>
-                                                <p className="text-xs font-medium truncate">
-                                                    {selectedTicket.resolved_at ? formatFullDateTime(selectedTicket.resolved_at) : "Menunggu Selesai"}
-                                                </p>
-                                                <p className="text-[11px] text-muted-foreground truncate">
-                                                    {selectedTicket.resolver?.full_name ? `Oleh: ${selectedTicket.resolver.full_name}` : "-"}
-                                                </p>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">3. Diselesaikan</p>
+                                                {selectedTicket.resolved_at ? (
+                                                    <>
+                                                        <div className="text-xs font-semibold text-foreground mt-0.5">
+                                                            {formatDateOnly(selectedTicket.resolved_at)}
+                                                            <span className="text-muted-foreground font-normal ml-1">
+                                                                ({formatTimeOnly(selectedTicket.resolved_at)})
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground mt-1 break-words leading-tight">
+                                                            Oleh: <span className="font-medium text-foreground">{selectedTicket.resolver?.full_name || selectedTicket.assignee?.full_name || "-"}</span>
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-xs text-muted-foreground italic mt-0.5">
+                                                        Menunggu Penyelesaian
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
