@@ -22,12 +22,13 @@ export type Ticket = {
     created_at: string;
     updated_at: string;
     // Joined data
-    creator?: { full_name: string };
-    requester?: { full_name: string };
-    assignee?: { full_name: string };
-    location?: { name: string };
-    asset?: { name: string; asset_code: string };
-    parts?: { id: string; item_id: string; quantity: number; item?: { id: string; name: string } }[];
+    creator?: { full_name: string; username?: string };
+    requester?: { full_name: string; username?: string };
+    assignee?: { full_name: string; username?: string };
+    resolver?: { full_name: string; username?: string };
+    location?: { id?: string; name: string };
+    asset?: { id?: string; name: string; asset_code: string; serial_number?: string; status?: string; locations?: { name: string } };
+    parts?: { id: string; item_id: string; quantity: number; item?: { id: string; name: string; unit?: string; price?: number } }[];
 };
 
 type UseTicketsParams = {
@@ -49,12 +50,13 @@ export function useTickets(params: UseTicketsParams = {}) {
                 .from("tickets")
                 .select(`
                     *,
-                    creator:profiles!tickets_created_by_fkey(full_name),
-                    requester:profiles!tickets_requester_id_fkey(full_name),
-                    assignee:profiles!tickets_assigned_to_fkey(full_name),
-                    location:locations(name),
-                    asset:assets(name, asset_code),
-                    parts:ticket_parts(id, item_id, quantity, item:atk_items(id, name))
+                    creator:profiles!tickets_created_by_fkey(full_name, username),
+                    requester:profiles!tickets_requester_id_fkey(full_name, username),
+                    assignee:profiles!tickets_assigned_to_fkey(full_name, username),
+                    resolver:profiles!tickets_resolved_by_fkey(full_name, username),
+                    location:locations(id, name),
+                    asset:assets(id, name, asset_code, serial_number, status, locations(name)),
+                    parts:ticket_parts(id, item_id, quantity, item:atk_items(id, name, unit, price))
                 `, { count: "exact" });
 
             if (status && status !== "all") {

@@ -73,6 +73,20 @@ import {
     Check,
     RefreshCw,
     Pencil,
+    Calendar,
+    Clock,
+    User,
+    MapPin,
+    FileText,
+    CheckCircle2,
+    AlertCircle,
+    Copy,
+    Sparkles,
+    Box,
+    Laptop,
+    Network,
+    Database,
+    Tag,
 } from "lucide-react";
 import {
     createTicket,
@@ -140,6 +154,78 @@ const REPAIR_TYPES_BY_CATEGORY: Record<string, string[]> = {
     ],
 };
 
+function formatFullDateTime(dateStr?: string | null): string {
+    if (!dateStr) return "-";
+    try {
+        return new Date(dateStr).toLocaleString("id-ID", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    } catch {
+        return dateStr;
+    }
+}
+
+function calculateDuration(startStr?: string | null, endStr?: string | null): string | null {
+    if (!startStr || !endStr) return null;
+    const start = new Date(startStr).getTime();
+    const end = new Date(endStr).getTime();
+    const diffMs = end - start;
+    if (diffMs <= 0) return "< 1 Menit";
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+
+    if (days > 0) return `${days} Hari ${remHours} Jam`;
+    if (hours > 0) return `${hours} Jam ${minutes} Menit`;
+    return `${minutes} Menit`;
+}
+
+function formatRupiah(num?: number | null): string {
+    if (num == null) return "Rp 0";
+    return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+    }).format(num);
+}
+
+function parseResolution(resolutionNotes?: string | null) {
+    if (!resolutionNotes) return { repairType: null, notes: "" };
+    const match = resolutionNotes.match(/^\[(.*?)\]\s*([\s\S]*)$/);
+    if (match) {
+        return {
+            repairType: match[1],
+            notes: match[2] || "-",
+        };
+    }
+    return {
+        repairType: null,
+        notes: resolutionNotes,
+    };
+}
+
+function getCategoryIcon(cat?: string) {
+    switch (cat?.toLowerCase()) {
+        case "hardware":
+            return <Laptop className="h-3.5 w-3.5" />;
+        case "software":
+            return <FileText className="h-3.5 w-3.5" />;
+        case "network":
+            return <Network className="h-3.5 w-3.5" />;
+        case "data":
+            return <Database className="h-3.5 w-3.5" />;
+        default:
+            return <Tag className="h-3.5 w-3.5" />;
+    }
+}
+
 export function TicketsClient() {
     const { page, limit, search, setPage, setLimit, setSearch } = useDataTable();
     const queryClient = useQueryClient();
@@ -190,6 +276,13 @@ export function TicketsClient() {
     const [partsPopoverOpenIdx, setPartsPopoverOpenIdx] = useState<number | null>(null);
     const [formRequester, setFormRequester] = useState(""); // Requester ID for admin
     const [requesterPopoverOpen, setRequesterPopoverOpen] = useState(false);
+    const [copiedId, setCopiedId] = useState(false);
+
+    const handleCopyId = (id: string) => {
+        navigator.clipboard.writeText(id);
+        setCopiedId(true);
+        setTimeout(() => setCopiedId(false), 2000);
+    };
 
     const isStaff = user?.role === "admin" || user?.role === "staff_it" || user?.role === "manager_it";
 
@@ -351,8 +444,14 @@ export function TicketsClient() {
             key: "title",
             header: "Ticket",
             cell: (ticket) => (
-                <div>
-                    <p className="font-medium">{ticket.title}</p>
+                <div 
+                    className="cursor-pointer group"
+                    onClick={() => {
+                        setSelectedTicket(ticket);
+                        setIsViewOpen(true);
+                    }}
+                >
+                    <p className="font-medium group-hover:text-primary transition-colors">{ticket.title}</p>
                     <p className="text-xs text-muted-foreground">
                         {ticket.requester?.full_name || ticket.creator?.full_name} • {new Date(ticket.created_at).toLocaleDateString("id-ID")}
                     </p>
@@ -932,65 +1031,364 @@ export function TicketsClient() {
 
             {/* View Dialog */}
             <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{selectedTicket?.title}</DialogTitle>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>{selectedTicket?.title || "Ticket Details"}</DialogTitle>
+                        <DialogDescription>Detail lengkap informasi tiket helpdesk</DialogDescription>
                     </DialogHeader>
-                    {selectedTicket && (
-                        <div className="space-y-4">
-                            <div className="flex gap-2">
-                                <Badge className={statusColors[selectedTicket.status]}>
-                                    {statusLabels[selectedTicket.status]}
-                                </Badge>
-                                <Badge className={priorityColors[selectedTicket.priority]}>
-                                    {selectedTicket.priority}
-                                </Badge>
-                                <Badge variant="outline">{categoryLabels[selectedTicket.category]}</Badge>
+
+                    {selectedTicket && (() => {
+                        const { repairType, notes: cleanNotes } = parseResolution(selectedTicket.resolution_notes);
+                        const duration = calculateDuration(selectedTicket.created_at, selectedTicket.resolved_at);
+                        const partsTotal = selectedTicket.parts?.reduce((acc, p) => acc + (p.quantity * (p.item?.price || 0)), 0) || 0;
+
+                        return (
+                            <div className="space-y-6 p-6">
+                                {/* Header Section */}
+                                <div>
+                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground border">
+                                                #{selectedTicket.id.slice(0, 8).toUpperCase()}
+                                            </span>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                                onClick={() => handleCopyId(selectedTicket.id)}
+                                            >
+                                                {copiedId ? (
+                                                    <span className="flex items-center text-green-600 gap-1"><Check className="h-3 w-3" /> Tersalin</span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1"><Copy className="h-3 w-3" /> Salin ID</span>
+                                                )}
+                                            </Button>
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5">
+                                            <Badge className={statusColors[selectedTicket.status]}>
+                                                {statusLabels[selectedTicket.status]}
+                                            </Badge>
+                                            <Badge className={priorityColors[selectedTicket.priority]}>
+                                                {selectedTicket.priority.toUpperCase()}
+                                            </Badge>
+                                            <Badge variant="outline" className="flex items-center gap-1">
+                                                {getCategoryIcon(selectedTicket.category)}
+                                                <span>{categoryLabels[selectedTicket.category] || selectedTicket.category}</span>
+                                            </Badge>
+                                        </div>
+                                    </div>
+
+                                    <h2 className="text-xl font-bold tracking-tight text-foreground">
+                                        {selectedTicket.title}
+                                    </h2>
+
+                                    {selectedTicket.location?.name && (
+                                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                                            <MapPin className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                                            <span>Lokasi Unit: <strong className="text-foreground">{selectedTicket.location.name}</strong></span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Lifecycle Progression Stepper */}
+                                <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                            Alur Tiket & Durasi
+                                        </span>
+                                        {duration && (
+                                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                <Clock className="h-3 w-3" /> Waktu Selesai: {duration}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        {/* Step 1: Dibuat */}
+                                        <div className="flex items-start gap-3 p-2.5 rounded-lg bg-background border">
+                                            <div className="h-7 w-7 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                                                <Calendar className="h-3.5 w-3.5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs text-muted-foreground">1. Dibuat</p>
+                                                <p className="text-xs font-medium truncate">{formatFullDateTime(selectedTicket.created_at)}</p>
+                                                <p className="text-[11px] text-muted-foreground truncate">Oleh: {selectedTicket.creator?.full_name || "-"}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Step 2: Penugasan */}
+                                        <div className="flex items-start gap-3 p-2.5 rounded-lg bg-background border">
+                                            <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${selectedTicket.assigned_to ? "bg-amber-500/10 text-amber-600" : "bg-muted text-muted-foreground"}`}>
+                                                <User className="h-3.5 w-3.5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs text-muted-foreground">2. Teknisi Ditugaskan</p>
+                                                <p className="text-xs font-medium truncate">
+                                                    {selectedTicket.assignee?.full_name || "Belum Ditugaskan"}
+                                                </p>
+                                                <p className="text-[11px] text-muted-foreground truncate">
+                                                    Status: {statusLabels[selectedTicket.status]}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Step 3: Penyelesaian */}
+                                        <div className="flex items-start gap-3 p-2.5 rounded-lg bg-background border">
+                                            <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${selectedTicket.resolved_at ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}>
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs text-muted-foreground">3. Diselesaikan</p>
+                                                <p className="text-xs font-medium truncate">
+                                                    {selectedTicket.resolved_at ? formatFullDateTime(selectedTicket.resolved_at) : "Menunggu Selesai"}
+                                                </p>
+                                                <p className="text-[11px] text-muted-foreground truncate">
+                                                    {selectedTicket.resolver?.full_name ? `Oleh: ${selectedTicket.resolver.full_name}` : "-"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Information Grid (Requester & Staff Info) */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="rounded-xl border p-4 space-y-3 bg-card">
+                                        <div className="flex items-center gap-2 border-b pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                            <User className="h-3.5 w-3.5" /> Pihak Pemohon
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Nama Pelapor:</span>
+                                                <p className="font-semibold text-foreground">
+                                                    {selectedTicket.requester?.full_name || selectedTicket.creator?.full_name || "-"}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Diinput Ke Sistem Oleh:</span>
+                                                <p className="font-medium text-foreground">
+                                                    {selectedTicket.creator?.full_name || "-"}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Unit / Lokasi Pemohon:</span>
+                                                <p className="font-medium text-foreground">
+                                                    {selectedTicket.location?.name || selectedTicket.asset?.locations?.name || "-"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-xl border p-4 space-y-3 bg-card">
+                                        <div className="flex items-center gap-2 border-b pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                            <Wrench className="h-3.5 w-3.5" /> Tim Penanganan IT
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Teknisi Bertugas (Assigned):</span>
+                                                <p className="font-semibold text-foreground">
+                                                    {selectedTicket.assignee?.full_name || <span className="text-muted-foreground italic">Belum ditugaskan</span>}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Diselesaikan Oleh:</span>
+                                                <p className="font-medium text-foreground">
+                                                    {selectedTicket.resolver?.full_name || selectedTicket.assignee?.full_name || "-"}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Prioritas Penanganan:</span>
+                                                <p className="font-medium text-foreground capitalize">
+                                                    {selectedTicket.priority} Priority
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Deskripsi Masalah */}
+                                <div className="rounded-xl border p-4 space-y-2 bg-card">
+                                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                        <FileText className="h-3.5 w-3.5 text-blue-500" /> Deskripsi Keluhan / Permasalahan
+                                    </div>
+                                    <div className="p-3 rounded-lg bg-muted/40 border text-sm leading-relaxed whitespace-pre-wrap">
+                                        {selectedTicket.description ? selectedTicket.description : (
+                                            <span className="text-muted-foreground italic">Tidak ada rincian keluhan tambahan dari pemohon.</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Related Asset Card (If present) */}
+                                {selectedTicket.asset && (
+                                    <div className="rounded-xl border p-4 space-y-3 bg-card">
+                                        <div className="flex items-center justify-between border-b pb-2">
+                                            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                                <Laptop className="h-3.5 w-3.5 text-purple-500" /> Aset Terkait
+                                            </div>
+                                            {selectedTicket.asset.status && (
+                                                <Badge variant="outline" className="text-xs capitalize">
+                                                    Status Aset: {selectedTicket.asset.status}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Nama Aset</span>
+                                                <p className="font-semibold text-foreground">{selectedTicket.asset.name}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Kode Aset</span>
+                                                <p className="font-mono font-medium text-foreground">{selectedTicket.asset.asset_code}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Serial Number</span>
+                                                <p className="font-mono text-muted-foreground">{selectedTicket.asset.serial_number || "-"}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-xs text-muted-foreground">Lokasi Aset</span>
+                                                <p className="text-foreground">{selectedTicket.asset.locations?.name || "-"}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Solusi & Tindakan Perbaikan (Resolution Notes) */}
+                                {(selectedTicket.status === "resolved" || selectedTicket.status === "closed" || selectedTicket.resolution_notes) && (
+                                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20 p-4 space-y-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-500/20 pb-2">
+                                            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                                                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Tindakan & Catatan Solusi
+                                            </div>
+                                            {repairType && (
+                                                <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 text-xs">
+                                                    Type: {repairType}
+                                                </Badge>
+                                            )}
+                                        </div>
+
+                                        <div className="p-3 rounded-lg bg-background/80 border border-emerald-500/20 text-sm whitespace-pre-wrap leading-relaxed">
+                                            {cleanNotes ? cleanNotes : <span className="text-muted-foreground italic">Tiket ditandai selesai tanpa catatan tambahan.</span>}
+                                        </div>
+
+                                        {selectedTicket.resolved_at && (
+                                            <div className="text-xs text-muted-foreground flex items-center justify-between pt-1">
+                                                <span>Diselesaikan pada: <strong className="text-foreground">{formatFullDateTime(selectedTicket.resolved_at)}</strong></span>
+                                                {selectedTicket.resolver?.full_name && (
+                                                    <span>Oleh Teknisi: <strong className="text-foreground">{selectedTicket.resolver.full_name}</strong></span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Suku Cadang / ATK Digunakan (Parts Used) */}
+                                {selectedTicket.parts && selectedTicket.parts.length > 0 ? (
+                                    <div className="rounded-xl border p-4 space-y-3 bg-card">
+                                        <div className="flex items-center justify-between border-b pb-2">
+                                            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                                <Box className="h-3.5 w-3.5 text-amber-500" /> Suku Cadang / Sparepart Digunakan
+                                            </div>
+                                            <span className="text-xs text-muted-foreground font-medium">
+                                                {selectedTicket.parts.length} Item Terpasang
+                                            </span>
+                                        </div>
+
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-xs">
+                                                <thead>
+                                                    <tr className="border-b text-muted-foreground">
+                                                        <th className="text-left py-2 font-medium">Nama Sparepart / Barang</th>
+                                                        <th className="text-center py-2 font-medium">Qty</th>
+                                                        <th className="text-center py-2 font-medium">Satuan</th>
+                                                        <th className="text-right py-2 font-medium">Estimasi Biaya</th>
+                                                        <th className="text-right py-2 font-medium">Subtotal</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y">
+                                                    {selectedTicket.parts.map((p, idx) => {
+                                                        const price = p.item?.price || 0;
+                                                        const subtotal = price * p.quantity;
+                                                        return (
+                                                            <tr key={idx} className="hover:bg-muted/50">
+                                                                <td className="py-2.5 font-medium text-foreground">{p.item?.name || "Sparepart"}</td>
+                                                                <td className="py-2.5 text-center font-semibold">{p.quantity}</td>
+                                                                <td className="py-2.5 text-center text-muted-foreground">{p.item?.unit || "Unit"}</td>
+                                                                <td className="py-2.5 text-right text-muted-foreground">{price > 0 ? formatRupiah(price) : "-"}</td>
+                                                                <td className="py-2.5 text-right font-medium">{subtotal > 0 ? formatRupiah(subtotal) : "-"}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                                {partsTotal > 0 && (
+                                                    <tfoot>
+                                                        <tr className="border-t font-semibold">
+                                                            <td colSpan={4} className="py-2 text-right">Total Estimasi Suku Cadang:</td>
+                                                            <td className="py-2 text-right text-emerald-600">{formatRupiah(partsTotal)}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                )}
+                                            </table>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    (selectedTicket.status === "resolved" || selectedTicket.status === "closed") && (
+                                        <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/20 text-xs text-muted-foreground">
+                                            <Box className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+                                            <span>Tidak ada penggunaan suku cadang / sparepart pada tiket ini.</span>
+                                        </div>
+                                    )
+                                )}
+
+                                {/* Action Buttons Footer */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t">
+                                    <div className="flex items-center gap-2">
+                                        {/* Button Jadikan Artikel KB jika resolved */}
+                                        {isStaff && (selectedTicket.status === "resolved" || selectedTicket.status === "closed") && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10 gap-1.5"
+                                                onClick={async () => {
+                                                    const { convertTicketToKB } = await import("@/app/(dashboard)/knowledge-base/actions");
+                                                    const res = await convertTicketToKB(selectedTicket.id);
+                                                    if (res.success && res.data) {
+                                                        const { toast } = await import("sonner");
+                                                        toast.success("Draft Artikel KB berhasil dibuat dari tiket ini!");
+                                                        window.location.href = `/knowledge-base?id=${res.data.id}`;
+                                                    }
+                                                }}
+                                            >
+                                                <Sparkles className="h-3.5 w-3.5" /> Jadikan Artikel KB
+                                            </Button>
+                                        )}
+
+                                        {/* Button Selesaikan Tiket jika masih open/in_progress */}
+                                        {isStaff && (selectedTicket.status === "open" || selectedTicket.status === "in_progress") && (
+                                            <Button
+                                                size="sm"
+                                                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                onClick={() => {
+                                                    setIsViewOpen(false);
+                                                    const cat = selectedTicket.category?.toLowerCase() || "hardware";
+                                                    setCompleteCategory(cat);
+                                                    const types = REPAIR_TYPES_BY_CATEGORY[cat] || REPAIR_TYPES_BY_CATEGORY.hardware;
+                                                    setFormRepairType(types[0]);
+                                                    setFormAssetId(selectedTicket.asset_id || "");
+                                                    setIsCompleteOpen(true);
+                                                }}
+                                            >
+                                                <CheckCircle2 className="h-3.5 w-3.5" /> Selesaikan Tiket
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    <Button variant="outline" size="sm" onClick={() => setIsViewOpen(false)}>
+                                        Tutup
+                                    </Button>
+                                </div>
                             </div>
-                            <div>
-                                <Label className="text-muted-foreground">Description</Label>
-                                <p>{selectedTicket.description || "-"}</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label className="text-muted-foreground">Diinput Oleh</Label>
-                                    <p>{selectedTicket.creator?.full_name}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground">Pelapor</Label>
-                                    <p>{selectedTicket.requester?.full_name || selectedTicket.creator?.full_name || "-"}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground">Assigned To</Label>
-                                    <p>{selectedTicket.assignee?.full_name || "-"}</p>
-                                </div>
-                            </div>
-                            {selectedTicket.asset && (
-                                <div>
-                                    <Label className="text-muted-foreground">Related Asset</Label>
-                                    <p>{selectedTicket.asset.name} ({selectedTicket.asset.asset_code})</p>
-                                </div>
-                            )}
-                            {selectedTicket.resolution_notes && (
-                                <div>
-                                    <Label className="text-muted-foreground">Resolution</Label>
-                                    <p>{selectedTicket.resolution_notes}</p>
-                                </div>
-                            )}
-                            {selectedTicket.parts && selectedTicket.parts.length > 0 && (
-                                <div>
-                                    <Label className="text-muted-foreground">Parts / Spareparts Used</Label>
-                                    <ul className="list-disc list-inside text-sm space-y-1 mt-1">
-                                        {selectedTicket.parts.map((p, idx) => (
-                                            <li key={idx}>
-                                                {p.item?.name || "Part"} — Quantity: {p.quantity}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
 
