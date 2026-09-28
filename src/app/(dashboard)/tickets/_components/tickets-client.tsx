@@ -11,6 +11,7 @@ import { useLocations } from "@/hooks/api/use-locations";
 import { useUsers } from "@/hooks/api/use-users";
 import { useAuthStore } from "@/stores/auth-store";
 import { DataTable, Column } from "@/components/ui/data-table";
+import { cn } from "@/lib/utils";
 import {
     Dialog,
     DialogContent,
@@ -1531,7 +1532,7 @@ export function TicketsClient() {
 
             {/* Complete Dialog */}
             <Dialog open={isCompleteOpen} onOpenChange={setIsCompleteOpen}>
-                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-[620px] max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Selesaikan Tiket</DialogTitle>
                         <DialogDescription>Tandai tiket sebagai selesai dan catat tindakan perbaikan serta suku cadang yang digunakan</DialogDescription>
@@ -1547,39 +1548,57 @@ export function TicketsClient() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Kategori Tiket</Label>
-                                <Select 
-                                    value={completeCategory} 
-                                    onValueChange={(cat) => {
-                                        setCompleteCategory(cat);
-                                        const types = REPAIR_TYPES_BY_CATEGORY[cat] || REPAIR_TYPES_BY_CATEGORY.hardware;
-                                        setFormRepairType(types[0]);
-                                    }}
-                                >
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="hardware">Hardware</SelectItem>
-                                        <SelectItem value="software">Software</SelectItem>
-                                        <SelectItem value="data">Data</SelectItem>
-                                        <SelectItem value="network">Jaringan</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                        {/* Kategori Tiket */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kategori Tiket</Label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {[
+                                    { key: "hardware", label: "Hardware", icon: Laptop },
+                                    { key: "software", label: "Software", icon: Box },
+                                    { key: "data", label: "Data", icon: Database },
+                                    { key: "network", label: "Jaringan", icon: Network },
+                                ].map((cat) => {
+                                    const Icon = cat.icon;
+                                    const isSelected = completeCategory === cat.key;
+                                    return (
+                                        <button
+                                            key={cat.key}
+                                            type="button"
+                                            onClick={() => {
+                                                setCompleteCategory(cat.key);
+                                                const types = REPAIR_TYPES_BY_CATEGORY[cat.key] || REPAIR_TYPES_BY_CATEGORY.hardware;
+                                                setFormRepairType(types[0]);
+                                            }}
+                                            className={cn(
+                                                "flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-medium transition-all cursor-pointer",
+                                                isSelected
+                                                    ? "bg-primary text-primary-foreground border-primary shadow-xs font-semibold ring-2 ring-primary/20"
+                                                    : "bg-card text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground"
+                                            )}
+                                        >
+                                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                                            <span>{cat.label}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
-                            <div className="space-y-2">
-                                <Label>Tipe Perbaikan</Label>
-                                <Select value={formRepairType} onValueChange={setFormRepairType}>
-                                    <SelectTrigger><SelectValue placeholder="Pilih tipe perbaikan" /></SelectTrigger>
-                                    <SelectContent>
-                                        {(REPAIR_TYPES_BY_CATEGORY[completeCategory] || REPAIR_TYPES_BY_CATEGORY.hardware).map((type) => (
-                                            <SelectItem key={type} value={type}>
-                                                {repairTypeLabels[type] || type}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        </div>
+
+                        {/* Tipe Perbaikan - Full width so text is never truncated */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipe Perbaikan</Label>
+                            <Select value={formRepairType} onValueChange={setFormRepairType}>
+                                <SelectTrigger className="w-full h-10 px-3.5 text-left text-sm">
+                                    <SelectValue placeholder="Pilih tipe perbaikan" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[300px]">
+                                    {(REPAIR_TYPES_BY_CATEGORY[completeCategory] || REPAIR_TYPES_BY_CATEGORY.hardware).map((type) => (
+                                        <SelectItem key={type} value={type} className="py-2.5">
+                                            {repairTypeLabels[type] || type}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {selectedTicket?.asset ? (
