@@ -154,41 +154,17 @@ const REPAIR_TYPES_BY_CATEGORY: Record<string, string[]> = {
     ],
 };
 
-function formatDateOnly(dateStr?: string | null): string {
-    if (!dateStr) return "-";
-    try {
-        return new Date(dateStr).toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        });
-    } catch {
-        return dateStr;
-    }
-}
-
-function formatTimeOnly(dateStr?: string | null): string {
-    if (!dateStr) return "";
-    try {
-        return new Date(dateStr).toLocaleTimeString("id-ID", {
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    } catch {
-        return "";
-    }
-}
-
 function formatFullDateTime(dateStr?: string | null): string {
     if (!dateStr) return "-";
     try {
-        return new Date(dateStr).toLocaleString("id-ID", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
+        const d = new Date(dateStr);
+        const day = d.getDate();
+        const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+        const month = months[d.getMonth()];
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, "0");
+        const minutes = String(d.getMinutes()).padStart(2, "0");
+        return `${day} ${month} ${year}, ${hours}:${minutes} WIB`;
     } catch {
         return dateStr;
     }
@@ -1056,7 +1032,7 @@ export function TicketsClient() {
 
             {/* View Dialog */}
             <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+                <DialogContent className="sm:max-w-3xl max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0">
                     <DialogHeader className="sr-only">
                         <DialogTitle>{selectedTicket?.title || "Ticket Details"}</DialogTitle>
                         <DialogDescription>Detail lengkap informasi tiket helpdesk</DialogDescription>
@@ -1118,79 +1094,82 @@ export function TicketsClient() {
 
                                 {/* Lifecycle Progression Stepper */}
                                 <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                            Alur Tiket & Durasi
-                                        </span>
+                                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+                                        <div className="flex items-center gap-2">
+                                            <Clock className="h-4 w-4 text-blue-500" />
+                                            <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                                                Alur Tiket & Durasi
+                                            </span>
+                                        </div>
                                         {duration && (
-                                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
                                                 <Clock className="h-3.5 w-3.5" /> Waktu Selesai: {duration}
                                             </span>
                                         )}
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                         {/* Step 1: Dibuat */}
-                                        <div className="flex items-start gap-3 p-3 rounded-lg bg-background border shadow-xs">
-                                            <div className="h-8 w-8 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                                                <Calendar className="h-4 w-4" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">1. Dibuat</p>
-                                                <div className="text-xs font-semibold text-foreground mt-0.5">
-                                                    {formatDateOnly(selectedTicket.created_at)}
-                                                    <span className="text-muted-foreground font-normal ml-1">
-                                                        ({formatTimeOnly(selectedTicket.created_at)})
-                                                    </span>
+                                        <div className="rounded-lg bg-card p-3.5 border shadow-xs space-y-2">
+                                            <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+                                                <div className="h-6 w-6 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+                                                    <Calendar className="h-3.5 w-3.5" />
                                                 </div>
-                                                <p className="text-xs text-muted-foreground mt-1 break-words leading-tight">
+                                                <span className="text-xs font-bold text-foreground">1. Dibuat</span>
+                                            </div>
+                                            <div className="space-y-1 text-xs">
+                                                <div className="font-semibold text-foreground">
+                                                    {formatFullDateTime(selectedTicket.created_at)}
+                                                </div>
+                                                <div className="text-muted-foreground leading-tight">
                                                     Oleh: <span className="font-medium text-foreground">{selectedTicket.creator?.full_name || "-"}</span>
-                                                </p>
+                                                </div>
                                             </div>
                                         </div>
 
                                         {/* Step 2: Penugasan */}
-                                        <div className="flex items-start gap-3 p-3 rounded-lg bg-background border shadow-xs">
-                                            <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${selectedTicket.assigned_to ? "bg-amber-500/10 text-amber-600" : "bg-muted text-muted-foreground"}`}>
-                                                <User className="h-4 w-4" />
+                                        <div className="rounded-lg bg-card p-3.5 border shadow-xs space-y-2">
+                                            <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+                                                <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${selectedTicket.assigned_to ? "bg-amber-500/10 text-amber-600" : "bg-muted text-muted-foreground"}`}>
+                                                    <User className="h-3.5 w-3.5" />
+                                                </div>
+                                                <span className="text-xs font-bold text-foreground">2. Teknisi Ditugaskan</span>
                                             </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">2. Teknisi Ditugaskan</p>
-                                                <p className="text-xs font-semibold text-foreground mt-0.5 break-words leading-tight">
+                                            <div className="space-y-1 text-xs">
+                                                <div className="font-semibold text-foreground">
                                                     {selectedTicket.assignee?.full_name || <span className="text-muted-foreground italic font-normal">Belum Ditugaskan</span>}
-                                                </p>
-                                                <div className="flex items-center gap-1.5 mt-1.5">
-                                                    <span className="text-[11px] text-muted-foreground">Status:</span>
-                                                    <Badge className={`${statusColors[selectedTicket.status]} text-[10px] h-5 py-0 px-1.5 font-medium`}>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 pt-0.5">
+                                                    <span className="text-muted-foreground">Status:</span>
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${statusColors[selectedTicket.status]}`}>
                                                         {statusLabels[selectedTicket.status]}
-                                                    </Badge>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
 
                                         {/* Step 3: Penyelesaian */}
-                                        <div className="flex items-start gap-3 p-3 rounded-lg bg-background border shadow-xs">
-                                            <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${selectedTicket.resolved_at ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}>
-                                                <CheckCircle2 className="h-4 w-4" />
+                                        <div className="rounded-lg bg-card p-3.5 border shadow-xs space-y-2">
+                                            <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+                                                <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${selectedTicket.resolved_at ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}>
+                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                </div>
+                                                <span className="text-xs font-bold text-foreground">3. Diselesaikan</span>
                                             </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">3. Diselesaikan</p>
+                                            <div className="space-y-1 text-xs">
                                                 {selectedTicket.resolved_at ? (
                                                     <>
-                                                        <div className="text-xs font-semibold text-foreground mt-0.5">
-                                                            {formatDateOnly(selectedTicket.resolved_at)}
-                                                            <span className="text-muted-foreground font-normal ml-1">
-                                                                ({formatTimeOnly(selectedTicket.resolved_at)})
-                                                            </span>
+                                                        <div className="font-semibold text-foreground">
+                                                            {formatFullDateTime(selectedTicket.resolved_at)}
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground mt-1 break-words leading-tight">
+                                                        <div className="text-muted-foreground leading-tight">
                                                             Oleh: <span className="font-medium text-foreground">{selectedTicket.resolver?.full_name || selectedTicket.assignee?.full_name || "-"}</span>
-                                                        </p>
+                                                        </div>
                                                     </>
                                                 ) : (
-                                                    <p className="text-xs text-muted-foreground italic mt-0.5">
+                                                    <div className="text-muted-foreground italic py-1">
                                                         Menunggu Penyelesaian
-                                                    </p>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
