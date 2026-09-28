@@ -5,9 +5,31 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Download, Printer, Upload, Link as LinkIcon, RefreshCw, Type, Save, Trash2, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+    Download,
+    Printer,
+    Upload,
+    Link as LinkIcon,
+    RefreshCw,
+    Save,
+    Trash2,
+    Eye,
+    Search,
+    ChevronLeft,
+    ChevronRight,
+    Sparkles,
+    Palette,
+    Copy,
+    Check,
+    ExternalLink,
+    SlidersHorizontal,
+    Image as ImageIcon,
+    Plus,
+    X,
+    QrCode as QrIcon
+} from "lucide-react";
 import QRCode from "qrcode";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { saveQRCode, getQRCodes, deleteQRCode, getLogos, saveLogo, type CustomQR, type QRLogo } from "./actions";
 import { toast } from "sonner";
@@ -38,13 +60,104 @@ import {
 } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+export interface QRTheme {
+    id: string;
+    name: string;
+    gradientStart: string;
+    gradientEnd: string;
+    cardBg: string;
+    textColor: string;
+    dotColor: string;
+    swatchClass: string;
+}
+
+const QR_THEMES: QRTheme[] = [
+    {
+        id: "modern_indigo",
+        name: "Indigo Violet",
+        gradientStart: "#2563eb",
+        gradientEnd: "#7c3aed",
+        cardBg: "#ffffff",
+        textColor: "#ffffff",
+        dotColor: "#000000",
+        swatchClass: "from-blue-600 to-violet-600",
+    },
+    {
+        id: "emerald_teal",
+        name: "Emerald Mint",
+        gradientStart: "#059669",
+        gradientEnd: "#0d9488",
+        cardBg: "#ffffff",
+        textColor: "#ffffff",
+        dotColor: "#000000",
+        swatchClass: "from-emerald-600 to-teal-600",
+    },
+    {
+        id: "sunset_glow",
+        name: "Sunset Rose",
+        gradientStart: "#f97316",
+        gradientEnd: "#e11d48",
+        cardBg: "#ffffff",
+        textColor: "#ffffff",
+        dotColor: "#000000",
+        swatchClass: "from-orange-500 to-rose-600",
+    },
+    {
+        id: "ocean_cyan",
+        name: "Ocean Breeze",
+        gradientStart: "#0284c7",
+        gradientEnd: "#2563eb",
+        cardBg: "#ffffff",
+        textColor: "#ffffff",
+        dotColor: "#000000",
+        swatchClass: "from-sky-600 to-blue-600",
+    },
+    {
+        id: "midnight_slate",
+        name: "Midnight Dark",
+        gradientStart: "#0f172a",
+        gradientEnd: "#1e293b",
+        cardBg: "#ffffff",
+        textColor: "#ffffff",
+        dotColor: "#000000",
+        swatchClass: "from-slate-900 to-slate-800",
+    },
+    {
+        id: "ruby_crimson",
+        name: "Ruby Flame",
+        gradientStart: "#dc2626",
+        gradientEnd: "#991b1b",
+        cardBg: "#ffffff",
+        textColor: "#ffffff",
+        dotColor: "#000000",
+        swatchClass: "from-red-600 to-red-800",
+    },
+    {
+        id: "minimal_mono",
+        name: "Monokrom",
+        gradientStart: "#f1f5f9",
+        gradientEnd: "#cbd5e1",
+        cardBg: "#ffffff",
+        textColor: "#0f172a",
+        dotColor: "#000000",
+        swatchClass: "from-slate-200 to-slate-400 border border-slate-300",
+    },
+];
+
 export default function QRGeneratorPage() {
     const [text, setText] = useState("");
     const [name, setName] = useState("");
     const [logo, setLogo] = useState<string | null>(null);
     const [logoId, setLogoId] = useState<string | null>(null);
+    const [selectedThemeId, setSelectedThemeId] = useState<string>("modern_indigo");
+    const [dotStyle, setDotStyle] = useState<"rounded" | "square">("rounded");
+    const [showBottomText, setShowBottomText] = useState(true);
+    const [bottomText, setBottomText] = useState("PINDAI SAYA");
+    const [copiedContentId, setCopiedContentId] = useState<string | null>(null);
+    const [copiedImage, setCopiedImage] = useState(false);
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const logoImgRef = useRef<HTMLImageElement | null>(null); // cached logo element
+    const logoImgRef = useRef<HTMLImageElement | null>(null);
     const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
     const [history, setHistory] = useState<CustomQR[]>([]);
     const [logos, setLogosList] = useState<QRLogo[]>([]);
@@ -57,6 +170,8 @@ export default function QRGeneratorPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
 
+    const activeTheme = QR_THEMES.find((t) => t.id === selectedThemeId) || QR_THEMES[0];
+
     useEffect(() => {
         fetchHistory();
         fetchLogos();
@@ -64,7 +179,7 @@ export default function QRGeneratorPage() {
 
     const fetchHistory = async (p = page, q = searchQuery) => {
         setIsLoading(true);
-        const res = await getQRCodes({ page: p, search: q, pageSize: 10 });
+        const res = await getQRCodes({ page: p, search: q, pageSize: 8 });
         if (res.success && res.data) {
             setHistory(res.data);
             setTotalPages(res.totalPages || 1);
@@ -76,9 +191,9 @@ export default function QRGeneratorPage() {
     // Debounce search
     useEffect(() => {
         const timer = setTimeout(() => {
-            setPage(1); // Reset to page 1 on new search
+            setPage(1);
             fetchHistory(1, searchQuery);
-        }, 500);
+        }, 400);
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
@@ -104,7 +219,7 @@ export default function QRGeneratorPage() {
         reader.onload = (event) => {
             const raw = event.target?.result as string;
 
-            // Auto-compress: resize to max 300x300 and encode as JPEG 80%
+            // Auto-compress: resize to max 300x300 and encode as JPEG 85%
             const img = new window.Image();
             img.onload = () => {
                 const MAX = 300;
@@ -117,11 +232,13 @@ export default function QRGeneratorPage() {
                 offscreen.height = h;
                 const ctx = offscreen.getContext("2d")!;
                 ctx.drawImage(img, 0, 0, w, h);
-                const compressed = offscreen.toDataURL("image/jpeg", 0.8);
+                const compressed = offscreen.toDataURL("image/png");
 
                 const compressedSizeKB = Math.round((compressed.length * 0.75) / 1024);
                 if (file.size > 100 * 1024) {
-                    toast.success(`Logo dikompres: ${originalSizeKB}KB → ${compressedSizeKB}KB`);
+                    toast.success(`Logo dioptimalkan: ${originalSizeKB}KB → ${compressedSizeKB}KB`);
+                } else {
+                    toast.success("Logo berhasil diunggah!");
                 }
 
                 setLogo(compressed);
@@ -145,27 +262,30 @@ export default function QRGeneratorPage() {
         setLogoId(null);
         setEditingId(null);
         setQrDataUrl(null);
-        toast.info("Siap untuk membuat QR baru");
+        setBottomText("PINDAI SAYA");
+        toast.info("Siap membuat desain QR baru");
     };
 
-    // Preload logo image once when logo src changes — avoids reloading every QR generation
+    // Preload logo image once when logo src changes
     useEffect(() => {
         if (!logo) {
             logoImgRef.current = null;
             return;
         }
         const img = new window.Image();
-        img.onload = () => { logoImgRef.current = img; };
+        img.onload = () => {
+            logoImgRef.current = img;
+            generateQR();
+        };
         img.src = logo;
     }, [logo]);
 
     useEffect(() => {
-        // Debounce generation for better performance
         const timer = setTimeout(() => {
             generateQR();
-        }, 300);
+        }, 200);
         return () => clearTimeout(timer);
-    }, [text, logo]);
+    }, [text, logo, selectedThemeId, dotStyle, showBottomText, bottomText]);
 
     const generateQR = () => {
         if (!text) {
@@ -181,42 +301,44 @@ export default function QRGeneratorPage() {
 
         // Settings
         const size = 1000;
+        const bottomBannerHeight = showBottomText && bottomText.trim() ? 180 : 0;
         canvas.width = size;
-        canvas.height = size + 200;
+        canvas.height = size + bottomBannerHeight;
 
         try {
             // 1. Get QR Data Matrix
-            const qr = QRCode.create(text, { errorCorrectionLevel: 'H' });
+            const qr = QRCode.create(text, { errorCorrectionLevel: "H" });
             const modules = qr.modules;
             const moduleCount = modules.size;
 
             // 2. Setup Background & Frame
-            const gradient = ctx.createLinearGradient(0, 0, size, size + 200);
-            gradient.addColorStop(0, "#2563eb");
-            gradient.addColorStop(1, "#7c3aed");
+            const gradient = ctx.createLinearGradient(0, 0, size, size + bottomBannerHeight);
+            gradient.addColorStop(0, activeTheme.gradientStart);
+            gradient.addColorStop(1, activeTheme.gradientEnd);
 
             ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, size, size + 200);
+            ctx.fillRect(0, 0, size, size + bottomBannerHeight);
 
-            const qrPadding = 50;
-            const qrSize = size - (qrPadding * 2);
-            ctx.fillStyle = "#ffffff";
-            ctx.roundRect(qrPadding, qrPadding, qrSize, qrSize, 50);
+            const qrPadding = 56;
+            const qrSize = size - qrPadding * 2;
+            ctx.fillStyle = activeTheme.cardBg;
+            ctx.beginPath();
+            ctx.roundRect(qrPadding, qrPadding, qrSize, qrSize, 44);
             ctx.fill();
 
-            // 3. Draw Stylized Modules
-            const cellSize = (qrSize - 60) / moduleCount;
-            const startX = qrPadding + 30;
-            const startY = qrPadding + 30;
+            // 3. Draw Modules
+            const cellSize = (qrSize - 64) / moduleCount;
+            const startX = qrPadding + 32;
+            const startY = qrPadding + 32;
 
-            ctx.fillStyle = "#000000";
+            ctx.fillStyle = activeTheme.dotColor;
 
             for (let row = 0; row < moduleCount; row++) {
                 for (let col = 0; col < moduleCount; col++) {
                     const isDark = modules.get(row, col);
                     if (!isDark) continue;
 
-                    // Skip Finder Patterns (the big eyes) for custom drawing
+                    // Skip Finder Patterns
                     const isFinderPattern =
                         (row < 7 && col < 7) ||
                         (row < 7 && col >= moduleCount - 7) ||
@@ -224,13 +346,17 @@ export default function QRGeneratorPage() {
 
                     if (isFinderPattern) continue;
 
-                    // Draw Rounded Dots
-                    const x = startX + col * cellSize + cellSize / 2;
-                    const y = startY + row * cellSize + cellSize / 2;
-
-                    ctx.beginPath();
-                    ctx.arc(x, y, cellSize * 0.4, 0, Math.PI * 2);
-                    ctx.fill();
+                    if (dotStyle === "rounded") {
+                        const x = startX + col * cellSize + cellSize / 2;
+                        const y = startY + row * cellSize + cellSize / 2;
+                        ctx.beginPath();
+                        ctx.arc(x, y, cellSize * 0.42, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else {
+                        const x = startX + col * cellSize;
+                        const y = startY + row * cellSize;
+                        ctx.fillRect(x, y, cellSize * 0.95, cellSize * 0.95);
+                    }
                 }
             }
 
@@ -239,16 +365,28 @@ export default function QRGeneratorPage() {
                 const eyeSize = cellSize * 7;
 
                 // Outer ring
-                ctx.strokeStyle = "#000000";
+                ctx.strokeStyle = activeTheme.dotColor;
                 ctx.lineWidth = cellSize;
                 ctx.beginPath();
-                ctx.roundRect(x + cellSize / 2, y + cellSize / 2, eyeSize - cellSize, eyeSize - cellSize, eyeSize * 0.25);
+                ctx.roundRect(
+                    x + cellSize / 2,
+                    y + cellSize / 2,
+                    eyeSize - cellSize,
+                    eyeSize - cellSize,
+                    dotStyle === "rounded" ? eyeSize * 0.25 : 0
+                );
                 ctx.stroke();
 
                 // Inner dot
-                ctx.fillStyle = "#000000";
+                ctx.fillStyle = activeTheme.dotColor;
                 ctx.beginPath();
-                ctx.roundRect(x + cellSize * 2, y + cellSize * 2, eyeSize - cellSize * 4, eyeSize - cellSize * 4, eyeSize * 0.15);
+                ctx.roundRect(
+                    x + cellSize * 2,
+                    y + cellSize * 2,
+                    eyeSize - cellSize * 4,
+                    eyeSize - cellSize * 4,
+                    dotStyle === "rounded" ? eyeSize * 0.18 : 0
+                );
                 ctx.fill();
             };
 
@@ -256,41 +394,39 @@ export default function QRGeneratorPage() {
             drawEye(startX + (moduleCount - 7) * cellSize, startY); // Top Right
             drawEye(startX, startY + (moduleCount - 7) * cellSize); // Bottom Left
 
-            // 5. Draw Logo (use cached image element)
+            // 5. Draw Logo
             if (logo && logoImgRef.current) {
                 const logoImg = logoImgRef.current;
-
-                const logoSize = qrSize * 0.25;
+                const logoSize = qrSize * 0.24;
                 const center = size / 2;
 
-                // White circle behind logo
+                // White circle background with subtle shadow
+                ctx.save();
                 ctx.beginPath();
-                ctx.arc(center, center, (logoSize / 2) + 10, 0, Math.PI * 2);
+                ctx.arc(center, center, logoSize / 2 + 12, 0, Math.PI * 2);
                 ctx.fillStyle = "#ffffff";
+                ctx.shadowColor = "rgba(0,0,0,0.18)";
+                ctx.shadowBlur = 12;
                 ctx.fill();
+                ctx.restore();
 
+                // Clip & draw logo
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(center, center, logoSize / 2, 0, Math.PI * 2);
                 ctx.clip();
                 ctx.drawImage(logoImg, center - logoSize / 2, center - logoSize / 2, logoSize, logoSize);
                 ctx.restore();
-            } else if (logo && !logoImgRef.current) {
-                // Logo not yet cached, load it once and trigger redraw
-                const logoImg = new window.Image();
-                logoImg.onload = () => {
-                    logoImgRef.current = logoImg;
-                    generateQR();
-                };
-                logoImg.src = logo;
-                return; // wait for onload to redraw
             }
 
-            // 6. Text
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 80px sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText("SCAN ME", size / 2, size + 110);
+            // 6. Text at Bottom
+            if (showBottomText && bottomText.trim()) {
+                ctx.fillStyle = activeTheme.textColor;
+                ctx.font = "bold 74px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(bottomText.trim().toUpperCase(), size / 2, size + bottomBannerHeight / 2);
+            }
 
             setQrDataUrl(canvas.toDataURL("image/png"));
         } catch (err) {
@@ -301,9 +437,27 @@ export default function QRGeneratorPage() {
     const downloadQR = () => {
         if (!qrDataUrl) return;
         const link = document.createElement("a");
-        link.download = `qr-code-${name || Date.now()}.png`;
+        const cleanName = (name || "qr-code").replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+        link.download = `${cleanName}-${Date.now()}.png`;
         link.href = qrDataUrl;
         link.click();
+        toast.success("QR Code berhasil diunduh dalam resolusi HD!");
+    };
+
+    const copyImageToClipboard = async () => {
+        if (!canvasRef.current) return;
+        try {
+            canvasRef.current.toBlob(async (blob) => {
+                if (blob) {
+                    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                    setCopiedImage(true);
+                    toast.success("Gambar QR berhasil disalin! Siap ditempel (Ctrl+V) ke dokumen atau chat.");
+                    setTimeout(() => setCopiedImage(false), 2500);
+                }
+            });
+        } catch {
+            toast.error("Browser tidak mendukung penyalinan gambar langsung.");
+        }
     };
 
     const printQR = () => {
@@ -312,14 +466,54 @@ export default function QRGeneratorPage() {
         win.document.write(`
             <html>
                 <head>
-                    <title>Print QR Code - ${name}</title>
+                    <title>Cetak QR Code - ${name || "SI-Mantap"}</title>
                     <style>
-                        body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-                        img { max-width: 6cm; max-height: 6cm; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; }
+                        body {
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            min-height: 100vh;
+                            margin: 0;
+                            font-family: sans-serif;
+                            background-color: #ffffff;
+                        }
+                        .qr-card {
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            padding: 24px;
+                            border: 1px solid #e2e8f0;
+                            border-radius: 16px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+                        }
+                        img {
+                            max-width: 7cm;
+                            max-height: 7cm;
+                            border-radius: 12px;
+                        }
+                        .title {
+                            margin-top: 14px;
+                            font-size: 16px;
+                            font-weight: bold;
+                            color: #1e293b;
+                        }
+                        .content {
+                            margin-top: 4px;
+                            font-size: 12px;
+                            color: #64748b;
+                            max-width: 7cm;
+                            word-break: break-all;
+                            text-align: center;
+                        }
                     </style>
                 </head>
                 <body onload="window.print();window.close()">
-                    <img src="${qrDataUrl}" />
+                    <div class="qr-card">
+                        <img src="${qrDataUrl}" />
+                        ${name ? `<div class="title">${name}</div>` : ""}
+                        <div class="content">${text}</div>
+                    </div>
                 </body>
             </html>
         `);
@@ -328,7 +522,7 @@ export default function QRGeneratorPage() {
 
     const handleSave = async () => {
         if (!text || !name) {
-            toast.error("Nama dan Konten QR wajib diisi");
+            toast.error("Nama dan Tautan/Konten QR wajib diisi terlebih dahulu!");
             return;
         }
 
@@ -336,9 +530,8 @@ export default function QRGeneratorPage() {
         let finalLogoId = logoId;
         let finalLogoData = finalLogoId ? null : logo;
 
-        // If we have a logo but no ID yet (not in library), save it first
         if (logo && !finalLogoId) {
-            const logoRes = await saveLogo(`Logo for ${name}`, logo);
+            const logoRes = await saveLogo(`Logo untuk ${name}`, logo);
             if (logoRes.success && logoRes.data) {
                 finalLogoId = logoRes.data.id;
                 finalLogoData = null;
@@ -352,15 +545,14 @@ export default function QRGeneratorPage() {
             name,
             content: text,
             logo_id: finalLogoId,
-            logo_data: finalLogoData
+            logo_data: finalLogoData,
         });
 
         if (res.success) {
-            toast.success(editingId ? "QR Code diperbarui" : "QR Code disimpan");
+            toast.success(editingId ? "QR Code berhasil diperbarui!" : "QR Code berhasil disimpan ke riwayat!");
             const savedId = res.data.id;
             setEditingId(savedId);
 
-            // Optimistic update: insert or update item directly in local state
             const newItem: CustomQR = {
                 id: savedId,
                 name,
@@ -371,12 +563,10 @@ export default function QRGeneratorPage() {
                 created_by: res.data.created_by || null,
             };
 
-            setHistory(prev => {
+            setHistory((prev) => {
                 if (editingId) {
-                    // Update existing entry in place
-                    return prev.map(item => item.id === editingId ? newItem : item);
+                    return prev.map((item) => (item.id === editingId ? newItem : item));
                 } else {
-                    // Prepend new entry
                     return [newItem, ...prev];
                 }
             });
@@ -389,7 +579,10 @@ export default function QRGeneratorPage() {
     const handleDelete = async (id: string) => {
         const res = await deleteQRCode(id);
         if (res.success) {
-            toast.success("QR Code dihapus");
+            toast.success("QR Code berhasil dihapus dari riwayat!");
+            if (editingId === id) {
+                handleNew();
+            }
             fetchHistory();
         } else {
             toast.error("Gagal menghapus: " + res.error);
@@ -397,310 +590,620 @@ export default function QRGeneratorPage() {
     };
 
     const loadFromHistory = (qr: CustomQR) => {
-        // Reset canvas first to show loading if needed
         setQrDataUrl(null);
-
         setText(qr.content);
         setName(qr.name);
         setLogo(qr.logo_data);
         setLogoId(qr.logo_id);
         setEditingId(qr.id);
 
-        // Switch tab based on whether it has a library logo or direct upload
         if (qr.logo_id) {
             setActiveTab("library");
         } else if (qr.logo_data) {
             setActiveTab("upload");
         }
 
-        toast.info(`Memuat kembali "${qr.name}"`);
+        toast.info(`Memuat data "${qr.name}"`);
         window.scrollTo({ top: 0, behavior: "smooth" });
-
-        // generateQR will be triggered by useEffect [text, logo]
     };
 
+    const handleCopyContent = (content: string, id: string) => {
+        navigator.clipboard.writeText(content);
+        setCopiedContentId(id);
+        toast.success("Konten link berhasil disalin!");
+        setTimeout(() => setCopiedContentId(null), 2000);
+    };
+
+    const isUrl = (val: string) => /^https?:\/\//i.test(val.trim());
+
     return (
-        <div className="container mx-auto py-8 max-w-5xl">
-            <div className="flex flex-col md:flex-row gap-8">
-                {/* Controls */}
-                <div className="flex-1 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold">QR Generator</h1>
-                            <p className="text-muted-foreground mt-2">Buat QR Code kustom dengan logo dan desain cantik.</p>
+        <div className="max-w-7xl mx-auto space-y-8 pb-12">
+            {/* Header Banner */}
+            <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-r from-blue-600/10 via-violet-600/10 to-transparent p-6 sm:p-8 backdrop-blur-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1.5">
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                            <Sparkles className="h-3.5 w-3.5" /> Studio QR Code Generator
                         </div>
+                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                            Pembuat Kode QR Profesional
+                        </h1>
+                        <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+                            Buat kode QR kustom beresolusi tinggi dengan logo instansi, pilihan palet warna modern, dan teks penjelas yang siap dicetak atau dibagikan.
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
                         {editingId && (
-                            <Button variant="outline" size="sm" onClick={handleNew}>
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Buat Baru
+                            <Button variant="outline" size="sm" onClick={handleNew} className="gap-2">
+                                <Plus className="h-4 w-4" /> Buat Baru
                             </Button>
                         )}
                     </div>
+                </div>
+            </div>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <LinkIcon className="h-5 w-5" />
-                                Konfigurasi QR
+            {/* Studio Layout: 2 Columns */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Left Column: Customization Controls */}
+                <div className="lg:col-span-7 space-y-6">
+                    {/* Step 1: Content & Label */}
+                    <Card className="shadow-xs border-border/60">
+                        <CardHeader className="pb-4 border-b">
+                            <CardTitle className="text-base font-bold flex items-center gap-2">
+                                <LinkIcon className="h-4 w-4 text-blue-500" />
+                                1. Informasi & Konten QR
                             </CardTitle>
+                            <CardDescription>
+                                Masukkan nama identitas QR dan tujuan tautan URL atau teks yang akan dipindai.
+                            </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Nama / Label QR</Label>
+                        <CardContent className="pt-4 space-y-4">
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="name" className="text-xs font-semibold">Nama / Label QR *</Label>
+                                    {editingId && (
+                                        <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">
+                                            Sedang Diedit
+                                        </Badge>
+                                    )}
+                                </div>
                                 <Input
                                     id="name"
-                                    placeholder="Contoh: Link Guest Wi-Fi"
+                                    placeholder="Contoh: Wi-Fi Tamu RS, Formulir Pendaftaran, SOP Server"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
+                                    className="h-10"
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="url">Link atau Teks</Label>
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="url" className="text-xs font-semibold">Link URL atau Teks Konten *</Label>
+                                    {isUrl(text) && (
+                                        <a
+                                            href={text}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline"
+                                        >
+                                            Uji Buka Tautan <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                    )}
+                                </div>
                                 <Input
                                     id="url"
-                                    placeholder="Masukkan URL atau teks di sini..."
+                                    placeholder="https://contoh-link.com atau teks apa saja..."
                                     value={text}
                                     onChange={(e) => setText(e.target.value)}
+                                    className="h-10 font-mono text-xs"
                                 />
-                            </div>
-
-                            <div className="space-y-4">
-                                <Label>Logo QR Code</Label>
-                                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                    <TabsList className="grid w-full grid-cols-2">
-                                        <TabsTrigger value="upload">Unggah Baru</TabsTrigger>
-                                        <TabsTrigger value="library">Dari Perpustakaan</TabsTrigger>
-                                    </TabsList>
-                                    <TabsContent value="upload" className="pt-2">
-                                        <div className="flex gap-2">
-                                            <Input
-                                                id="logo"
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleLogoUpload}
-                                                className="cursor-pointer"
-                                            />
-                                            {logo && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    onClick={() => { setLogo(null); setLogoId(null); }}
-                                                    title="Hapus Logo"
-                                                >
-                                                    <RefreshCw className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </TabsContent>
-                                    <TabsContent value="library" className="pt-2">
-                                        <ScrollArea className="h-32 border rounded-md p-2">
-                                            {logos.length === 0 ? (
-                                                <p className="text-center text-xs text-muted-foreground py-8">Perpustakaan kosong.</p>
-                                            ) : (
-                                                <div className="grid grid-cols-5 gap-2">
-                                                    {logos.map((l) => (
-                                                        <button
-                                                            key={l.id}
-                                                            onClick={() => handleSelectLogo(l)}
-                                                            className={cn(
-                                                                "h-12 w-full rounded border overflow-hidden transition-all",
-                                                                logoId === l.id ? "border-primary ring-2 ring-primary" : "hover:border-primary/50"
-                                                            )}
-                                                            title={l.name}
-                                                        >
-                                                            <img src={l.data} alt={l.name} className="h-full w-full object-contain bg-white" />
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </ScrollArea>
-                                    </TabsContent>
-                                </Tabs>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <div className="flex gap-3">
-                        <Button
-                            className="flex-1"
-                            disabled={!qrDataUrl}
-                            onClick={downloadQR}
-                        >
-                            <Download className="mr-2 h-4 w-4" />
-                            PNG
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            className="flex-1"
-                            disabled={!qrDataUrl || isSaving}
-                            onClick={handleSave}
-                        >
-                            <Save className="mr-2 h-4 w-4" />
-                            {isSaving ? "Menyimpan..." : editingId ? "Perbarui" : "Simpan"}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            className="flex-1"
-                            disabled={!qrDataUrl}
-                            onClick={printQR}
-                        >
-                            <Printer className="mr-2 h-4 w-4" />
-                            Cetak
-                        </Button>
-                    </div>
+                    {/* Step 2: Styling & Colors */}
+                    <Card className="shadow-xs border-border/60">
+                        <CardHeader className="pb-4 border-b">
+                            <CardTitle className="text-base font-bold flex items-center gap-2">
+                                <Palette className="h-4 w-4 text-violet-500" />
+                                2. Desain, Palet Warna & Tampilan
+                            </CardTitle>
+                            <CardDescription>
+                                Pilih tema warna gradien, bentuk titik modul, dan label teks bawah.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-4 space-y-6">
+                            {/* Color Theme Selector */}
+                            <div className="space-y-2.5">
+                                <Label className="text-xs font-semibold">Palet Warna Bingkai</Label>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                    {QR_THEMES.map((theme) => {
+                                        const isSelected = selectedThemeId === theme.id;
+                                        return (
+                                            <button
+                                                key={theme.id}
+                                                type="button"
+                                                onClick={() => setSelectedThemeId(theme.id)}
+                                                className={cn(
+                                                    "group relative flex items-center gap-2.5 rounded-xl border p-2.5 text-left transition-all",
+                                                    isSelected
+                                                        ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                                                        : "hover:border-border hover:bg-muted/40"
+                                                )}
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        "h-6 w-6 rounded-full bg-gradient-to-br shadow-inner shrink-0",
+                                                        theme.swatchClass
+                                                    )}
+                                                />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-xs font-medium text-foreground truncate">
+                                                        {theme.name}
+                                                    </p>
+                                                </div>
+                                                {isSelected && (
+                                                    <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Dot Style & Bottom Text Toggle */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                {/* Dot Style */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold">Gaya Titik QR</Label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={dotStyle === "rounded" ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setDotStyle("rounded")}
+                                            className="h-9 text-xs"
+                                        >
+                                            Bulat Halus
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={dotStyle === "square" ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setDotStyle("square")}
+                                            className="h-9 text-xs"
+                                        >
+                                            Kotak Klasik
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Bottom Banner Toggle */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold">Format Bingkai</Label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={showBottomText ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setShowBottomText(true)}
+                                            className="h-9 text-xs"
+                                        >
+                                            Dengan Teks
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={!showBottomText ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setShowBottomText(false)}
+                                            className="h-9 text-xs"
+                                        >
+                                            Persegi Saja
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Bottom Text Input (if enabled) */}
+                            {showBottomText && (
+                                <div className="space-y-1.5 pt-1">
+                                    <Label htmlFor="bottomText" className="text-xs font-semibold">Teks Label Bawah</Label>
+                                    <Input
+                                        id="bottomText"
+                                        placeholder="Contoh: PINDAI SAYA, SCAN DISINI, IT HELPDESK"
+                                        value={bottomText}
+                                        onChange={(e) => setBottomText(e.target.value)}
+                                        className="h-9 text-xs uppercase"
+                                    />
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Step 3: Logo Integration */}
+                    <Card className="shadow-xs border-border/60">
+                        <CardHeader className="pb-4 border-b">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                                        <ImageIcon className="h-4 w-4 text-emerald-500" />
+                                        3. Sisipkan Logo di Tengah (Opsional)
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Tambahkan logo instansi untuk identitas visual yang profesional.
+                                    </CardDescription>
+                                </div>
+                                {logo && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => { setLogo(null); setLogoId(null); }}
+                                        className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                                    >
+                                        <X className="h-3.5 w-3.5 mr-1" /> Hapus Logo
+                                    </Button>
+                                )}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pt-4 space-y-4">
+                            {/* Selected Logo Preview Chip */}
+                            {logo && (
+                                <div className="flex items-center gap-3 p-2.5 rounded-lg border bg-muted/40 text-xs">
+                                    <div className="h-10 w-10 rounded-md border bg-white p-1 shrink-0 overflow-hidden flex items-center justify-center">
+                                        <img src={logo} alt="Logo Terpilih" className="h-full w-full object-contain" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-semibold text-foreground truncate">
+                                            {logoId ? logos.find((l) => l.id === logoId)?.name || "Logo Terpilih" : "Logo Kustom Terunggah"}
+                                        </p>
+                                        <p className="text-[11px] text-muted-foreground">Siap dipasang di titik tengah QR Code</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2 h-9">
+                                    <TabsTrigger value="upload" className="text-xs">Unggah Logo Baru</TabsTrigger>
+                                    <TabsTrigger value="library" className="text-xs">Perpustakaan Logo ({logos.length})</TabsTrigger>
+                                </TabsList>
+
+                                <TabsContent value="upload" className="pt-3">
+                                    <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-6 hover:bg-muted/30 transition-colors">
+                                        <Upload className="h-8 w-8 text-muted-foreground/60 mb-2" />
+                                        <p className="text-xs font-semibold text-foreground">Klik untuk memilih file logo</p>
+                                        <p className="text-[11px] text-muted-foreground mt-0.5">PNG, JPG, atau SVG (Otomatis dioptimalkan)</p>
+                                        <Input
+                                            id="logoUpload"
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleLogoUpload}
+                                            className="mt-3 max-w-xs cursor-pointer text-xs"
+                                        />
+                                    </div>
+                                </TabsContent>
+
+                                <TabsContent value="library" className="pt-3">
+                                    <ScrollArea className="h-36 border rounded-xl p-2.5 bg-muted/10">
+                                        {logos.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground text-xs">
+                                                <ImageIcon className="h-6 w-6 mb-1 opacity-40" />
+                                                <p>Belum ada logo tersimpan di perpustakaan.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                                {logos.map((l) => {
+                                                    const isSelected = logoId === l.id;
+                                                    return (
+                                                        <button
+                                                            key={l.id}
+                                                            type="button"
+                                                            onClick={() => handleSelectLogo(l)}
+                                                            className={cn(
+                                                                "group relative flex flex-col items-center p-2 rounded-lg border transition-all text-center",
+                                                                isSelected
+                                                                    ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                                                                    : "hover:border-border hover:bg-muted/40"
+                                                            )}
+                                                            title={l.name}
+                                                        >
+                                                            <div className="h-10 w-full rounded bg-white p-1 flex items-center justify-center mb-1 overflow-hidden">
+                                                                <img src={l.data} alt={l.name} className="h-full w-full object-contain" />
+                                                            </div>
+                                                            <span className="text-[10px] font-medium text-foreground truncate w-full">
+                                                                {l.name}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </ScrollArea>
+                                </TabsContent>
+                            </Tabs>
+                        </CardContent>
+                    </Card>
                 </div>
 
-                {/* Preview */}
-                <div className="w-full md:w-[400px] flex flex-col items-center">
-                    <Label className="mb-4 text-lg font-semibold">Pratinjau</Label>
-                    <Card className="w-full aspect-[4/5] flex items-center justify-center bg-slate-50 relative overflow-hidden border-dashed border-2">
-                        {qrDataUrl ? (
-                            <div className="p-8 w-full h-full flex items-center justify-center">
-                                <img
-                                    src={qrDataUrl}
-                                    alt="QR Preview"
-                                    className="max-w-full max-h-full shadow-2xl rounded-xl"
-                                />
+                {/* Right Column: Live Studio Preview Panel (Sticky) */}
+                <div className="lg:col-span-5 lg:sticky lg:top-6 space-y-4">
+                    <Card className="shadow-md border-border/60 overflow-hidden">
+                        <CardHeader className="pb-3 border-b bg-muted/30">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                    <QrIcon className="h-4 w-4 text-primary" />
+                                    Pratinjau Hasil Live
+                                </CardTitle>
+                                <Badge variant="secondary" className="text-[11px] font-medium">
+                                    {activeTheme.name}
+                                </Badge>
                             </div>
-                        ) : (
-                            <div className="text-center p-8 text-muted-foreground">
-                                <QrCode className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                                <p>Masukkan teks untuk melihat pratinjau</p>
+                        </CardHeader>
+                        <CardContent className="p-6 flex flex-col items-center justify-center">
+                            {/* Visual Display Box */}
+                            <div className="w-full flex flex-col items-center justify-center min-h-[360px] rounded-xl bg-radial from-muted/50 to-muted/10 border p-4 relative overflow-hidden">
+                                {qrDataUrl ? (
+                                    <div className="flex flex-col items-center space-y-3">
+                                        <div className="relative group">
+                                            <img
+                                                src={qrDataUrl}
+                                                alt="Pratinjau QR Code"
+                                                className="w-64 max-w-full rounded-2xl shadow-xl transition-transform duration-300 group-hover:scale-[1.02]"
+                                            />
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground font-mono">
+                                            Resolusi HD 1000px • Format PNG
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-center p-8 space-y-3 text-muted-foreground">
+                                        <div className="h-16 w-16 rounded-2xl bg-muted/60 flex items-center justify-center border border-dashed">
+                                            <QrIcon className="h-8 w-8 opacity-40" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-semibold text-foreground">Menunggu Masukan Konten</p>
+                                            <p className="text-xs text-muted-foreground max-w-xs">
+                                                Ketik nama dan URL atau teks di panel kiri untuk melihat pratinjau instan di sini.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
+
+                            {/* Hidden canvas for generation */}
+                            <canvas ref={canvasRef} className="hidden" />
+
+                            {/* Studio Action Buttons */}
+                            <div className="w-full space-y-2.5 pt-5">
+                                <div className="grid grid-cols-2 gap-2.5">
+                                    <Button
+                                        className="w-full gap-2 shadow-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                                        disabled={!qrDataUrl}
+                                        onClick={downloadQR}
+                                    >
+                                        <Download className="h-4 w-4" />
+                                        Unduh PNG
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        className="w-full gap-2"
+                                        disabled={!qrDataUrl}
+                                        onClick={copyImageToClipboard}
+                                    >
+                                        {copiedImage ? (
+                                            <>
+                                                <Check className="h-4 w-4 text-emerald-600" />
+                                                Tersalin!
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Copy className="h-4 w-4" />
+                                                Salin Gambar
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2.5">
+                                    <Button
+                                        variant="secondary"
+                                        className="w-full gap-2"
+                                        disabled={!qrDataUrl || isSaving}
+                                        onClick={handleSave}
+                                    >
+                                        <Save className="h-4 w-4" />
+                                        {isSaving ? "Menyimpan..." : editingId ? "Perbarui" : "Simpan Riwayat"}
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        className="w-full gap-2"
+                                        disabled={!qrDataUrl}
+                                        onClick={printQR}
+                                    >
+                                        <Printer className="h-4 w-4" />
+                                        Cetak Lembar
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
                     </Card>
-                    <canvas ref={canvasRef} className="hidden" />
                 </div>
             </div>
 
-            {/* History Table */}
-            <div className="mt-20 space-y-8">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            {/* History Table Section */}
+            <div className="pt-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-2xl font-bold">Riwayat QR</h2>
-                        <p className="text-muted-foreground">Kelola daftar QR code yang telah disimpan.</p>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-xl font-bold tracking-tight">Koleksi & Riwayat QR Code</h2>
+                            <Badge variant="outline" className="text-xs">
+                                {totalCount} Tersimpan
+                            </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Daftar kode QR yang pernah Anda simpan, siap dipakai atau dicetak kembali kapan saja.
+                        </p>
                     </div>
-                    <div className="relative w-full md:w-72">
+
+                    <div className="relative w-full sm:w-72">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Cari nama atau konten..."
-                            className="pl-9 bg-background"
+                            placeholder="Cari berdasarkan nama atau isi..."
+                            className="pl-9 h-9 text-xs bg-background"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
 
-                <Card>
+                <Card className="shadow-xs border-border/60 overflow-hidden">
                     <Table>
-                        <TableHeader>
+                        <TableHeader className="bg-muted/40">
                             <TableRow>
-                                <TableHead>Nama</TableHead>
-                                <TableHead>Konten</TableHead>
-                                <TableHead>Logo</TableHead>
-                                <TableHead>Tanggal</TableHead>
+                                <TableHead className="w-12 text-center">#</TableHead>
+                                <TableHead>Nama QR</TableHead>
+                                <TableHead>Tautan / Konten</TableHead>
+                                <TableHead className="text-center">Logo</TableHead>
+                                <TableHead>Tanggal Dibuat</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-2" />
-                                        Memuat riwayat...
+                                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                                        <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
+                                        Memuat data riwayat QR...
                                     </TableCell>
                                 </TableRow>
                             ) : history.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                        Belum ada data.
+                                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                                        <QrIcon className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                                        <p className="font-medium text-foreground text-sm">Belum Ada Riwayat QR Code</p>
+                                        <p className="text-xs mt-1">Buat kode QR baru menggunakan formulir di atas lalu klik "Simpan Riwayat".</p>
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                history.map((qr) => (
-                                    <TableRow key={qr.id}>
-                                        <TableCell className="font-medium">{qr.name}</TableCell>
-                                        <TableCell className="max-w-[200px] truncate">{qr.content}</TableCell>
+                                history.map((qr, index) => (
+                                    <TableRow key={qr.id} className="hover:bg-muted/30">
+                                        <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                                            {(page - 1) * 8 + index + 1}
+                                        </TableCell>
                                         <TableCell>
+                                            <p className="font-semibold text-sm text-foreground">{qr.name}</p>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-1.5 max-w-[260px]">
+                                                <span className="truncate text-xs font-mono text-muted-foreground">
+                                                    {qr.content}
+                                                </span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                                    onClick={() => handleCopyContent(qr.content, qr.id)}
+                                                    title="Salin Link/Teks"
+                                                >
+                                                    {copiedContentId === qr.id ? (
+                                                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                                    ) : (
+                                                        <Copy className="h-3.5 w-3.5" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-center">
                                             {qr.logo_data ? (
-                                                <div className="h-8 w-8 rounded overflow-hidden border bg-white">
+                                                <div className="h-7 w-7 rounded-md border bg-white p-0.5 mx-auto overflow-hidden flex items-center justify-center shadow-2xs">
                                                     <img src={qr.logo_data} alt="logo" className="h-full w-full object-contain" />
                                                 </div>
                                             ) : (
-                                                <span className="text-xs text-muted-foreground">No Logo</span>
+                                                <span className="text-[11px] text-muted-foreground">-</span>
                                             )}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">
                                             {new Date(qr.created_at).toLocaleDateString("id-ID", {
                                                 day: "numeric",
                                                 month: "short",
                                                 year: "numeric"
                                             })}
                                         </TableCell>
-                                        <TableCell className="text-right flex justify-end gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="icon"
-                                                title="Lihat & Edit"
-                                                onClick={() => loadFromHistory(qr)}
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end items-center gap-1.5">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 text-xs gap-1.5"
+                                                    onClick={() => loadFromHistory(qr)}
+                                                >
+                                                    <Eye className="h-3.5 w-3.5" /> Muat
+                                                </Button>
 
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="outline" size="icon" className="text-destructive hover:bg-destructive/10 border-destructive/20">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Hapus QR ini?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Data <strong>{qr.name}</strong> akan dihapus permanen.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                                                        <AlertDialogAction
-                                                            onClick={() => handleDelete(qr.id)}
-                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
                                                         >
-                                                            Hapus
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Hapus QR Code ini?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Data <strong>{qr.name}</strong> akan dihapus permanen dari sistem.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                            <AlertDialogAction
+                                                                onClick={() => handleDelete(qr.id)}
+                                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                            >
+                                                                Hapus
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
                             )}
                         </TableBody>
                     </Table>
+
+                    {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className="flex items-center justify-between p-4 border-t">
-                            <div className="text-sm text-muted-foreground">
-                                Menampilkan {(page - 1) * 10 + 1} - {Math.min(page * 10, totalCount)} dari {totalCount} data
+                        <div className="flex items-center justify-between p-4 border-t bg-muted/20">
+                            <div className="text-xs text-muted-foreground">
+                                Menampilkan {(page - 1) * 8 + 1} sampai {Math.min(page * 8, totalCount)} dari {totalCount} data
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1.5">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    className="h-8 text-xs"
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
                                     disabled={page === 1}
                                 >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />
                                     Sebelumnya
                                 </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    className="h-8 text-xs"
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                                     disabled={page === totalPages}
                                 >
                                     Selanjutnya
-                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
                                 </Button>
                             </div>
                         </div>
@@ -708,32 +1211,5 @@ export default function QRGeneratorPage() {
                 </Card>
             </div>
         </div>
-    );
-}
-
-// Minimal Lucide Icon if not imported
-function QrCode({ className }: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <rect width="5" height="5" x="3" y="3" rx="1" />
-            <rect width="5" height="5" x="16" y="3" rx="1" />
-            <rect width="5" height="5" x="3" y="16" rx="1" />
-            <path d="M21 16V21H16" />
-            <path d="M21 11H16V16" />
-            <path d="M12 16H8V21" />
-            <path d="M11 11H8V3" />
-            <path d="M12 7h1" />
-        </svg>
     );
 }
