@@ -225,7 +225,10 @@ export default function HelpdeskInsights({ data }: HelpdeskInsightsProps) {
                                         />
                                         <span className="truncate">{cat.name}</span>
                                     </div>
-                                    <span className="font-semibold ml-1">{cat.percentage}%</span>
+                                    <div className="flex items-center gap-1 ml-1 text-right shrink-0">
+                                        <span className="text-[11px] text-muted-foreground">{cat.count}</span>
+                                        <span className="font-semibold">({cat.percentage}%)</span>
+                                    </div>
                                 </div>
                             ))}
                         </div>

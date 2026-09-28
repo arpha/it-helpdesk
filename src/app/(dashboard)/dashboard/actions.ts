@@ -19,6 +19,7 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
     // Run core queries in parallel
     const [
         { data: allActiveTickets },
+        { data: allTicketsCategory },
         { data: resolvedPast30Days },
         { data: createdPast14Days },
         { data: resolvedPast14Days },
@@ -44,6 +45,11 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
             `)
             .in("status", ["open", "in_progress"])
             .order("created_at", { ascending: true }),
+
+        // All tickets category breakdown (all reported tickets in system)
+        supabase
+            .from("tickets")
+            .select("category"),
 
         // Tickets resolved in past 30 days (for MTTR and SLA Compliance calculation)
         supabase
@@ -105,9 +111,6 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
         if (ticket.status === "open") openCount++;
         if (ticket.status === "in_progress") inProgressCount++;
 
-        const cat = (ticket.category || "hardware").toLowerCase();
-        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-
         const techProfile = ticket.profiles as unknown as { full_name?: string } | null;
         const techName = techProfile?.full_name || (ticket.assigned_to ? "Teknisi" : "Belum Ditugaskan");
         if (!technicianLoadMap[techName]) {
@@ -164,21 +167,32 @@ export async function getDecisionDashboardData(): Promise<DecisionDashboardData>
     const mttrHours = resolvedPast30.length > 0 ? Number((totalResolutionHours / resolvedPast30.length).toFixed(1)) : 0;
     const slaComplianceRate = resolvedPast30.length > 0 ? Math.round((compliantCount / resolvedPast30.length) * 100) : 100;
 
-    // 3. Category Breakdown for chart
-    const totalCatCount = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
-    const categoryBreakdown = Object.entries(categoryCounts).map(([cat, count]) => {
-        const labels: Record<string, string> = {
-            hardware: "Hardware & Perangkat",
-            software: "Software & Aplikasi",
-            network: "Jaringan & Internet",
-            data: "Data & Database",
-        };
-        return {
-            name: labels[cat] || cat,
-            count,
-            percentage: totalCatCount > 0 ? Math.round((count / totalCatCount) * 100) : 0,
-        };
+    // 3. Category Breakdown for chart (counted from all reported tickets)
+    (allTicketsCategory || []).forEach(ticket => {
+        const cat = (ticket.category || "hardware").toLowerCase();
+        if (categoryCounts[cat] !== undefined) {
+            categoryCounts[cat]++;
+        } else {
+            categoryCounts[cat] = 1;
+        }
     });
+
+    const totalCatCount = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
+    const categoryBreakdown = Object.entries(categoryCounts)
+        .map(([cat, count]) => {
+            const labels: Record<string, string> = {
+                hardware: "Hardware & Perangkat",
+                data: "Data & Database",
+                network: "Jaringan & Internet",
+                software: "Software & Aplikasi",
+            };
+            return {
+                name: labels[cat] || cat,
+                count,
+                percentage: totalCatCount > 0 ? Math.round((count / totalCatCount) * 100) : 0,
+            };
+        })
+        .sort((a, b) => b.count - a.count);
 
     // 4. 14 Days Ticket Trend
     const dailyTrendMap: Record<string, { created: number; resolved: number }> = {};
