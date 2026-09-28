@@ -14,10 +14,14 @@ type BreadcrumbItem = {
 const routeLabels: Record<string, string> = {
     dashboard: "Dashboard",
     users: "Users",
-    tickets: "Tickets",
+    tickets: "Tiket",
     settings: "Settings",
     create: "Create",
     edit: "Edit",
+    "qr-generator": "QR Generator",
+    convert: "Konversi OCR",
+    sop: "Dokumen SOP",
+    "knowledge-base": "Knowledge Base",
 };
 
 export function Breadcrumb() {

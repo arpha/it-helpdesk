@@ -63,7 +63,7 @@ export async function saveQRCode(data: {
         return { success: false, error: error.message };
     }
 
-    revalidatePath("/tools/qr-generator");
+    revalidatePath("/qr-generator");
     return { success: true, data: qr };
 }
 
@@ -175,6 +175,6 @@ export async function deleteQRCode(id: string) {
         return { success: false, error: error.message };
     }
 
-    revalidatePath("/tools/qr-generator");
+    revalidatePath("/qr-generator");
     return { success: true };
 }

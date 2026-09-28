@@ -68,7 +68,7 @@ export async function updateSession(request: NextRequest) {
       const isRestrictedBase = restrictedPaths.some(p => path.startsWith(p));
       const isRestrictedTicket = path === "/tickets" || path.startsWith("/tickets/");
 
-      // Note: /tools/qr-generator is allowed
+      // Note: /qr-generator is allowed
       if (isRestrictedBase || isRestrictedTicket) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";

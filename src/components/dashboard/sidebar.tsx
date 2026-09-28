@@ -86,7 +86,7 @@ const menuGroups: MenuGroup[] = [
             },
             {
                 title: "QR Generator",
-                href: "/tools/qr-generator",
+                href: "/qr-generator",
                 icon: QrCode,
             },
             {
@@ -261,7 +261,7 @@ export function Sidebar() {
             if (group.title === "Helpdesk") {
                 return {
                     ...group,
-                    items: group.items.filter(item => item.href === "/tools/qr-generator")
+                    items: group.items.filter(item => item.href === "/qr-generator")
                 };
             }
             if (group.title === "SOP & Pedoman") {
