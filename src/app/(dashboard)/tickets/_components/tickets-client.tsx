@@ -494,7 +494,8 @@ export function TicketsClient() {
     const columns: Column<Ticket>[] = [
         {
             key: "title",
-            header: "Tiket & Kendala",
+            header: <span className="pl-2">Tiket & Kendala</span>,
+            className: "pl-5 pr-4 py-3.5",
             cell: (ticket) => (
                 <div 
                     className="cursor-pointer group space-y-1 py-0.5"
@@ -526,6 +527,7 @@ export function TicketsClient() {
         {
             key: "category",
             header: "Kategori",
+            className: "px-4 py-3.5",
             cell: (ticket) => (
                 <Badge variant="outline" className="gap-1.5 py-1 px-2.5 font-medium border bg-muted/40">
                     {getCategoryIcon(ticket.category)}
@@ -536,6 +538,7 @@ export function TicketsClient() {
         {
             key: "priority",
             header: "Prioritas & SLA",
+            className: "px-4 py-3.5",
             cell: (ticket) => {
                 const slaMap: Record<string, string> = {
                     urgent: "≤ 4 Jam",
@@ -564,6 +567,7 @@ export function TicketsClient() {
         {
             key: "status",
             header: "Status",
+            className: "px-4 py-3.5",
             cell: (ticket) => (
                 <Badge variant="outline" className={cn("gap-1.5 py-1 px-2.5 font-medium border shadow-2xs", statusColors[ticket.status])}>
                     {ticket.status === "open" && <Clock className="h-3 w-3 text-amber-500" />}
@@ -578,6 +582,7 @@ export function TicketsClient() {
         {
             key: "assignee",
             header: "Ditugaskan Ke",
+            className: "px-4 py-3.5",
             cell: (ticket) => ticket.assignee?.full_name ? (
                 <div className="flex items-center gap-2">
                     <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
@@ -594,14 +599,16 @@ export function TicketsClient() {
         },
         {
             key: "actions",
-            header: "Aksi",
+            header: <div className="text-right pr-3">Aksi</div>,
+            className: "text-right pr-5 pl-2 py-3.5 w-[70px]",
             cell: (ticket) => (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
+                <div className="flex justify-end pr-1">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => { setSelectedTicket(ticket); setIsViewOpen(true); }}>
                             <Eye className="mr-2 h-4 w-4" /> Lihat Detail
@@ -663,9 +670,10 @@ export function TicketsClient() {
                         )}
                     </DropdownMenuContent>
                 </DropdownMenu>
-            ),
-        },
-    ];
+            </div>
+        ),
+    },
+];
 
     return (
         <div className="space-y-6 pb-8">
@@ -870,24 +878,22 @@ export function TicketsClient() {
                 </div>
             </div>
 
-            {/* Table Card */}
-            <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
-                <DataTable
-                    columns={columns}
-                    data={ticketsData?.data || []}
-                    isLoading={isLoading}
-                    page={page}
-                    limit={limit}
-                    totalItems={ticketsData?.totalItems || 0}
-                    totalPages={ticketsData?.totalPages || 1}
-                    onPageChange={setPage}
-                    onLimitChange={setLimit}
-                    searchValue={search}
-                    onSearchChange={setSearch}
-                    searchPlaceholder="Cari tiket, pemohon, atau nomor aset..."
-                    emptyMessage="Tidak ada tiket yang ditemukan."
-                />
-            </div>
+            {/* Table */}
+            <DataTable
+                columns={columns}
+                data={ticketsData?.data || []}
+                isLoading={isLoading}
+                page={page}
+                limit={limit}
+                totalItems={ticketsData?.totalItems || 0}
+                totalPages={ticketsData?.totalPages || 1}
+                onPageChange={setPage}
+                onLimitChange={setLimit}
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Cari tiket, pemohon, atau nomor aset..."
+                emptyMessage="Tidak ada tiket yang ditemukan."
+            />
 
             {/* Create Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
