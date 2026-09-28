@@ -85,11 +85,6 @@ const menuGroups: MenuGroup[] = [
                 icon: ClipboardList,
             },
             {
-                title: "Reports",
-                href: "/tickets/reports",
-                icon: BarChart3,
-            },
-            {
                 title: "QR Generator",
                 href: "/tools/qr-generator",
                 icon: QrCode,

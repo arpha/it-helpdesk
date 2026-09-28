@@ -48,8 +48,8 @@ export default function HelpdeskInsights({ data }: HelpdeskInsightsProps) {
                         Evaluasi kecepatan respon, kepatuhan SLA, dan pola kendala berulang
                     </p>
                 </div>
-                <Link href="/tickets/reports" className="text-xs text-primary font-medium hover:underline">
-                    Laporan Lengkap Tiket →
+                <Link href="/tickets" className="text-xs text-primary font-medium hover:underline">
+                    Lihat Semua Tiket →
                 </Link>
             </div>
 

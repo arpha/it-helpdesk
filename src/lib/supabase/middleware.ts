@@ -63,7 +63,7 @@ export async function updateSession(request: NextRequest) {
       // List of restricted parent paths for "user" role
       const restrictedPaths = ["/master", "/atk", "/assets"];
 
-      // Specifically for tickets: /tickets/reports and /tickets (all tickets) are restricted
+      // Specifically for tickets: /tickets (all tickets) is restricted
       // but we might want to keep the tool accessible if it's under /tools
       const isRestrictedBase = restrictedPaths.some(p => path.startsWith(p));
       const isRestrictedTicket = path === "/tickets" || path.startsWith("/tickets/");
