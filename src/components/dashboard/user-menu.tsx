@@ -152,24 +152,29 @@ export function UserMenu({ isCollapsed = false }: UserMenuProps) {
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <button
-                        className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-accent transition-colors"
+                        className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left border border-border/50 bg-card/60 hover:bg-muted/70 transition-all shadow-2xs group cursor-pointer"
                         disabled={isPending}
                     >
-                        <Avatar className="h-9 w-9">
-                            <AvatarImage src={user.avatar_url || undefined} />
-                            <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                                {getInitials(user.full_name)}
-                            </AvatarFallback>
-                        </Avatar>
+                        <div className="relative shrink-0">
+                            <Avatar className="h-9 w-9 ring-1 ring-border">
+                                <AvatarImage src={user.avatar_url || undefined} />
+                                <AvatarFallback className="text-xs bg-primary/10 text-primary font-bold">
+                                    {getInitials(user.full_name)}
+                                </AvatarFallback>
+                            </Avatar>
+                            <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card" />
+                        </div>
                         {!isCollapsed && (
                             <>
                                 <div className="flex-1 overflow-hidden">
-                                    <p className="truncate text-sm font-medium">{user.full_name}</p>
-                                    <p className="truncate text-xs text-muted-foreground capitalize">
-                                        {user.role.replace("_", " ")}
-                                    </p>
+                                    <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{user.full_name}</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wider">
+                                            {roleLabels[user.role] || user.role}
+                                        </span>
+                                    </div>
                                 </div>
-                                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                <ChevronUp className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
                             </>
                         )}
                     </button>

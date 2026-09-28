@@ -80,7 +80,7 @@ const menuGroups: MenuGroup[] = [
         icon: Ticket,
         items: [
             {
-                title: "All Tickets",
+                title: "Semua Tiket",
                 href: "/tickets",
                 icon: ClipboardList,
             },
@@ -90,7 +90,7 @@ const menuGroups: MenuGroup[] = [
                 icon: QrCode,
             },
             {
-                title: "Convert OCR",
+                title: "Konversi OCR",
                 href: "/tools/convert",
                 icon: FileText,
             },
@@ -113,21 +113,21 @@ const menuGroups: MenuGroup[] = [
         ],
     },
     {
-        title: "Master",
+        title: "Master Data",
         icon: Database,
         items: [
             {
-                title: "Users",
+                title: "Data Pengguna",
                 href: "/master/users",
                 icon: Users,
             },
             {
-                title: "Locations",
+                title: "Lokasi & Unit",
                 href: "/master/locations",
                 icon: Building2,
             },
             {
-                title: "Fingerprint",
+                title: "Mesin Fingerprint",
                 href: "/master/fingerprints",
                 icon: Fingerprint,
             },
@@ -139,26 +139,26 @@ const menuGroups: MenuGroup[] = [
         ],
     },
     {
-        title: "Management Stuffs",
+        title: "Inventaris & ATK",
         icon: Package,
         items: [
             {
-                title: "Items",
+                title: "Daftar Barang",
                 href: "/atk/items",
                 icon: PackageSearch,
             },
             {
-                title: "Requests",
+                title: "Permintaan ATK",
                 href: "/atk/requests",
                 icon: ClipboardList,
             },
             {
-                title: "Submission",
+                title: "Pengadaan Barang",
                 href: "/atk/purchase",
-                icon: FileText,
+                icon: ShoppingCart,
             },
             {
-                title: "Reports",
+                title: "Laporan Pemakaian",
                 href: "/atk/reports",
                 icon: BarChart3,
             },
@@ -170,36 +170,36 @@ const menuGroups: MenuGroup[] = [
         ],
     },
     {
-        title: "Management Assets",
+        title: "Manajemen Aset IT",
         icon: MonitorCog,
         items: [
             {
-                title: "Assets",
+                title: "Daftar Aset",
                 href: "/assets",
                 icon: Database,
             },
             {
-                title: "Categories",
+                title: "Kategori Aset",
                 href: "/assets/categories",
                 icon: Building2,
             },
             {
-                title: "Maintenance",
+                title: "Pemeliharaan Aset",
                 href: "/assets/maintenance",
-                icon: ClipboardList,
+                icon: Activity,
             },
             {
-                title: "Borrowing",
+                title: "Peminjaman Aset",
                 href: "/assets/borrowing",
                 icon: Package,
             },
             {
-                title: "Distribusi",
+                title: "Distribusi Aset",
                 href: "/assets/distribution",
                 icon: Truck,
             },
             {
-                title: "Reports",
+                title: "Laporan Aset",
                 href: "/assets/reports",
                 icon: BarChart3,
             },
@@ -274,7 +274,7 @@ export function Sidebar() {
     }).filter(group => group !== null && group.items.length > 0) as MenuGroup[];
 
     const SidebarContent = () => (
-        <nav className="flex flex-col gap-1 p-2">
+        <nav className="flex flex-col gap-1.5 px-3 py-2">
             {/* Regular Menu Items */}
             {filteredMenuItems.map((item) => {
                 const isActive =
@@ -286,15 +286,17 @@ export function Sidebar() {
                                 <Link
                                     href={item.href}
                                     className={cn(
-                                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                                        "hover:bg-accent hover:text-accent-foreground",
+                                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group",
                                         isActive
-                                            ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                                            : "text-muted-foreground"
+                                            ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-foreground font-semibold shadow-2xs border-l-2 border-primary"
+                                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                     )}
                                 >
-                                    <item.icon className="h-5 w-5 shrink-0" />
-                                    {(isOpen || isMobile) && <span>{item.title}</span>}
+                                    <item.icon className={cn(
+                                        "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
+                                        isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                                    )} />
+                                    {(isOpen || isMobile) && <span className="truncate">{item.title}</span>}
                                 </Link>
                             </TooltipTrigger>
                             {!isOpen && !isMobile && (
@@ -323,16 +325,17 @@ export function Sidebar() {
                                     <button
                                         onClick={() => toggle()}
                                         className={cn(
-                                            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors w-full",
-                                            "hover:bg-accent hover:text-accent-foreground",
-                                            hasActiveItem ? "text-primary" : "text-muted-foreground"
+                                            "flex items-center justify-center rounded-xl p-2.5 text-sm font-medium transition-all w-full cursor-pointer",
+                                            hasActiveItem
+                                                ? "bg-primary/10 text-primary dark:bg-primary/20"
+                                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                         )}
                                     >
                                         <group.icon className="h-5 w-5 shrink-0" />
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent side="right">
-                                    <p>{group.title}</p>
+                                    <p className="font-semibold">{group.title}</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
@@ -344,54 +347,65 @@ export function Sidebar() {
                         key={group.title}
                         open={isGroupOpen}
                         onOpenChange={() => toggleGroup(group.title)}
+                        className="space-y-1"
                     >
                         <CollapsibleTrigger asChild>
                             <button
                                 className={cn(
-                                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                                    "hover:bg-accent hover:text-accent-foreground",
-                                    hasActiveItem ? "text-primary" : "text-muted-foreground"
+                                    "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium transition-all cursor-pointer group",
+                                    hasActiveItem
+                                        ? "text-foreground font-semibold"
+                                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                                 )}
                             >
-                                <group.icon className="h-5 w-5 shrink-0" />
-                                <span className="flex-1 text-left">{group.title}</span>
+                                <div className={cn(
+                                    "p-1 rounded-lg transition-colors",
+                                    hasActiveItem ? "bg-primary/10 text-primary" : "text-muted-foreground group-hover:text-foreground"
+                                )}>
+                                    <group.icon className="h-4 w-4 shrink-0" />
+                                </div>
+                                <span className="flex-1 text-left text-xs uppercase tracking-wider font-semibold">{group.title}</span>
                                 <ChevronDown
                                     className={cn(
-                                        "h-4 w-4 transition-transform",
+                                        "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
                                         isGroupOpen && "rotate-180"
                                     )}
                                 />
                             </button>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="pl-4 pt-1">
-                            {group.items.map((item) => {
-                                // Check if this is an exact match or starts with (for sub-routes)
-                                // But don't match parent if a more specific child matches
-                                const isExactMatch = pathname === item.href;
-                                const isChildMatch = pathname.startsWith(`${item.href}/`);
-                                // Check if there's a more specific sibling that matches
-                                const hasSiblingMatch = group.items.some(
-                                    (sibling) => sibling.href !== item.href &&
-                                        (pathname === sibling.href || pathname.startsWith(`${sibling.href}/`))
-                                );
-                                const isActive = isExactMatch || (isChildMatch && !hasSiblingMatch);
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        className={cn(
-                                            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                                            "hover:bg-accent hover:text-accent-foreground",
-                                            isActive
-                                                ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                                                : "text-muted-foreground"
-                                        )}
-                                    >
-                                        <item.icon className="h-4 w-4 shrink-0" />
-                                        <span>{item.title}</span>
-                                    </Link>
-                                );
-                            })}
+                        <CollapsibleContent className="pl-3 pt-0.5 pb-1">
+                            <div className="border-l-2 border-border/50 ml-2.5 pl-2.5 space-y-1">
+                                {group.items.map((item) => {
+                                    const isExactMatch = pathname === item.href;
+                                    const isChildMatch = pathname.startsWith(`${item.href}/`);
+                                    const hasSiblingMatch = group.items.some(
+                                        (sibling) => sibling.href !== item.href &&
+                                            (pathname === sibling.href || pathname.startsWith(`${sibling.href}/`))
+                                    );
+                                    const isActive = isExactMatch || (isChildMatch && !hasSiblingMatch);
+                                    return (
+                                        <Link
+                                            key={item.href}
+                                            href={item.href}
+                                            className={cn(
+                                                "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all group relative",
+                                                isActive
+                                                    ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-foreground font-semibold shadow-2xs"
+                                                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                            )}
+                                        >
+                                            <item.icon className={cn(
+                                                "h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-110",
+                                                isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                                            )} />
+                                            <span className="truncate">{item.title}</span>
+                                            {isActive && (
+                                                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+                                            )}
+                                        </Link>
+                                    );
+                                })}
+                            </div>
                         </CollapsibleContent>
                     </Collapsible>
                 );
@@ -413,19 +427,22 @@ export function Sidebar() {
                     </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-64 p-0 flex flex-col">
-                    <SheetHeader className="border-b px-4 py-3">
-                        <SheetTitle className="flex items-center gap-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                                <MonitorCog className="h-4 w-4 text-primary-foreground" />
+                    <SheetHeader className="border-b border-border/60 px-4 py-3.5">
+                        <SheetTitle className="flex items-center gap-2.5">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 shadow-sm shadow-primary/20 text-white">
+                                <MonitorCog className="h-5 w-5" />
                             </div>
-                            <span className="text-lg font-semibold">SI-Mantap</span>
+                            <div className="flex flex-col text-left">
+                                <span className="text-base font-bold tracking-tight text-foreground leading-tight">SI-Mantap</span>
+                                <span className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase">IT Helpdesk & Asset</span>
+                            </div>
                         </SheetTitle>
                     </SheetHeader>
                     <div className="flex-1 overflow-auto">
                         <SidebarContent />
                     </div>
                     {/* User Menu for Mobile */}
-                    <div className="border-t p-2">
+                    <div className="border-t border-border/60 p-3">
                         <UserMenu isCollapsed={false} />
                     </div>
                 </SheetContent>
@@ -437,26 +454,31 @@ export function Sidebar() {
     return (
         <aside
             className={cn(
-                "hidden md:flex flex-col border-r bg-card transition-all duration-300",
+                "hidden md:flex flex-col border-r border-border/60 bg-card transition-all duration-300",
                 isOpen ? "w-64" : "w-16"
             )}
         >
             {/* Logo & Toggle Button */}
-            <div className="flex h-14 items-center justify-between border-b px-3">
+            <div className="flex h-16 items-center justify-between border-b border-border/60 px-3.5">
                 <div
                     className={cn(
-                        "flex items-center gap-2",
-                        !isOpen && "cursor-pointer hover:opacity-80"
+                        "flex items-center gap-2.5",
+                        !isOpen && "cursor-pointer hover:opacity-80 justify-center w-full"
                     )}
                     onClick={!isOpen ? toggle : undefined}
                 >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                        <MonitorCog className="h-4 w-4 text-primary-foreground" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 shadow-sm shadow-primary/20 text-white shrink-0">
+                        <MonitorCog className="h-5 w-5" />
                     </div>
-                    {isOpen && <span className="text-lg font-semibold">SI-Mantap</span>}
+                    {isOpen && (
+                        <div className="flex flex-col overflow-hidden">
+                            <span className="text-base font-bold tracking-tight text-foreground leading-tight">SI-Mantap</span>
+                            <span className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase">IT Helpdesk & Asset</span>
+                        </div>
+                    )}
                 </div>
                 {isOpen && (
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggle}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all" onClick={toggle}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                 )}
@@ -468,7 +490,7 @@ export function Sidebar() {
             </div>
 
             {/* User Menu */}
-            <div className="border-t p-2">
+            <div className="border-t border-border/60 p-3">
                 <UserMenu isCollapsed={!isOpen} />
             </div>
         </aside>
