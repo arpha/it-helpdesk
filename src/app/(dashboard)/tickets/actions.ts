@@ -31,6 +31,7 @@ type CompleteTicketInput = {
     id: string;
     resolution_notes?: string;
     repair_type?: string;
+    category?: string;
     asset_id?: string;
     parts?: { item_id: string; quantity: number }[];
 };
@@ -392,14 +393,19 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
         }
 
         // 1. Update ticket status to resolved
+        const ticketUpdateData: Record<string, any> = {
+            status: "resolved",
+            resolution_notes: input.resolution_notes,
+            resolved_at: new Date().toISOString(),
+            resolved_by: user.id,
+        };
+        if (input.category) {
+            ticketUpdateData.category = input.category;
+        }
+
         const { error: updateError } = await supabase
             .from("tickets")
-            .update({
-                status: "resolved",
-                resolution_notes: input.resolution_notes,
-                resolved_at: new Date().toISOString(),
-                resolved_by: user.id,
-            })
+            .update(ticketUpdateData)
             .eq("id", input.id);
 
         if (updateError) {
@@ -499,10 +505,22 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
                 partsDescription = `Parts used:\n${partDetails.join("\n")}`;
             }
 
+            // Map repair_type to valid asset_maintenance type ('repair', 'upgrade', 'cleaning', 'inspection')
+            const getMaintenanceType = (repairType?: string): "repair" | "upgrade" | "cleaning" | "inspection" => {
+                if (!repairType) return "repair";
+                const lower = repairType.toLowerCase();
+                if (lower.includes("upgrade") || lower.includes("migration") || lower.includes("update") || lower.includes("patching")) return "upgrade";
+                if (lower.includes("cleaning") || lower.includes("sanitization") || lower.includes("cleanup")) return "cleaning";
+                if (lower.includes("inspection") || lower.includes("troubleshoot") || lower.includes("optimization")) return "inspection";
+                return "repair";
+            };
+
             await supabase.from("asset_maintenance").insert({
                 asset_id: assetId,
-                type: input.repair_type || "repair",
-                description: `Ticket resolution: ${input.resolution_notes || "Completed"}`,
+                type: getMaintenanceType(input.repair_type),
+                description: input.repair_type 
+                    ? `[${input.repair_type}] ${input.resolution_notes || "Ticket resolved"}`
+                    : `Ticket resolution: ${input.resolution_notes || "Completed"}`,
                 notes: partsDescription,
                 performed_by: user.id,
                 performed_at: new Date().toISOString(),

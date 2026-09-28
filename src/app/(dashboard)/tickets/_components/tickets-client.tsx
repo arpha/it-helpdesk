@@ -113,6 +113,33 @@ const categoryLabels: Record<string, string> = {
     network: "Network",
 };
 
+const REPAIR_TYPES_BY_CATEGORY: Record<string, string[]> = {
+    hardware: [
+        "Repair / Replacement",
+        "Upgrade",
+        "Cleaning",
+        "Inspection / Troubleshooting",
+    ],
+    software: [
+        "Installation / Reinstallation",
+        "Update / Patching",
+        "Configuration / Setup",
+        "Troubleshooting / Bug Fixing",
+    ],
+    data: [
+        "Backup & Restore",
+        "Data Recovery",
+        "Data Migration",
+        "Data Cleanup / Sanitization",
+    ],
+    network: [
+        "Installation & Cabling",
+        "Network Configuration",
+        "Network Repair / Troubleshooting",
+        "Maintenance & Optimization",
+    ],
+};
+
 export function TicketsClient() {
     const { page, limit, search, setPage, setLimit, setSearch } = useDataTable();
     const queryClient = useQueryClient();
@@ -156,7 +183,8 @@ export function TicketsClient() {
     const [formAssetId, setFormAssetId] = useState("");
     const [formAssignee, setFormAssignee] = useState("");
     const [formResolution, setFormResolution] = useState("");
-    const [formRepairType, setFormRepairType] = useState("repair");
+    const [completeCategory, setCompleteCategory] = useState("hardware");
+    const [formRepairType, setFormRepairType] = useState(REPAIR_TYPES_BY_CATEGORY.hardware[0]);
     const [formParts, setFormParts] = useState<{ item_id: string; quantity: number }[]>([]);
     const [assetPopoverOpen, setAssetPopoverOpen] = useState(false);
     const [partsPopoverOpenIdx, setPartsPopoverOpenIdx] = useState<number | null>(null);
@@ -173,7 +201,8 @@ export function TicketsClient() {
         setFormAssetId("");
         setFormAssignee("");
         setFormResolution("");
-        setFormRepairType("repair");
+        setCompleteCategory("hardware");
+        setFormRepairType(REPAIR_TYPES_BY_CATEGORY.hardware[0]);
         setFormParts([]);
         setFormRequester("");
     };
@@ -274,6 +303,7 @@ export function TicketsClient() {
                 id: selectedTicket.id,
                 resolution_notes: formResolution,
                 repair_type: formRepairType,
+                category: completeCategory,
                 asset_id: selectedTicket.asset_id || formAssetId || undefined,
                 parts: formParts.filter(p => p.item_id && p.quantity > 0),
             });
@@ -389,6 +419,10 @@ export function TicketsClient() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => {
                                     setSelectedTicket(ticket);
+                                    const cat = ticket.category?.toLowerCase() || "hardware";
+                                    setCompleteCategory(cat);
+                                    const types = REPAIR_TYPES_BY_CATEGORY[cat] || REPAIR_TYPES_BY_CATEGORY.hardware;
+                                    setFormRepairType(types[0]);
                                     setFormAssetId(ticket.asset_id || "");
                                     setIsCompleteOpen(true);
                                 }}>
@@ -1039,17 +1073,39 @@ export function TicketsClient() {
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Type Perbaikan</Label>
-                            <Select value={formRepairType} onValueChange={setFormRepairType}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="repair">Repair</SelectItem>
-                                    <SelectItem value="upgrade">Upgrade</SelectItem>
-                                    <SelectItem value="cleaning">Cleaning</SelectItem>
-                                    <SelectItem value="inspection">Inspection</SelectItem>
-                                </SelectContent>
-                            </Select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Kategori Tiket</Label>
+                                <Select 
+                                    value={completeCategory} 
+                                    onValueChange={(cat) => {
+                                        setCompleteCategory(cat);
+                                        const types = REPAIR_TYPES_BY_CATEGORY[cat] || REPAIR_TYPES_BY_CATEGORY.hardware;
+                                        setFormRepairType(types[0]);
+                                    }}
+                                >
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="hardware">Hardware</SelectItem>
+                                        <SelectItem value="software">Software</SelectItem>
+                                        <SelectItem value="data">Data</SelectItem>
+                                        <SelectItem value="network">Network</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Type Perbaikan</Label>
+                                <Select value={formRepairType} onValueChange={setFormRepairType}>
+                                    <SelectTrigger><SelectValue placeholder="Pilih type perbaikan" /></SelectTrigger>
+                                    <SelectContent>
+                                        {(REPAIR_TYPES_BY_CATEGORY[completeCategory] || REPAIR_TYPES_BY_CATEGORY.hardware).map((type) => (
+                                            <SelectItem key={type} value={type}>
+                                                {type}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
 
