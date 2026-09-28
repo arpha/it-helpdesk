@@ -36,10 +36,10 @@ export function TablePagination({
             <div className="text-sm text-muted-foreground">
                 {totalItems ? (
                     <>
-                        Showing {startItem} to {endItem} of {totalItems} entries
+                        Menampilkan {startItem} sampai {endItem} dari {totalItems} data
                     </>
                 ) : (
-                    <>Page {page} of {totalPages}</>
+                    <>Halaman {page} dari {totalPages}</>
                 )}
             </div>
 

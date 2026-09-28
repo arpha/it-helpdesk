@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useDataTable } from "@/hooks/use-data-table";
 import { useTickets, Ticket, useTicketsRealtime } from "@/hooks/api/use-tickets";
 import { useATKItems } from "@/hooks/api/use-atk-items";
@@ -106,11 +107,11 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-    draft: "Draft",
-    open: "Open",
-    in_progress: "In Progress",
-    resolved: "Resolved",
-    closed: "Closed",
+    draft: "Draf",
+    open: "Menunggu",
+    in_progress: "Diproses",
+    resolved: "Selesai",
+    closed: "Ditutup",
 };
 
 const priorityColors: Record<string, string> = {
@@ -120,11 +121,37 @@ const priorityColors: Record<string, string> = {
     urgent: "bg-red-500/10 text-red-600",
 };
 
+const priorityLabels: Record<string, string> = {
+    low: "Rendah",
+    medium: "Sedang",
+    high: "Tinggi",
+    urgent: "Mendesak",
+};
+
 const categoryLabels: Record<string, string> = {
     hardware: "Hardware",
     software: "Software",
     data: "Data",
-    network: "Network",
+    network: "Jaringan",
+};
+
+const repairTypeLabels: Record<string, string> = {
+    "Repair / Replacement": "Perbaikan / Penggantian (Repair / Replacement)",
+    "Upgrade": "Peningkatan (Upgrade)",
+    "Cleaning": "Pembersihan (Cleaning)",
+    "Inspection / Troubleshooting": "Pemeriksaan & Diagnosa (Inspection)",
+    "Installation / Reinstallation": "Instalasi / Instal Ulang",
+    "Update / Patching": "Pembaruan Sistem (Update / Patching)",
+    "Configuration / Setup": "Konfigurasi & Pengaturan (Setup)",
+    "Troubleshooting / Bug Fixing": "Penanganan Bug & Gangguan",
+    "Backup & Restore": "Pencadangan & Pemulihan (Backup & Restore)",
+    "Data Recovery": "Pemulihan Data (Data Recovery)",
+    "Data Migration": "Migrasi Data (Data Migration)",
+    "Data Cleanup / Sanitization": "Pembersihan Data (Data Cleanup)",
+    "Installation & Cabling": "Instalasi & Pengkabelan (Cabling)",
+    "Network Configuration": "Konfigurasi Jaringan (Network Config)",
+    "Network Repair / Troubleshooting": "Perbaikan Gangguan Jaringan",
+    "Maintenance & Optimization": "Pemeliharaan & Optimasi Jaringan",
 };
 
 const REPAIR_TYPES_BY_CATEGORY: Record<string, string[]> = {
@@ -313,9 +340,12 @@ export function TicketsClient() {
             });
 
             if (result.success) {
+                toast.success("Tiket baru berhasil dibuat!");
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
                 setIsCreateOpen(false);
                 resetForm();
+            } else {
+                toast.error(result.error || "Gagal membuat tiket");
             }
         });
     };
@@ -352,12 +382,15 @@ export function TicketsClient() {
             });
 
             if (result.success) {
+                toast.success("Tiket berhasil diperbarui!");
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
                 queryClient.invalidateQueries({ queryKey: ["atk-items"] });
                 queryClient.invalidateQueries({ queryKey: ["atk-requests"] });
                 setIsEditOpen(false);
                 setSelectedTicket(null);
                 resetForm();
+            } else {
+                toast.error(result.error || "Gagal memperbarui tiket");
             }
         });
     };
@@ -368,9 +401,12 @@ export function TicketsClient() {
         startTransition(async () => {
             const result = await assignTicket(selectedTicket.id, formAssignee);
             if (result.success) {
+                toast.success("Teknisi berhasil ditugaskan!");
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
                 setIsAssignOpen(false);
                 setSelectedTicket(null);
+            } else {
+                toast.error(result.error || "Gagal menugaskan teknisi");
             }
         });
     };
@@ -381,10 +417,13 @@ export function TicketsClient() {
         startTransition(async () => {
             const result = await reassignTicket(selectedTicket.id, formAssignee);
             if (result.success) {
+                toast.success("Penugasan tiket berhasil dialihkan!");
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
                 setIsReassignOpen(false);
                 setSelectedTicket(null);
                 setFormAssignee("");
+            } else {
+                toast.error(result.error || "Gagal mengalihkan penugasan");
             }
         });
     };
@@ -403,12 +442,15 @@ export function TicketsClient() {
             });
 
             if (result.success) {
+                toast.success("Tiket berhasil diselesaikan!");
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
                 queryClient.invalidateQueries({ queryKey: ["atk-items"] });
                 queryClient.invalidateQueries({ queryKey: ["asset-maintenance"] });
                 setIsCompleteOpen(false);
                 setSelectedTicket(null);
                 resetForm();
+            } else {
+                toast.error(result.error || "Gagal menyelesaikan tiket");
             }
         });
     };
@@ -419,9 +461,12 @@ export function TicketsClient() {
         startTransition(async () => {
             const result = await deleteTicket(selectedTicket.id);
             if (result.success) {
+                toast.success("Tiket berhasil dihapus!");
                 queryClient.invalidateQueries({ queryKey: ["tickets"] });
                 setIsDeleteOpen(false);
                 setSelectedTicket(null);
+            } else {
+                toast.error(result.error || "Gagal menghapus tiket");
             }
         });
     };
@@ -443,7 +488,7 @@ export function TicketsClient() {
     const columns: Column<Ticket>[] = [
         {
             key: "title",
-            header: "Ticket",
+            header: "Tiket",
             cell: (ticket) => (
                 <div 
                     className="cursor-pointer group"
@@ -454,24 +499,27 @@ export function TicketsClient() {
                 >
                     <p className="font-medium group-hover:text-primary transition-colors">{ticket.title}</p>
                     <p className="text-xs text-muted-foreground">
-                        {ticket.requester?.full_name || ticket.creator?.full_name} • {new Date(ticket.created_at).toLocaleDateString("id-ID")}
+                        {ticket.requester?.full_name || ticket.creator?.full_name || "Pemohon"} • {new Date(ticket.created_at).toLocaleDateString("id-ID")}
                     </p>
                 </div>
             ),
         },
         {
             key: "category",
-            header: "Category",
+            header: "Kategori",
             cell: (ticket) => (
-                <Badge variant="outline">{categoryLabels[ticket.category]}</Badge>
+                <Badge variant="outline" className="gap-1">
+                    {getCategoryIcon(ticket.category)}
+                    {categoryLabels[ticket.category] || ticket.category}
+                </Badge>
             ),
         },
         {
             key: "priority",
-            header: "Priority",
+            header: "Prioritas",
             cell: (ticket) => (
                 <Badge className={priorityColors[ticket.priority]}>
-                    {ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}
+                    {priorityLabels[ticket.priority] || ticket.priority}
                 </Badge>
             ),
         },
@@ -480,18 +528,18 @@ export function TicketsClient() {
             header: "Status",
             cell: (ticket) => (
                 <Badge className={statusColors[ticket.status]}>
-                    {statusLabels[ticket.status]}
+                    {statusLabels[ticket.status] || ticket.status}
                 </Badge>
             ),
         },
         {
             key: "assignee",
-            header: "Assigned To",
-            cell: (ticket) => ticket.assignee?.full_name || "-",
+            header: "Ditugaskan Ke",
+            cell: (ticket) => ticket.assignee?.full_name || <span className="text-muted-foreground italic">Belum Ditugaskan</span>,
         },
         {
             key: "actions",
-            header: "",
+            header: "Aksi",
             cell: (ticket) => (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -501,11 +549,11 @@ export function TicketsClient() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => { setSelectedTicket(ticket); setIsViewOpen(true); }}>
-                            <Eye className="mr-2 h-4 w-4" /> View
+                            <Eye className="mr-2 h-4 w-4" /> Lihat Detail
                         </DropdownMenuItem>
                         {isStaff && ticket.status === "open" && (
                             <DropdownMenuItem onClick={() => { setSelectedTicket(ticket); setIsAssignOpen(true); }}>
-                                <UserPlus className="mr-2 h-4 w-4" /> Assign
+                                <UserPlus className="mr-2 h-4 w-4" /> Tugaskan Teknisi
                             </DropdownMenuItem>
                         )}
                         {isStaff && ticket.status === "in_progress" && (
@@ -515,7 +563,7 @@ export function TicketsClient() {
                                     setFormAssignee("");
                                     setIsReassignOpen(true);
                                 }}>
-                                    <RefreshCw className="mr-2 h-4 w-4" /> Reassign
+                                    <RefreshCw className="mr-2 h-4 w-4" /> Tugaskan Ulang
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => {
                                     setSelectedTicket(ticket);
@@ -526,13 +574,13 @@ export function TicketsClient() {
                                     setFormAssetId(ticket.asset_id || "");
                                     setIsCompleteOpen(true);
                                 }}>
-                                    <CheckCircle className="mr-2 h-4 w-4" /> Complete
+                                    <CheckCircle className="mr-2 h-4 w-4" /> Selesaikan Tiket
                                 </DropdownMenuItem>
                             </>
                         )}
                         {(ticket.status === "open" || ticket.status === "in_progress" || isStaff) && (
                             <DropdownMenuItem onClick={() => openEditDialog(ticket)}>
-                                <Pencil className="mr-2 h-4 w-4" /> Edit
+                                <Pencil className="mr-2 h-4 w-4" /> Edit Tiket
                             </DropdownMenuItem>
                         )}
                         {isStaff && (ticket.status === "resolved" || ticket.status === "closed") && (
@@ -540,7 +588,6 @@ export function TicketsClient() {
                                 const { convertTicketToKB } = await import("@/app/(dashboard)/knowledge-base/actions");
                                 const res = await convertTicketToKB(ticket.id);
                                 if (res.success && res.data) {
-                                    const { toast } = await import("sonner");
                                     toast.success("Draft Artikel KB berhasil dibuat dari tiket ini!");
                                     window.location.href = `/knowledge-base?id=${res.data.id}`;
                                 }
@@ -555,7 +602,7 @@ export function TicketsClient() {
                                     className="text-destructive"
                                     onClick={() => { setSelectedTicket(ticket); setIsDeleteOpen(true); }}
                                 >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    <Trash2 className="mr-2 h-4 w-4" /> Hapus Tiket
                                 </DropdownMenuItem>
                             </>
                         )}
@@ -568,41 +615,41 @@ export function TicketsClient() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold">Tickets</h1>
-                    <p className="text-muted-foreground">IT Helpdesk Support Tickets</p>
+                    <h1 className="text-2xl font-bold tracking-tight">Tiket IT Helpdesk</h1>
+                    <p className="text-muted-foreground">Kelola laporan kendala dan penugasan perbaikan IT</p>
                 </div>
-                <Button onClick={() => setIsCreateOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" /> New Ticket
+                <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
+                    <Plus className="h-4 w-4" /> Buat Tiket Baru
                 </Button>
             </div>
 
             {/* Filters */}
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-3">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Status" />
+                    <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Status Tiket" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="open">Open</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
+                        <SelectItem value="all">Semua Status</SelectItem>
+                        <SelectItem value="open">Menunggu (Open)</SelectItem>
+                        <SelectItem value="in_progress">Diproses (In Progress)</SelectItem>
+                        <SelectItem value="resolved">Selesai (Resolved)</SelectItem>
+                        <SelectItem value="closed">Ditutup (Closed)</SelectItem>
                     </SelectContent>
                 </Select>
 
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Category" />
+                    <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Kategori Tiket" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="all">Semua Kategori</SelectItem>
                         <SelectItem value="hardware">Hardware</SelectItem>
                         <SelectItem value="software">Software</SelectItem>
                         <SelectItem value="data">Data</SelectItem>
-                        <SelectItem value="network">Network</SelectItem>
+                        <SelectItem value="network">Jaringan</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -618,36 +665,40 @@ export function TicketsClient() {
                 totalPages={ticketsData?.totalPages || 1}
                 onPageChange={setPage}
                 onLimitChange={setLimit}
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Cari tiket atau pemohon..."
+                emptyMessage="Tidak ada tiket yang ditemukan."
             />
 
             {/* Create Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Create New Ticket</DialogTitle>
-                        <DialogDescription>Submit a new support request</DialogDescription>
+                        <DialogTitle>Buat Tiket Baru</DialogTitle>
+                        <DialogDescription>Kirim laporan kendala atau permintaan bantuan IT baru</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Title *</Label>
+                            <Label>Judul Kendala / Permasalahan *</Label>
                             <Input
                                 value={formTitle}
                                 onChange={(e) => setFormTitle(e.target.value)}
-                                placeholder="Brief description of the issue"
+                                placeholder="Ringkasan singkat kendala yang dialami"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Description</Label>
+                            <Label>Deskripsi Lengkap</Label>
                             <Textarea
                                 value={formDescription}
                                 onChange={(e) => setFormDescription(e.target.value)}
-                                placeholder="Detailed description..."
+                                placeholder="Jelaskan detail kronologi, pesan error, atau kebutuhan..."
                                 rows={3}
                             />
                         </div>
                         {isStaff && (
                             <div className="space-y-2">
-                                <Label>Requester (optional)</Label>
+                                <Label>Pelapor / Pemohon (opsional)</Label>
                                 <Popover open={requesterPopoverOpen} onOpenChange={setRequesterPopoverOpen}>
                                     <PopoverTrigger asChild>
                                         <Button
@@ -657,16 +708,16 @@ export function TicketsClient() {
                                             className="w-full justify-between font-normal"
                                         >
                                             {formRequester ? (
-                                                allUsersData?.data?.find((u) => u.id === formRequester)?.full_name || "Unknown"
+                                                allUsersData?.data?.find((u) => u.id === formRequester)?.full_name || "Tidak Diketahui"
                                             ) : (
-                                                <span className="text-muted-foreground">Select requester if different from you...</span>
+                                                <span className="text-muted-foreground">Pilih pemohon jika berbeda dari akun Anda...</span>
                                             )}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[400px] p-0" align="start" side="bottom" sideOffset={8} avoidCollisions={true}>
                                         <Command shouldFilter={true}>
-                                            <CommandInput placeholder="Search requester..." className="h-9" />
+                                            <CommandInput placeholder="Cari nama pemohon..." className="h-9" />
                                             <CommandList className="max-h-[200px]">
                                                 <CommandEmpty>User tidak ditemukan.</CommandEmpty>
                                                 <CommandGroup>
@@ -690,37 +741,37 @@ export function TicketsClient() {
                                         </Command>
                                     </PopoverContent>
                                 </Popover>
-                                <p className="text-xs text-muted-foreground">Leave empty if you are the requester</p>
+                                <p className="text-xs text-muted-foreground">Biarkan kosong jika Anda sendiri yang melapor</p>
                             </div>
                         )}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Category</Label>
+                                <Label>Kategori</Label>
                                 <Select value={formCategory} onValueChange={setFormCategory}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="hardware">Hardware</SelectItem>
                                         <SelectItem value="software">Software</SelectItem>
                                         <SelectItem value="data">Data</SelectItem>
-                                        <SelectItem value="network">Network</SelectItem>
+                                        <SelectItem value="network">Jaringan</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Priority</Label>
+                                <Label>Prioritas</Label>
                                 <Select value={formPriority} onValueChange={setFormPriority}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="low">Low</SelectItem>
-                                        <SelectItem value="medium">Medium</SelectItem>
-                                        <SelectItem value="high">High</SelectItem>
-                                        <SelectItem value="urgent">Urgent</SelectItem>
+                                        <SelectItem value="low">Rendah (Low)</SelectItem>
+                                        <SelectItem value="medium">Sedang (Medium)</SelectItem>
+                                        <SelectItem value="high">Tinggi (High)</SelectItem>
+                                        <SelectItem value="urgent">Mendesak (Urgent)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label>Related Asset (optional)</Label>
+                            <Label>Aset Terkait (opsional)</Label>
                             <Popover open={assetPopoverOpen} onOpenChange={setAssetPopoverOpen}>
                                 <PopoverTrigger asChild>
                                     <Button
@@ -741,16 +792,16 @@ export function TicketsClient() {
                                                 )}
                                             </div>
                                         ) : (
-                                            <span className="text-muted-foreground">Search asset...</span>
+                                            <span className="text-muted-foreground">Pilih atau cari aset terkait...</span>
                                         )}
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[400px] p-0" align="start">
                                     <Command>
-                                        <CommandInput placeholder="Cari asset..." />
+                                        <CommandInput placeholder="Cari nama atau kode aset..." />
                                         <CommandList>
-                                            <CommandEmpty>Asset tidak ditemukan.</CommandEmpty>
+                                            <CommandEmpty>Aset tidak ditemukan.</CommandEmpty>
                                             <CommandGroup>
                                                 {assetsData?.data?.filter((asset) => asset.status !== "damage" && asset.status !== "disposed").map((asset) => (
                                                     <CommandItem
@@ -780,11 +831,11 @@ export function TicketsClient() {
                                 </PopoverContent>
                             </Popover>
                         </div>
-                        <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Batal</Button>
                             <Button onClick={handleCreate} disabled={isPending || !formTitle}>
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Create Ticket
+                                Buat Tiket
                             </Button>
                         </div>
                     </div>
@@ -795,30 +846,30 @@ export function TicketsClient() {
             <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) resetForm(); }}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Edit Ticket</DialogTitle>
-                        <DialogDescription>Update ticket details</DialogDescription>
+                        <DialogTitle>Edit Tiket</DialogTitle>
+                        <DialogDescription>Perbarui data dan informasi tiket bantuan</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Title *</Label>
+                            <Label>Judul Kendala / Permasalahan *</Label>
                             <Input
                                 value={formTitle}
                                 onChange={(e) => setFormTitle(e.target.value)}
-                                placeholder="Brief description of the issue"
+                                placeholder="Ringkasan singkat kendala yang dialami"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Description</Label>
+                            <Label>Deskripsi Lengkap</Label>
                             <Textarea
                                 value={formDescription}
                                 onChange={(e) => setFormDescription(e.target.value)}
-                                placeholder="Detailed description..."
+                                placeholder="Jelaskan detail kronologi, pesan error, atau kebutuhan..."
                                 rows={3}
                             />
                         </div>
                         {isStaff && (
                             <div className="space-y-2">
-                                <Label>Requester / Pelapor (optional)</Label>
+                                <Label>Pelapor / Pemohon (opsional)</Label>
                                 <Popover open={requesterPopoverOpen} onOpenChange={setRequesterPopoverOpen}>
                                     <PopoverTrigger asChild>
                                         <Button
@@ -828,16 +879,16 @@ export function TicketsClient() {
                                             className="w-full justify-between font-normal"
                                         >
                                             {formRequester ? (
-                                                allUsersData?.data?.find((u) => u.id === formRequester)?.full_name || "Unknown"
+                                                allUsersData?.data?.find((u) => u.id === formRequester)?.full_name || "Tidak Diketahui"
                                             ) : (
-                                                <span className="text-muted-foreground">Select requester...</span>
+                                                <span className="text-muted-foreground">Pilih pemohon...</span>
                                             )}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[400px] p-0" align="start" side="bottom" sideOffset={8} avoidCollisions={true}>
                                         <Command shouldFilter={true}>
-                                            <CommandInput placeholder="Search requester..." className="h-9" />
+                                            <CommandInput placeholder="Cari nama pemohon..." className="h-9" />
                                             <CommandList className="max-h-[200px]">
                                                 <CommandEmpty>User tidak ditemukan.</CommandEmpty>
                                                 <CommandGroup>
@@ -865,32 +916,32 @@ export function TicketsClient() {
                         )}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Category</Label>
+                                <Label>Kategori</Label>
                                 <Select value={formCategory} onValueChange={setFormCategory}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="hardware">Hardware</SelectItem>
                                         <SelectItem value="software">Software</SelectItem>
                                         <SelectItem value="data">Data</SelectItem>
-                                        <SelectItem value="network">Network</SelectItem>
+                                        <SelectItem value="network">Jaringan</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Priority</Label>
+                                <Label>Prioritas</Label>
                                 <Select value={formPriority} onValueChange={setFormPriority}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="low">Low</SelectItem>
-                                        <SelectItem value="medium">Medium</SelectItem>
-                                        <SelectItem value="high">High</SelectItem>
-                                        <SelectItem value="urgent">Urgent</SelectItem>
+                                        <SelectItem value="low">Rendah (Low)</SelectItem>
+                                        <SelectItem value="medium">Sedang (Medium)</SelectItem>
+                                        <SelectItem value="high">Tinggi (High)</SelectItem>
+                                        <SelectItem value="urgent">Mendesak (Urgent)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label>Related Asset (optional)</Label>
+                            <Label>Aset Terkait (opsional)</Label>
                             <Popover open={assetPopoverOpen} onOpenChange={setAssetPopoverOpen}>
                                 <PopoverTrigger asChild>
                                     <Button
@@ -911,16 +962,16 @@ export function TicketsClient() {
                                                 )}
                                             </div>
                                         ) : (
-                                            <span className="text-muted-foreground">Search asset...</span>
+                                            <span className="text-muted-foreground">Pilih atau cari aset terkait...</span>
                                         )}
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[400px] p-0" align="start">
                                     <Command>
-                                        <CommandInput placeholder="Cari asset..." />
+                                        <CommandInput placeholder="Cari nama atau kode aset..." />
                                         <CommandList>
-                                            <CommandEmpty>Asset tidak ditemukan.</CommandEmpty>
+                                            <CommandEmpty>Aset tidak ditemukan.</CommandEmpty>
                                             <CommandGroup>
                                                 {assetsData?.data?.filter((asset) => asset.status !== "damage" && asset.status !== "disposed").map((asset) => (
                                                     <CommandItem
@@ -952,9 +1003,9 @@ export function TicketsClient() {
                         </div>
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <Label>Parts / Spareparts Used (optional)</Label>
+                                <Label>Suku Cadang / ATK Digunakan (opsional)</Label>
                                 <Button type="button" variant="outline" size="sm" onClick={addPart}>
-                                    <Plus className="h-3 w-3 mr-1" /> Add Part
+                                    <Plus className="h-3 w-3 mr-1" /> Tambah Barang
                                 </Button>
                             </div>
                             {formParts.map((part, idx) => (
@@ -971,15 +1022,15 @@ export function TicketsClient() {
                                             >
                                                 {part.item_id
                                                     ? itemsData?.data?.find((i) => i.id === part.item_id)?.name
-                                                    : "Select part..."}
+                                                    : "Pilih barang / suku cadang..."}
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-[300px] p-0" align="start">
                                             <Command>
-                                                <CommandInput placeholder="Cari part..." />
+                                                <CommandInput placeholder="Cari nama barang..." />
                                                 <CommandList>
-                                                    <CommandEmpty>Part tidak ditemukan.</CommandEmpty>
+                                                    <CommandEmpty>Barang tidak ditemukan.</CommandEmpty>
                                                     <CommandGroup>
                                                         {itemsData?.data?.map((item) => (
                                                             <CommandItem
@@ -993,7 +1044,7 @@ export function TicketsClient() {
                                                                 <Check
                                                                     className={`mr-2 h-4 w-4 ${part.item_id === item.id ? "opacity-100" : "opacity-0"}`}
                                                                 />
-                                                                {item.name} (Stock: {item.stock_quantity})
+                                                                {item.name} (Stok: {item.stock_quantity})
                                                             </CommandItem>
                                                         ))}
                                                     </CommandGroup>
@@ -1019,11 +1070,11 @@ export function TicketsClient() {
                                 </div>
                             ))}
                         </div>
-                        <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => { setIsEditOpen(false); resetForm(); }}>Cancel</Button>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => { setIsEditOpen(false); resetForm(); }}>Batal</Button>
                             <Button onClick={handleEdit} disabled={isPending || !formTitle}>
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Save Changes
+                                Simpan Perubahan
                             </Button>
                         </div>
                     </div>
@@ -1034,7 +1085,7 @@ export function TicketsClient() {
             <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
                 <DialogContent className="sm:max-w-3xl max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0">
                     <DialogHeader className="sr-only">
-                        <DialogTitle>{selectedTicket?.title || "Ticket Details"}</DialogTitle>
+                        <DialogTitle>{selectedTicket?.title || "Detail Tiket"}</DialogTitle>
                         <DialogDescription>Detail lengkap informasi tiket helpdesk</DialogDescription>
                     </DialogHeader>
 
@@ -1071,7 +1122,7 @@ export function TicketsClient() {
                                                 {statusLabels[selectedTicket.status]}
                                             </Badge>
                                             <Badge className={priorityColors[selectedTicket.priority]}>
-                                                {selectedTicket.priority.toUpperCase()}
+                                                {priorityLabels[selectedTicket.priority] || selectedTicket.priority.toUpperCase()}
                                             </Badge>
                                             <Badge variant="outline" className="flex items-center gap-1">
                                                 {getCategoryIcon(selectedTicket.category)}
@@ -1223,8 +1274,8 @@ export function TicketsClient() {
                                             </div>
                                             <div>
                                                 <span className="text-xs text-muted-foreground">Prioritas Penanganan:</span>
-                                                <p className="font-medium text-foreground capitalize">
-                                                    {selectedTicket.priority} Priority
+                                                <p className="font-medium text-foreground">
+                                                    Prioritas {priorityLabels[selectedTicket.priority] || selectedTicket.priority}
                                                 </p>
                                             </div>
                                         </div>
@@ -1251,8 +1302,8 @@ export function TicketsClient() {
                                                 <Laptop className="h-3.5 w-3.5 text-purple-500" /> Aset Terkait
                                             </div>
                                             {selectedTicket.asset.status && (
-                                                <Badge variant="outline" className="text-xs capitalize">
-                                                    Status Aset: {selectedTicket.asset.status}
+                                                <Badge variant="outline" className="text-xs">
+                                                    Status Aset: {selectedTicket.asset.status === "active" ? "Aktif" : selectedTicket.asset.status === "maintenance" ? "Dalam Pemeliharaan" : selectedTicket.asset.status === "damage" ? "Rusak" : selectedTicket.asset.status}
                                                 </Badge>
                                             )}
                                         </div>
@@ -1266,7 +1317,7 @@ export function TicketsClient() {
                                                 <p className="font-mono font-medium text-foreground">{selectedTicket.asset.asset_code}</p>
                                             </div>
                                             <div>
-                                                <span className="text-xs text-muted-foreground">Serial Number</span>
+                                                <span className="text-xs text-muted-foreground">Nomor Seri</span>
                                                 <p className="font-mono text-muted-foreground">{selectedTicket.asset.serial_number || "-"}</p>
                                             </div>
                                             <div>
@@ -1286,7 +1337,7 @@ export function TicketsClient() {
                                             </div>
                                             {repairType && (
                                                 <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 text-xs">
-                                                    Type: {repairType}
+                                                    Tipe: {repairType}
                                                 </Badge>
                                             )}
                                         </div>
@@ -1421,25 +1472,25 @@ export function TicketsClient() {
             <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Assign Ticket</DialogTitle>
-                        <DialogDescription>Assign technician to work on this ticket</DialogDescription>
+                        <DialogTitle>Tugaskan Teknisi</DialogTitle>
+                        <DialogDescription>Pilih teknisi IT yang akan menangani tiket ini</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <Select value={formAssignee} onValueChange={setFormAssignee}>
-                            <SelectTrigger><SelectValue placeholder="Select technician..." /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Pilih teknisi IT..." /></SelectTrigger>
                             <SelectContent>
                                 {usersData?.data?.map((user) => (
                                     <SelectItem key={user.id} value={user.id}>
-                                        {user.full_name || user.username || "Unknown"}
+                                        {user.full_name || user.username || "Tidak Diketahui"}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setIsAssignOpen(false)}>Cancel</Button>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setIsAssignOpen(false)}>Batal</Button>
                             <Button onClick={handleAssign} disabled={isPending || !formAssignee}>
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Assign
+                                Tugaskan
                             </Button>
                         </div>
                     </div>
@@ -1450,8 +1501,8 @@ export function TicketsClient() {
             <Dialog open={isReassignOpen} onOpenChange={setIsReassignOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Reassign Ticket</DialogTitle>
-                        <DialogDescription>Dialihkan ticket ke teknisi lain. Teknisi sebelumnya akan mendapat notifikasi.</DialogDescription>
+                        <DialogTitle>Tugaskan Ulang Teknisi</DialogTitle>
+                        <DialogDescription>Alihkan penanganan tiket ke teknisi IT lain. Teknisi sebelumnya akan mendapat notifikasi.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div className="text-sm text-muted-foreground">
@@ -1462,16 +1513,16 @@ export function TicketsClient() {
                             <SelectContent>
                                 {usersData?.data?.filter(u => u.id !== selectedTicket?.assigned_to).map((user) => (
                                     <SelectItem key={user.id} value={user.id}>
-                                        {user.full_name || user.username || "Unknown"}
+                                        {user.full_name || user.username || "Tidak Diketahui"}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setIsReassignOpen(false)}>Cancel</Button>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setIsReassignOpen(false)}>Batal</Button>
                             <Button onClick={handleReassign} disabled={isPending || !formAssignee}>
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Reassign
+                                Alihkan Tugas
                             </Button>
                         </div>
                     </div>
@@ -1480,18 +1531,18 @@ export function TicketsClient() {
 
             {/* Complete Dialog */}
             <Dialog open={isCompleteOpen} onOpenChange={setIsCompleteOpen}>
-                <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Complete Ticket</DialogTitle>
-                        <DialogDescription>Mark ticket as resolved and record parts used</DialogDescription>
+                        <DialogTitle>Selesaikan Tiket</DialogTitle>
+                        <DialogDescription>Tandai tiket sebagai selesai dan catat tindakan perbaikan serta suku cadang yang digunakan</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Resolution Notes</Label>
+                            <Label>Catatan Solusi / Tindakan Perbaikan</Label>
                             <Textarea
                                 value={formResolution}
                                 onChange={(e) => setFormResolution(e.target.value)}
-                                placeholder="What was done to resolve this issue..."
+                                placeholder="Jelaskan tindakan teknis yang dilakukan untuk menyelesaikan kendala..."
                                 rows={3}
                             />
                         </div>
@@ -1512,18 +1563,18 @@ export function TicketsClient() {
                                         <SelectItem value="hardware">Hardware</SelectItem>
                                         <SelectItem value="software">Software</SelectItem>
                                         <SelectItem value="data">Data</SelectItem>
-                                        <SelectItem value="network">Network</SelectItem>
+                                        <SelectItem value="network">Jaringan</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Type Perbaikan</Label>
+                                <Label>Tipe Perbaikan</Label>
                                 <Select value={formRepairType} onValueChange={setFormRepairType}>
-                                    <SelectTrigger><SelectValue placeholder="Pilih type perbaikan" /></SelectTrigger>
+                                    <SelectTrigger><SelectValue placeholder="Pilih tipe perbaikan" /></SelectTrigger>
                                     <SelectContent>
                                         {(REPAIR_TYPES_BY_CATEGORY[completeCategory] || REPAIR_TYPES_BY_CATEGORY.hardware).map((type) => (
                                             <SelectItem key={type} value={type}>
-                                                {type}
+                                                {repairTypeLabels[type] || type}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -1531,17 +1582,16 @@ export function TicketsClient() {
                             </div>
                         </div>
 
-
                         {selectedTicket?.asset ? (
                             <div className="space-y-2">
-                                <Label>Asset</Label>
-                                <div className="p-2 border rounded-md bg-muted/50">
+                                <Label>Aset Terkait</Label>
+                                <div className="p-2 border rounded-md bg-muted/50 text-sm">
                                     {selectedTicket.asset.name} ({selectedTicket.asset.asset_code})
                                 </div>
                             </div>
                         ) : (
                             <div className="space-y-2">
-                                <Label>Asset (pilih jika ada)</Label>
+                                <Label>Aset Terkait (opsional)</Label>
                                 <Popover open={assetPopoverOpen} onOpenChange={setAssetPopoverOpen}>
                                     <PopoverTrigger asChild>
                                         <Button
@@ -1562,16 +1612,16 @@ export function TicketsClient() {
                                                     )}
                                                 </div>
                                             ) : (
-                                                <span className="text-muted-foreground">Cari asset...</span>
+                                                <span className="text-muted-foreground">Pilih atau cari aset...</span>
                                             )}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[400px] p-0" align="start">
                                         <Command>
-                                            <CommandInput placeholder="Cari asset..." />
+                                            <CommandInput placeholder="Cari nama atau kode aset..." />
                                             <CommandList>
-                                                <CommandEmpty>Asset tidak ditemukan.</CommandEmpty>
+                                                <CommandEmpty>Aset tidak ditemukan.</CommandEmpty>
                                                 <CommandGroup>
                                                     {assetsData?.data?.filter((asset) => asset.status !== "damage" && asset.status !== "disposed").map((asset) => (
                                                         <CommandItem
@@ -1605,9 +1655,9 @@ export function TicketsClient() {
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <Label>Parts Used (optional)</Label>
+                                <Label>Suku Cadang / ATK Digunakan (opsional)</Label>
                                 <Button type="button" variant="outline" size="sm" onClick={addPart}>
-                                    <Plus className="h-3 w-3 mr-1" /> Add Part
+                                    <Plus className="h-3 w-3 mr-1" /> Tambah Barang
                                 </Button>
                             </div>
                             {formParts.map((part, idx) => (
@@ -1624,15 +1674,15 @@ export function TicketsClient() {
                                             >
                                                 {part.item_id
                                                     ? itemsData?.data?.find((i) => i.id === part.item_id)?.name
-                                                    : "Select part..."}
+                                                    : "Pilih barang / suku cadang..."}
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-[300px] p-0" align="start">
                                             <Command>
-                                                <CommandInput placeholder="Cari part..." />
+                                                <CommandInput placeholder="Cari nama barang..." />
                                                 <CommandList>
-                                                    <CommandEmpty>Part tidak ditemukan.</CommandEmpty>
+                                                    <CommandEmpty>Barang tidak ditemukan.</CommandEmpty>
                                                     <CommandGroup>
                                                         {itemsData?.data?.filter(item => item.stock_quantity > 0).map((item) => (
                                                             <CommandItem
@@ -1646,7 +1696,7 @@ export function TicketsClient() {
                                                                 <Check
                                                                     className={`mr-2 h-4 w-4 ${part.item_id === item.id ? "opacity-100" : "opacity-0"}`}
                                                                 />
-                                                                {item.name} (Stock: {item.stock_quantity})
+                                                                {item.name} (Stok: {item.stock_quantity})
                                                             </CommandItem>
                                                         ))}
                                                     </CommandGroup>
@@ -1673,11 +1723,11 @@ export function TicketsClient() {
                             ))}
                         </div>
 
-                        <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setIsCompleteOpen(false)}>Cancel</Button>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setIsCompleteOpen(false)}>Batal</Button>
                             <Button onClick={handleComplete} disabled={isPending}>
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                                Complete Ticket
+                                Selesaikan Tiket
                             </Button>
                         </div>
                     </div>
@@ -1688,16 +1738,16 @@ export function TicketsClient() {
             <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Ticket?</AlertDialogTitle>
+                        <AlertDialogTitle>Hapus Tiket?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This action cannot be undone.
+                            Tindakan ini tidak dapat dibatalkan. Tiket yang dihapus tidak dapat dipulihkan kembali.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Delete
+                            Hapus Tiket
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

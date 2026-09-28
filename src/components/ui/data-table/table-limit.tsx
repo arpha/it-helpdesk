@@ -21,7 +21,7 @@ export function TableLimit({
 }: TableLimitProps) {
     return (
         <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Show</span>
+            <span className="text-sm text-muted-foreground">Tampilkan</span>
             <Select
                 value={String(value)}
                 onValueChange={(val) => onChange(Number(val))}
@@ -37,7 +37,7 @@ export function TableLimit({
                     ))}
                 </SelectContent>
             </Select>
-            <span className="text-sm text-muted-foreground">entries</span>
+            <span className="text-sm text-muted-foreground">data</span>
         </div>
     );
 }

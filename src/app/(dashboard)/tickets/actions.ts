@@ -98,7 +98,7 @@ export async function createTicket(input: CreateTicketInput): Promise<ActionResu
         const { data: { user } } = await authClient.auth.getUser();
 
         if (!user) {
-            return { success: false, error: "Not authenticated" };
+            return { success: false, error: "Sesi telah berakhir atau Anda belum login" };
         }
 
         // Get user's location
@@ -346,7 +346,7 @@ export async function reassignTicket(ticketId: string, newAssigneeId: string): P
             .single();
 
         if (!ticket) {
-            return { success: false, error: "Ticket not found" };
+            return { success: false, error: "Tiket tidak ditemukan" };
         }
 
         const previousAssigneeId = ticket.assigned_to;
@@ -366,7 +366,7 @@ export async function reassignTicket(ticketId: string, newAssigneeId: string): P
     } catch (error) {
         return {
             success: false,
-            error: error instanceof Error ? error.message : "Unknown error",
+            error: error instanceof Error ? error.message : "Terjadi kesalahan pada sistem",
         };
     }
 }
@@ -378,7 +378,7 @@ export async function completeTicket(input: CompleteTicketInput): Promise<Action
         const { data: { user } } = await authClient.auth.getUser();
 
         if (!user) {
-            return { success: false, error: "Not authenticated" };
+            return { success: false, error: "Sesi telah berakhir atau Anda belum login" };
         }
 
         // Get ticket details
