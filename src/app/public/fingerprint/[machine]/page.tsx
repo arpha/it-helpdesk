@@ -27,6 +27,12 @@ import {
     AlertCircle,
     Sparkles,
     Headphones,
+    BookOpen,
+    ChevronDown,
+    ChevronUp,
+    CreditCard,
+    ArrowRight,
+    KeyRound,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -78,6 +84,7 @@ export default function PublicFingerprintPage({
         id: string;
     } | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [showTutorial, setShowTutorial] = useState(false);
 
     // Registered List States
     const [registeredList, setRegisteredList] = useState<PublicFingerprintEntry[]>([]);
@@ -405,6 +412,141 @@ export default function PublicFingerprintPage({
                                 </form>
                             </CardContent>
                         </Card>
+
+                        {/* ================================================================= */}
+                        {/* TUTORIAL CARA MENDAFTARKAN KE MESIN (ADMIN / IT)                  */}
+                        {/* ================================================================= */}
+                        <div className="pt-1">
+                            <button
+                                type="button"
+                                onClick={() => setShowTutorial(!showTutorial)}
+                                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-900 text-slate-300 transition-all cursor-pointer shadow-md"
+                            >
+                                <span className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-200">
+                                    <BookOpen className="h-4 w-4 text-emerald-400 shrink-0" />
+                                    <span>Panduan Perekaman Mesin (Khusus Petugas / Admin)</span>
+                                </span>
+                                {showTutorial ? (
+                                    <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+                                ) : (
+                                    <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                                )}
+                            </button>
+
+                            {showTutorial && (
+                                <Card className="mt-2.5 border border-slate-800 bg-slate-900/95 backdrop-blur shadow-2xl rounded-2xl overflow-hidden animate-in fade-in-50 duration-200">
+                                    <CardHeader className="p-4 sm:p-5 pb-3 border-b border-slate-800 bg-slate-900/60 space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400">
+                                                <KeyRound className="h-4 w-4" />
+                                            </div>
+                                            <CardTitle className="text-sm sm:text-base font-bold text-white">
+                                                Tutorial Pendaftaran pada Mesin Fisik
+                                            </CardTitle>
+                                        </div>
+                                        <CardDescription className="text-slate-400 text-xs">
+                                            Lakukan urutan tombol berikut pada terminal mesin biometrik:
+                                        </CardDescription>
+                                    </CardHeader>
+
+                                    <CardContent className="p-4 sm:p-5 space-y-4">
+                                        {/* Cara 1: Mendaftarkan Jari */}
+                                        <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-wide">
+                                                    <FingerprintIcon className="h-3.5 w-3.5" />
+                                                    Cara Mendaftarkan Jari
+                                                </span>
+                                                <Badge variant="outline" className="text-[10px] text-slate-400 border-slate-700 font-mono">
+                                                    8 Langkah
+                                                </Badge>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold text-xs shadow-sm">
+                                                    klik *
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold text-xs shadow-sm">
+                                                    klik #
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-semibold text-xs shadow-sm">
+                                                    Tap Admin
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold text-xs shadow-sm">
+                                                    Klik #
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-semibold text-xs shadow-sm">
+                                                    Masukan ID
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold text-xs shadow-sm">
+                                                    Klik #
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-xs shadow-sm">
+                                                    Tap Jari 3x
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold text-xs shadow-sm">
+                                                    Klik *
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Cara 2: Mendaftarkan Kartu */}
+                                        <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-wide">
+                                                    <CreditCard className="h-3.5 w-3.5" />
+                                                    Cara Mendaftarkan Kartu
+                                                </span>
+                                                <Badge variant="outline" className="text-[10px] text-slate-400 border-slate-700 font-mono">
+                                                    8 Langkah
+                                                </Badge>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-cyan-300 font-mono font-bold text-xs shadow-sm">
+                                                    klik *
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-cyan-300 font-mono font-bold text-xs shadow-sm">
+                                                    klik #
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-semibold text-xs shadow-sm">
+                                                    Tap Admin
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-cyan-300 font-mono font-bold text-xs shadow-sm">
+                                                    Klik #
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-semibold text-xs shadow-sm">
+                                                    Masukan ID
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-cyan-300 font-mono font-bold text-xs shadow-sm">
+                                                    Klik #
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-xs shadow-sm">
+                                                    Tap Kartu 3x
+                                                </span>
+                                                <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+                                                <span className="px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-cyan-300 font-mono font-bold text-xs shadow-sm">
+                                                    Klik *
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
                     </TabsContent>
 
                     {/* ========================================================================= */}
