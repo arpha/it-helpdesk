@@ -27,7 +27,6 @@ import {
     AlertCircle,
     Sparkles,
     Headphones,
-    ArrowRight,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -38,6 +37,23 @@ function getInitials(name: string): string {
         .join("")
         .toUpperCase()
         .slice(0, 2);
+}
+
+/**
+ * Mask name: only display first 3 characters and last 1 character,
+ * all characters in between are censored with '*'.
+ */
+function maskName(name: string): string {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return "-";
+    if (trimmed.length <= 2) return trimmed[0] + "*";
+    if (trimmed.length === 3) return trimmed[0] + "*" + trimmed[2];
+    if (trimmed.length === 4) return trimmed.slice(0, 3) + "*" + trimmed.slice(-1);
+
+    const first3 = trimmed.slice(0, 3);
+    const last1 = trimmed.slice(-1);
+    const middleCount = Math.max(3, trimmed.length - 4);
+    return `${first3}${"*".repeat(middleCount)}${last1}`;
 }
 
 export default function PublicFingerprintPage({
@@ -183,44 +199,47 @@ export default function PublicFingerprintPage({
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-start p-4 sm:p-6 md:p-8">
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-start p-3 sm:p-6 md:p-8">
             {/* Header Instansi & Mesin */}
-            <div className="w-full max-w-lg mb-6 text-center space-y-2.5">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-400 font-semibold tracking-wide">
-                    <Building2 className="h-3.5 w-3.5" />
+            <div className="w-full max-w-md sm:max-w-lg mb-5 text-center space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[11px] sm:text-xs text-emerald-400 font-semibold tracking-wide">
+                    <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                     <span>SISTEM INFORMASI IT HELPDESK & BIOMETRIK</span>
                 </div>
-                
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-white">
                     {machine.name}
                 </h1>
-                
+
                 {machine.location && (
-                    <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs text-slate-300">
-                        <MapPin className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <div className="inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[11px] sm:text-xs text-slate-300">
+                        <MapPin className="h-3 w-3 text-emerald-400 shrink-0" />
                         <span>Lokasi: <strong className="text-white font-medium">{machine.location}</strong></span>
                     </div>
                 )}
             </div>
 
             {/* Main Tabs Container */}
-            <div className="w-full max-w-lg">
+            <div className="w-full max-w-md sm:max-w-lg">
                 <Tabs defaultValue="daftar" className="w-full">
-                    {/* Navigation Tabs */}
-                    <TabsList className="grid w-full grid-cols-2 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl shadow-inner mb-5">
+                    {/* Navigation Tabs - Sempurna & Rapi di Mobile */}
+                    <TabsList className="grid w-full grid-cols-2 bg-slate-900/90 border border-slate-800 p-1 rounded-xl shadow-inner mb-4 h-11">
                         <TabsTrigger
                             value="daftar"
-                            className="flex items-center justify-center gap-2 text-slate-300 data-[state=active]:bg-emerald-600 data-[state=active]:text-white rounded-lg py-2.5 text-sm font-semibold transition-all"
+                            className="flex items-center justify-center gap-1.5 text-slate-300 data-[state=active]:bg-emerald-600 data-[state=active]:text-white rounded-lg py-1.5 px-2 text-xs sm:text-sm font-semibold transition-all whitespace-nowrap min-w-0 h-9"
                         >
-                            <FingerprintIcon className="h-4 w-4" />
-                            <span>Pendaftaran ID</span>
+                            <FingerprintIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                            <span className="truncate">Pendaftaran ID</span>
                         </TabsTrigger>
                         <TabsTrigger
                             value="list"
-                            className="flex items-center justify-center gap-2 text-slate-300 data-[state=active]:bg-emerald-600 data-[state=active]:text-white rounded-lg py-2.5 text-sm font-semibold transition-all"
+                            className="flex items-center justify-center gap-1.5 text-slate-300 data-[state=active]:bg-emerald-600 data-[state=active]:text-white rounded-lg py-1.5 px-2 text-xs sm:text-sm font-semibold transition-all whitespace-nowrap min-w-0 h-9"
                         >
-                            <Users className="h-4 w-4" />
-                            <span>Daftar Terdaftar ({registeredList.length})</span>
+                            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                            <span className="truncate">Daftar Terdaftar</span>
+                            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-slate-800/90 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                {registeredList.length}
+                            </span>
                         </TabsTrigger>
                     </TabsList>
 
@@ -231,34 +250,34 @@ export default function PublicFingerprintPage({
                         {/* Kartu Konfirmasi Berhasil */}
                         {submitSuccess && (
                             <Card className="border-2 border-emerald-500/50 bg-gradient-to-b from-emerald-950/70 to-slate-900/90 backdrop-blur shadow-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-300 rounded-2xl mb-4">
-                                <CardContent className="p-6 text-center space-y-4">
-                                    <div className="w-14 h-14 bg-emerald-500/20 border-2 border-emerald-400/50 text-emerald-300 rounded-full flex items-center justify-center mx-auto shadow-lg">
-                                        <CheckCircle2 className="h-8 w-8" />
+                                <CardContent className="p-5 sm:p-6 text-center space-y-3.5">
+                                    <div className="w-13 h-13 sm:w-14 sm:h-14 bg-emerald-500/20 border-2 border-emerald-400/50 text-emerald-300 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                                        <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8" />
                                     </div>
-                                    
-                                    <div className="space-y-1">
+
+                                    <div className="space-y-0.5">
                                         <h3 className="text-xl sm:text-2xl font-black text-white">
                                             Pendaftaran Berhasil!
                                         </h3>
-                                        <p className="text-sm text-slate-300">
+                                        <p className="text-xs sm:text-sm text-slate-300">
                                             Terima kasih, <strong className="text-white font-semibold">{submitSuccess.name}</strong>
                                         </p>
                                     </div>
 
                                     {/* Prominent Assigned ID Card */}
-                                    <div className="bg-slate-950/95 border-2 border-emerald-400/60 rounded-xl p-4 my-2 shadow-[0_0_25px_rgba(16,185,129,0.2)] space-y-1">
-                                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 block">
+                                    <div className="bg-slate-950/95 border-2 border-emerald-400/60 rounded-xl p-3.5 sm:p-4 my-2 shadow-[0_0_25px_rgba(16,185,129,0.2)] space-y-1">
+                                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-400 block">
                                             Nomor ID Finger Anda di {machine.name}
                                         </span>
-                                        <div className="text-5xl font-black font-mono tracking-widest text-emerald-300 drop-shadow-[0_2px_10px_rgba(52,211,153,0.5)]">
+                                        <div className="text-4xl sm:text-5xl font-black font-mono tracking-widest text-emerald-300 drop-shadow-[0_2px_10px_rgba(52,211,153,0.5)]">
                                             {submitSuccess.id}
                                         </div>
                                     </div>
 
-                                    {/* Instruksi Hubungi IT Sesuai Permintaan User */}
-                                    <div className="flex items-start gap-3 p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-left">
-                                        <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 shrink-0 mt-0.5">
-                                            <Headphones className="h-4 w-4" />
+                                    {/* Instruksi Hubungi IT */}
+                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-left">
+                                        <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 shrink-0 mt-0.5">
+                                            <Headphones className="h-3.5 w-3.5" />
                                         </div>
                                         <p className="text-xs text-emerald-200 leading-relaxed font-medium">
                                             Silakan hubungi IT untuk melakukan perekaman sidik jari dengan menunjukkan ID di atas.
@@ -268,7 +287,7 @@ export default function PublicFingerprintPage({
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="mt-2 border-slate-700 text-slate-200 hover:bg-slate-800 bg-slate-900 font-semibold w-full h-10 rounded-xl"
+                                        className="mt-1 border-slate-700 text-slate-200 hover:bg-slate-800 bg-slate-900 font-semibold w-full h-10 rounded-xl"
                                         onClick={() => setSubmitSuccess(null)}
                                     >
                                         Daftar Lagi untuk Nama Lain
@@ -279,12 +298,12 @@ export default function PublicFingerprintPage({
 
                         {/* Formulir Pendaftaran */}
                         <Card className="border border-slate-800 bg-slate-900/90 backdrop-blur shadow-2xl rounded-2xl overflow-hidden">
-                            <CardHeader className="p-5 sm:p-6 pb-4 border-b border-slate-800/80 bg-slate-900/50">
-                                <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs tracking-wider uppercase mb-1">
-                                    <Sparkles className="h-3.5 w-3.5" />
+                            <CardHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-slate-800/80 bg-slate-900/50">
+                                <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px] sm:text-xs tracking-wider uppercase mb-0.5">
+                                    <Sparkles className="h-3 w-3" />
                                     <span>Formulir Pendaftaran Mandiri</span>
                                 </div>
-                                <CardTitle className="text-lg sm:text-xl text-white font-bold">
+                                <CardTitle className="text-base sm:text-xl text-white font-bold">
                                     Dapatkan No ID Fingerprint
                                 </CardTitle>
                                 <CardDescription className="text-slate-400 text-xs">
@@ -292,18 +311,18 @@ export default function PublicFingerprintPage({
                                 </CardDescription>
                             </CardHeader>
 
-                            <CardContent className="p-5 sm:p-6 pt-5">
-                                <form onSubmit={handleSubmitRegistration} className="space-y-5">
+                            <CardContent className="p-4 sm:p-6 pt-4 sm:pt-5">
+                                <form onSubmit={handleSubmitRegistration} className="space-y-4 sm:space-y-5">
                                     {submitError && (
-                                        <div className="p-3.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-200 text-xs flex items-start gap-2">
+                                        <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/40 text-red-200 text-xs flex items-start gap-2">
                                             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
                                             <span>{submitError}</span>
                                         </div>
                                     )}
 
                                     {/* Input Nama Lengkap */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="full_name" className="text-sm font-semibold text-slate-200">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="full_name" className="text-xs sm:text-sm font-semibold text-slate-200">
                                             Nama Lengkap Pegawai <span className="text-red-400">*</span>
                                         </Label>
                                         <Input
@@ -311,36 +330,36 @@ export default function PublicFingerprintPage({
                                             value={fullName}
                                             onChange={(e) => setFullName(e.target.value)}
                                             placeholder="Contoh: dr. Ahmad Fauzi / Siti Nurhaliza"
-                                            className="bg-slate-950 border-slate-700 text-white placeholder:text-slate-500 h-11 text-sm sm:text-base focus-visible:ring-emerald-500 focus-visible:border-emerald-500 rounded-xl"
+                                            className="bg-slate-950 border-slate-700 text-white placeholder:text-slate-500 h-11 text-xs sm:text-sm focus-visible:ring-emerald-500 focus-visible:border-emerald-500 rounded-xl"
                                             autoComplete="off"
                                             required
                                         />
                                     </div>
 
-                                    {/* ID 3-Digit Acak Generator (Rapi, Seimbang & Kontras) */}
-                                    <div className="space-y-2">
+                                    {/* ID 3-Digit Acak Generator */}
+                                    <div className="space-y-1.5">
                                         <div className="flex items-center justify-between">
-                                            <Label className="text-sm font-semibold text-slate-200">
+                                            <Label className="text-xs sm:text-sm font-semibold text-slate-200">
                                                 Nomor ID Finger Acak
                                             </Label>
-                                            <span className="text-xs text-emerald-400 font-mono font-medium">
-                                                Format: 001 - 999
+                                            <span className="text-[11px] text-emerald-400 font-mono font-medium">
+                                                001 - 999
                                             </span>
                                         </div>
 
-                                        {/* Box Tampilan ID yang Rapi dan Simetris */}
-                                        <div className="p-4 bg-slate-950 border-2 border-emerald-500/40 rounded-xl shadow-inner flex items-center justify-between gap-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-12 w-12 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                                                    <FingerprintIcon className="h-6 w-6" />
+                                        {/* Box Tampilan ID */}
+                                        <div className="p-3.5 sm:p-4 bg-slate-950 border-2 border-emerald-500/40 rounded-xl shadow-inner flex items-center justify-between gap-2.5">
+                                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                                                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                                                    <FingerprintIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                                                 </div>
-                                                <div>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/90 block">
-                                                        Nomor ID Terpilih
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-400/90 block">
+                                                        Nomor Terpilih
                                                     </span>
-                                                    <div className="text-3xl font-black font-mono tracking-widest text-emerald-300 drop-shadow-[0_2px_8px_rgba(52,211,153,0.4)]">
+                                                    <div className="text-2xl sm:text-3xl font-black font-mono tracking-widest text-emerald-300 drop-shadow-[0_2px_8px_rgba(52,211,153,0.4)] truncate">
                                                         {isGeneratingId ? (
-                                                            <Loader2 className="h-7 w-7 animate-spin text-emerald-400 inline" />
+                                                            <Loader2 className="h-6 w-6 animate-spin text-emerald-400 inline" />
                                                         ) : (
                                                             randomId || "---"
                                                         )}
@@ -354,13 +373,13 @@ export default function PublicFingerprintPage({
                                                 size="sm"
                                                 onClick={generateNewId}
                                                 disabled={isGeneratingId}
-                                                className="border-emerald-500/40 bg-emerald-950/30 hover:bg-emerald-900/60 text-emerald-200 text-xs shrink-0 font-semibold h-9 px-3 rounded-lg"
+                                                className="border-emerald-500/40 bg-emerald-950/30 hover:bg-emerald-900/60 text-emerald-200 text-xs shrink-0 font-semibold h-8 sm:h-9 px-2.5 sm:px-3 rounded-lg"
                                             >
-                                                <RotateCw className={`h-3.5 w-3.5 mr-1.5 ${isGeneratingId ? "animate-spin" : ""}`} />
+                                                <RotateCw className={`h-3.5 w-3.5 mr-1 ${isGeneratingId ? "animate-spin" : ""}`} />
                                                 Acak Ulang
                                             </Button>
                                         </div>
-                                        <p className="text-[11px] text-slate-400 leading-normal">
+                                        <p className="text-[10px] sm:text-[11px] text-slate-400 leading-normal">
                                             Nomor ID di atas unik dan belum pernah digunakan di mesin {machine.name}.
                                         </p>
                                     </div>
@@ -369,7 +388,7 @@ export default function PublicFingerprintPage({
                                     <Button
                                         type="submit"
                                         disabled={isSubmitting || isGeneratingId}
-                                        className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-950 transition-all rounded-xl cursor-pointer mt-2"
+                                        className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-950 transition-all rounded-xl cursor-pointer mt-1"
                                     >
                                         {isSubmitting ? (
                                             <>
@@ -389,22 +408,22 @@ export default function PublicFingerprintPage({
                     </TabsContent>
 
                     {/* ========================================================================= */}
-                    {/* TAB 2: DAFTAR ID FINGER TERDAFTAR */}
+                    {/* TAB 2: DAFTAR ID FINGER TERDAFTAR (DENGAN SENSOR NAMA) */}
                     {/* ========================================================================= */}
                     <TabsContent value="list" className="space-y-4 focus-visible:outline-none">
                         <Card className="border border-slate-800 bg-slate-900/90 backdrop-blur shadow-2xl rounded-2xl overflow-hidden">
-                            <CardHeader className="p-5 sm:p-6 pb-4 border-b border-slate-800/80 bg-slate-900/50 space-y-3">
+                            <CardHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-slate-800/80 bg-slate-900/50 space-y-2.5">
                                 <div className="flex items-center justify-between">
-                                    <div className="space-y-0.5">
+                                    <div className="space-y-0.5 min-w-0">
                                         <div className="flex items-center gap-2">
-                                            <CardTitle className="text-lg sm:text-xl text-white font-bold">
+                                            <CardTitle className="text-base sm:text-xl text-white font-bold truncate">
                                                 Daftar ID Terdaftar
                                             </CardTitle>
-                                            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-xs font-mono font-bold">
+                                            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px] sm:text-xs font-mono font-bold shrink-0">
                                                 {registeredList.length} ID
                                             </Badge>
                                         </div>
-                                        <CardDescription className="text-slate-400 text-xs">
+                                        <CardDescription className="text-slate-400 text-[11px] sm:text-xs truncate">
                                             Pegawai yang telah terdaftar pada {machine.name}
                                         </CardDescription>
                                     </div>
@@ -413,21 +432,21 @@ export default function PublicFingerprintPage({
                                         size="sm"
                                         onClick={loadRegisteredList}
                                         disabled={isLoadingList}
-                                        className="text-xs border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 h-8 rounded-lg"
+                                        className="text-xs border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 h-7 sm:h-8 px-2.5 rounded-lg shrink-0"
                                     >
-                                        <RotateCw className={`h-3.5 w-3.5 mr-1 ${isLoadingList ? "animate-spin" : ""}`} />
+                                        <RotateCw className={`h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 ${isLoadingList ? "animate-spin" : ""}`} />
                                         Refresh
                                     </Button>
                                 </div>
 
                                 {/* Live Search Input */}
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                                     <Input
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         placeholder="Cari nama pegawai atau no ID..."
-                                        className="pl-9 bg-slate-950 border-slate-700 text-white placeholder:text-slate-500 h-10 text-sm focus-visible:ring-emerald-500 focus-visible:border-emerald-500 rounded-xl"
+                                        className="pl-8 sm:pl-9 bg-slate-950 border-slate-700 text-white placeholder:text-slate-500 h-9 sm:h-10 text-xs sm:text-sm focus-visible:ring-emerald-500 focus-visible:border-emerald-500 rounded-xl"
                                     />
                                 </div>
                             </CardHeader>
@@ -448,30 +467,32 @@ export default function PublicFingerprintPage({
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-2">
+                                    <div className="space-y-1.5 sm:space-y-2">
                                         {filteredList.map((item) => (
                                             <div
                                                 key={item.id}
-                                                className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 hover:bg-slate-950 transition-colors border border-slate-800/80"
+                                                className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-950/80 hover:bg-slate-950 transition-colors border border-slate-800/80"
                                             >
-                                                <div className="flex items-center gap-3 min-w-0 pr-3">
-                                                    <Avatar className="h-9 w-9 border border-slate-700 shrink-0">
-                                                        <AvatarFallback className="bg-emerald-950 text-emerald-300 font-bold text-xs">
+                                                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 pr-2">
+                                                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-slate-700 shrink-0">
+                                                        <AvatarFallback className="bg-emerald-950 text-emerald-300 font-bold text-[10px] sm:text-xs">
                                                             {getInitials(item.name)}
                                                         </AvatarFallback>
                                                     </Avatar>
-                                                    <div className="truncate">
-                                                        <span className="font-semibold text-sm text-white block truncate">
-                                                            {item.name}
+                                                    <div className="min-w-0">
+                                                        {/* Nama disensor: 3 huruf pertama, 1 huruf terakhir, sisanya * */}
+                                                        <span className="font-semibold text-xs sm:text-sm text-white block font-mono tracking-tight truncate">
+                                                            {maskName(item.name)}
                                                         </span>
-                                                        <span className="text-[11px] text-slate-400 block truncate">
+                                                        <span className="text-[10px] text-slate-400 block truncate">
                                                             {machine.name}
                                                         </span>
                                                     </div>
                                                 </div>
 
                                                 <div className="shrink-0 text-right">
-                                                    <div className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 font-mono font-bold text-sm tracking-wider shadow-sm">
+                                                    {/* ID Badge */}
+                                                    <div className="inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 font-mono font-bold text-xs sm:text-sm tracking-wider shadow-sm">
                                                         {item.finger_id.padStart(3, "0")}
                                                     </div>
                                                 </div>
@@ -486,7 +507,7 @@ export default function PublicFingerprintPage({
             </div>
 
             {/* Footer */}
-            <div className="mt-8 text-center text-xs text-slate-500 space-y-1">
+            <div className="mt-6 sm:mt-8 text-center text-[11px] sm:text-xs text-slate-500">
                 <p>© {new Date().getFullYear()} IT Helpdesk SIMRS • Biometric System</p>
             </div>
         </div>
