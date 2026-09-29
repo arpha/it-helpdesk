@@ -487,7 +487,7 @@ export default function FingerprintsClient() {
                     </div>
                     <div class="instruction">SCAN UNTUK PENDAFTARAN ID FINGER</div>
                     <div class="sub-instruction">
-                        Arahkan kamera smartphone untuk mendapatkan nomor ID 3-digit acak mandiri
+                        Scan QR ini untuk mendapatkan nomor ID 3-digit acak mandiri, lalu hubungi IT untuk perekaman sidik jari
                     </div>
                     <div class="url">${scanUrl}</div>
                 </div>
