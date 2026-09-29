@@ -479,7 +479,7 @@ export default function FingerprintsClient() {
             </head>
             <body>
                 <div class="card">
-                    <div class="header">IT HELPDESK & BIOMETRIK SIMRS</div>
+                    <div class="header">SIMANTAP</div>
                     <div class="title">${machine.name}</div>
                     <div class="location">${machine.location || "Lokasi Mesin"}</div>
                     <div class="qr-container">

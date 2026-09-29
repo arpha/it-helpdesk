@@ -204,7 +204,7 @@ export default function PublicFingerprintPage({
             <div className="w-full max-w-md sm:max-w-lg mb-5 text-center space-y-2">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[11px] sm:text-xs text-emerald-400 font-semibold tracking-wide">
                     <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    <span>SISTEM INFORMASI IT HELPDESK & BIOMETRIK</span>
+                    <span>SIMANTAP</span>
                 </div>
 
                 <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-white">
@@ -508,7 +508,7 @@ export default function PublicFingerprintPage({
 
             {/* Footer */}
             <div className="mt-6 sm:mt-8 text-center text-[11px] sm:text-xs text-slate-500">
-                <p>© {new Date().getFullYear()} IT Helpdesk SIMRS • Biometric System</p>
+                <p>© {new Date().getFullYear()} SIMANTAP</p>
             </div>
         </div>
     );
