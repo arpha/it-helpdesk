@@ -82,6 +82,8 @@ export default function PublicFingerprintPage({
     const [submitSuccess, setSubmitSuccess] = useState<{
         name: string;
         id: string;
+        wasReassigned?: boolean;
+        originalId?: string;
     } | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [showTutorial, setShowTutorial] = useState(false);
@@ -160,6 +162,8 @@ export default function PublicFingerprintPage({
                 setSubmitSuccess({
                     name: fullName.trim(),
                     id: res.assignedId,
+                    wasReassigned: res.wasReassigned,
+                    originalId: res.originalId,
                 });
                 setFullName("");
                 loadRegisteredList();
@@ -270,6 +274,21 @@ export default function PublicFingerprintPage({
                                             Terima kasih, <strong className="text-white font-semibold">{submitSuccess.name}</strong>
                                         </p>
                                     </div>
+
+                                    {/* Notice jika nomor ID dialihkan otomatis karena ada pendaftar lain di detik yang sama */}
+                                    {submitSuccess.wasReassigned && (
+                                        <div className="flex items-start gap-2.5 p-3 sm:p-3.5 rounded-xl bg-amber-950/60 border border-amber-500/50 text-left shadow-md">
+                                            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+                                            <div className="space-y-0.5">
+                                                <span className="text-xs font-bold text-amber-300 block">
+                                                    Pemberitahuan Penyesuaian ID Otomatis
+                                                </span>
+                                                <p className="text-[11px] sm:text-xs text-amber-200/90 leading-relaxed">
+                                                    Nomor ID awal <span className="font-mono font-bold text-white bg-amber-900/80 px-1 py-0.5 rounded border border-amber-500/40">{submitSuccess.originalId}</span> baru saja digunakan oleh pegawai lain yang mendaftar bersamaan. Sistem secara otomatis memberikan nomor baru <span className="font-mono font-bold text-emerald-300 bg-emerald-950/80 px-1 py-0.5 rounded border border-emerald-500/40">{submitSuccess.id}</span> untuk Anda agar tidak terjadi duplikasi ID.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Prominent Assigned ID Card */}
                                     <div className="bg-slate-950/95 border-2 border-emerald-400/60 rounded-xl p-3.5 sm:p-4 my-2 shadow-[0_0_25px_rgba(16,185,129,0.2)] space-y-1">

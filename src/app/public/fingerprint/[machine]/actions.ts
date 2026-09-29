@@ -157,6 +157,26 @@ export async function getPublicMachineRegisteredList(machineSlug: string): Promi
 /**
  * Generate a random 3-digit ID (001 - 999) that is NOT yet used on this machine
  */
+function pickRandomAvailableId(usedIds: Set<string>): string | null {
+    const available: string[] = [];
+    for (let i = 1; i <= 999; i++) {
+        const formatted = String(i).padStart(3, "0");
+        if (!usedIds.has(formatted)) {
+            available.push(formatted);
+        }
+    }
+
+    if (available.length === 0) {
+        return null;
+    }
+
+    const randomIndex = Math.floor(Math.random() * available.length);
+    return available[randomIndex];
+}
+
+/**
+ * Generate a random 3-digit ID (001 - 999) that is NOT yet used on this machine
+ */
 export async function getAvailableRandomId(machineSlug: string): Promise<{
     success: boolean;
     randomId?: string;
@@ -165,26 +185,14 @@ export async function getAvailableRandomId(machineSlug: string): Promise<{
     try {
         const listResult = await getPublicMachineRegisteredList(machineSlug);
         const usedIds = new Set(listResult.entries.map((e) => e.finger_id.padStart(3, "0")));
+        const chosenId = pickRandomAvailableId(usedIds);
 
-        // Find available numbers between 1 and 999
-        const available: string[] = [];
-        for (let i = 1; i <= 999; i++) {
-            const formatted = String(i).padStart(3, "0");
-            if (!usedIds.has(formatted)) {
-                available.push(formatted);
-            }
-        }
-
-        if (available.length === 0) {
+        if (!chosenId) {
             return {
                 success: false,
                 error: "Kapasitas ID (001-999) untuk mesin ini sudah penuh.",
             };
         }
-
-        // Pick a random available ID
-        const randomIndex = Math.floor(Math.random() * available.length);
-        const chosenId = available[randomIndex];
 
         return {
             success: true,
@@ -205,13 +213,15 @@ export async function registerPublicFingerprint(input: {
 }): Promise<{
     success: boolean;
     assignedId?: string;
+    wasReassigned?: boolean;
+    originalId?: string;
     error?: string;
 }> {
     try {
         const supabase = createAdminClient();
         const slug = input.machineSlug.toLowerCase().trim();
         const cleanName = input.name.trim();
-        const formattedId = input.fingerId.trim().padStart(3, "0");
+        const requestedId = input.fingerId.trim().padStart(3, "0");
 
         if (!cleanName) {
             return { success: false, error: "Nama Lengkap wajib diisi." };
@@ -219,18 +229,6 @@ export async function registerPublicFingerprint(input: {
 
         if (!/^\d{1,3}$/.test(input.fingerId.trim())) {
             return { success: false, error: "Nomor ID harus berupa angka 3 digit (001-999)." };
-        }
-
-        // Verify that this ID is not already taken on this machine
-        const currentList = await getPublicMachineRegisteredList(slug);
-        const isConflict = currentList.entries.some(
-            (e) => e.finger_id.padStart(3, "0") === formattedId
-        );
-        if (isConflict) {
-            return {
-                success: false,
-                error: `Nomor ID '${formattedId}' sudah terpakai di mesin ini. Silakan klik Acak Ulang untuk mendapatkan nomor lain.`,
-            };
         }
 
         // Check if machine exists in database
@@ -261,17 +259,9 @@ export async function registerPublicFingerprint(input: {
             fingerprintId = existingPerson.id;
         } else {
             // Insert new person
-            const insertPayload: Record<string, unknown> = {
-                name: cleanName,
-            };
-            const colName = SLUG_TO_COLUMN[slug];
-            if (colName) {
-                insertPayload[colName] = formattedId;
-            }
-
             const { data: newPerson, error: insertErr } = await supabase
                 .from("fingerprints")
-                .insert(insertPayload)
+                .insert({ name: cleanName })
                 .select("id")
                 .single();
 
@@ -281,32 +271,94 @@ export async function registerPublicFingerprint(input: {
             fingerprintId = newPerson.id;
         }
 
-        // Update legacy column if applicable
+        // Concurrency & Collision Safe Assignment Loop:
+        // If requested ID is already taken by another person (or in race condition),
+        // automatically assign a new available 3-digit ID seamlessly.
         const colName = SLUG_TO_COLUMN[slug];
-        if (colName && fingerprintId) {
-            await supabase
-                .from("fingerprints")
-                .update({ [colName]: formattedId, updated_at: new Date().toISOString() })
-                .eq("id", fingerprintId);
+        let currentTargetId = requestedId;
+        let wasReassigned = false;
+        let attemptsLeft = 5;
+        let saveSuccess = false;
+
+        while (attemptsLeft > 0) {
+            attemptsLeft--;
+
+            // Fetch live list to check if currentTargetId is already occupied
+            const currentList = await getPublicMachineRegisteredList(slug);
+            const usedIds = new Set(
+                currentList.entries
+                    .filter((e) => e.name.toLowerCase() !== cleanName.toLowerCase())
+                    .map((e) => e.finger_id.padStart(3, "0"))
+            );
+
+            if (usedIds.has(currentTargetId)) {
+                wasReassigned = true;
+                const nextAvailable = pickRandomAvailableId(usedIds);
+                if (!nextAvailable) {
+                    return {
+                        success: false,
+                        error: "Kapasitas ID (001-999) untuk mesin ini sudah penuh.",
+                    };
+                }
+                currentTargetId = nextAvailable;
+            }
+
+            try {
+                // 1. Update legacy column if applicable
+                if (colName && fingerprintId) {
+                    await supabase
+                        .from("fingerprints")
+                        .update({ [colName]: currentTargetId, updated_at: new Date().toISOString() })
+                        .eq("id", fingerprintId);
+                }
+
+                // 2. Upsert into relational table fingerprint_machine_entries
+                if (machineId && fingerprintId) {
+                    const { error: upsertErr } = await supabase
+                        .from("fingerprint_machine_entries")
+                        .upsert(
+                            {
+                                fingerprint_id: fingerprintId,
+                                machine_id: machineId,
+                                finger_id: currentTargetId,
+                                updated_at: new Date().toISOString(),
+                            },
+                            { onConflict: "fingerprint_id,machine_id" }
+                        );
+
+                    if (upsertErr) {
+                        // Unique constraint violation (e.g. uq_machine_finger_id) -> concurrent claim
+                        if (
+                            upsertErr.code === "23505" ||
+                            upsertErr.message?.toLowerCase().includes("unique") ||
+                            upsertErr.message?.toLowerCase().includes("duplicate")
+                        ) {
+                            wasReassigned = true;
+                            usedIds.add(currentTargetId);
+                            const nextId = pickRandomAvailableId(usedIds);
+                            if (nextId) {
+                                currentTargetId = nextId;
+                                continue;
+                            }
+                        }
+                        throw upsertErr;
+                    }
+                }
+
+                saveSuccess = true;
+                break;
+            } catch (err: any) {
+                if (attemptsLeft === 0) {
+                    throw err;
+                }
+            }
         }
 
-        // Upsert into fingerprint_machine_entries if machineId is found
-        if (machineId && fingerprintId) {
-            try {
-                await supabase
-                    .from("fingerprint_machine_entries")
-                    .upsert(
-                        {
-                            fingerprint_id: fingerprintId,
-                            machine_id: machineId,
-                            finger_id: formattedId,
-                            updated_at: new Date().toISOString(),
-                        },
-                        { onConflict: "fingerprint_id,machine_id" }
-                    );
-            } catch (entryErr) {
-                console.warn("Entry upsert notice:", entryErr);
-            }
+        if (!saveSuccess) {
+            return {
+                success: false,
+                error: "Terjadi kepadatan pendaftaran pada nomor ini. Silakan klik tombol daftarkan kembali.",
+            };
         }
 
         revalidatePath(`/public/fingerprint/${slug}`);
@@ -314,7 +366,9 @@ export async function registerPublicFingerprint(input: {
 
         return {
             success: true,
-            assignedId: formattedId,
+            assignedId: currentTargetId,
+            wasReassigned,
+            originalId: requestedId,
         };
     } catch (err) {
         return {
