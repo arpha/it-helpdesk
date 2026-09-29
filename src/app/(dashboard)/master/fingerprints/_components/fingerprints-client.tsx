@@ -61,6 +61,7 @@ import {
     QrCode,
     Settings2,
     Printer,
+    Download,
     ExternalLink,
     Copy,
     Building2,
@@ -396,9 +397,6 @@ export default function FingerprintsClient() {
         const qrUrl = qrCodeUrls[machine.code];
         if (!qrUrl) return;
 
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
-        const scanUrl = `${origin}/public/fingerprint/${machine.code}`;
-
         const printWindow = window.open("", "_blank");
         if (!printWindow) return;
 
@@ -408,88 +406,92 @@ export default function FingerprintsClient() {
             <head>
                 <title>Cetak QR - ${machine.name}</title>
                 <style>
-                    @page { size: auto; margin: 15mm; }
+                    @page { 
+                        size: auto; 
+                        margin: 10mm; 
+                    }
+                    * {
+                        box-sizing: border-box;
+                        margin: 0;
+                        padding: 0;
+                    }
                     body {
-                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                         display: flex;
                         justify-content: center;
-                        align-items: center;
-                        min-height: 90vh;
+                        align-items: flex-start;
+                        padding: 10mm 0;
                         margin: 0;
                         background: #fff;
+                        color: #0f172a;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
                     }
                     .card {
-                        width: 100mm;
-                        padding: 8mm;
-                        border: 2px dashed #0f172a;
-                        border-radius: 8mm;
+                        width: 50mm;
+                        padding: 3mm 4mm 4mm 4mm;
+                        border: 1.5px dashed #0f172a;
+                        border-radius: 3mm;
                         text-align: center;
-                        box-sizing: border-box;
-                    }
-                    .header {
-                        font-size: 11px;
-                        font-weight: 700;
-                        letter-spacing: 1.5px;
-                        color: #64748b;
-                        text-transform: uppercase;
-                        margin-bottom: 4px;
+                        background: #fff;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
                     }
                     .title {
-                        font-size: 20px;
+                        font-size: 13px;
                         font-weight: 800;
                         color: #0f172a;
-                        margin: 0 0 4px 0;
+                        line-height: 1.2;
+                        margin-bottom: 2px;
                     }
                     .location {
-                        font-size: 12px;
+                        font-size: 9px;
+                        font-weight: 500;
                         color: #475569;
-                        margin-bottom: 12px;
+                        margin-bottom: 2px;
+                        line-height: 1.2;
                     }
                     .qr-container {
-                        margin: 10px auto;
-                        padding: 8px;
-                        background: #fff;
-                        display: inline-block;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 6mm;
+                        width: 4cm;
+                        height: 4cm;
+                        margin: 2mm 0;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
                     }
                     .qr-container img {
-                        width: 55mm;
-                        height: 55mm;
+                        width: 4cm !important;
+                        height: 4cm !important;
+                        max-width: 4cm !important;
+                        max-height: 4cm !important;
                         display: block;
+                        object-fit: contain;
                     }
                     .instruction {
-                        font-size: 12px;
-                        font-weight: 600;
+                        font-size: 9.5px;
+                        font-weight: 800;
                         color: #0f172a;
-                        margin: 10px 0 2px 0;
+                        text-transform: uppercase;
+                        letter-spacing: 0.3px;
+                        line-height: 1.2;
+                        margin-top: 2px;
                     }
-                    .sub-instruction {
-                        font-size: 10px;
-                        color: #64748b;
-                        line-height: 1.4;
-                    }
-                    .url {
-                        margin-top: 10px;
-                        font-size: 9px;
-                        font-family: monospace;
-                        color: #94a3b8;
+                    @media print {
+                        body {
+                            padding: 0;
+                        }
                     }
                 </style>
             </head>
             <body>
                 <div class="card">
-                    <div class="header">SIMANTAP</div>
                     <div class="title">${machine.name}</div>
-                    <div class="location">${machine.location || "Lokasi Mesin"}</div>
+                    ${machine.location ? `<div class="location">${machine.location}</div>` : ""}
                     <div class="qr-container">
-                        <img src="${qrUrl}" alt="QR Code" />
+                        <img src="${qrUrl}" alt="QR Code 4x4cm" />
                     </div>
-                    <div class="instruction">SCAN UNTUK PENDAFTARAN ID FINGER</div>
-                    <div class="sub-instruction">
-                        Scan QR ini untuk mendapatkan nomor ID 3-digit acak mandiri, lalu hubungi IT untuk perekaman sidik jari
-                    </div>
-                    <div class="url">${scanUrl}</div>
+                    <div class="instruction">SCAN UNTUK DAFTAR FINGER</div>
                 </div>
             </body>
             </html>
@@ -1127,10 +1129,25 @@ export default function FingerprintsClient() {
                                                 onClick={() => printSingleQR(machine)}
                                                 disabled={!qrData}
                                                 className="flex-1 text-xs h-8"
+                                                title="Cetak Label QR (Ukuran Barcode 4x4cm)"
                                             >
                                                 <Printer className="h-3.5 w-3.5 mr-1" />
-                                                Cetak Label
+                                                Cetak (4x4cm)
                                             </Button>
+
+                                            {qrData && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    asChild
+                                                    className="h-8 w-8 shrink-0"
+                                                    title="Unduh Gambar QR Barcode"
+                                                >
+                                                    <a href={qrData} download={`qr-${machine.code}-4x4cm.png`}>
+                                                        <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                                                    </a>
+                                                </Button>
+                                            )}
 
                                             <Button
                                                 variant="ghost"
