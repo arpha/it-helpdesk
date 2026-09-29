@@ -2,15 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-import type { FingerprintMachine } from "@/types/fingerprint";
-
-export const DEFAULT_MACHINES: FingerprintMachine[] = [
-    { id: "def-picu", name: "Mesin Finger PICU", code: "picu", location: "Ruang PICU", is_active: true },
-    { id: "def-vk", name: "Mesin Finger VK", code: "vk", location: "Ruang VK / Bersalin", is_active: true },
-    { id: "def-neo1", name: "Mesin Finger Neo 1", code: "neo1", location: "Ruang Perinatologi / Neo 1", is_active: true },
-    { id: "def-neo2", name: "Mesin Finger Neo 2", code: "neo2", location: "Ruang Perinatologi / Neo 2", is_active: true },
-    { id: "def-absensi", name: "Mesin Finger Absensi", code: "absensi", location: "Lobi Utama / Absensi", is_active: true },
-];
+import { DEFAULT_MACHINES, type FingerprintMachine } from "@/types/fingerprint";
 
 export type MachineActionResult = {
     success: boolean;

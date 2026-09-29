@@ -27,63 +27,67 @@ async function fetchFingerprints({
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    // Use left join (profiles without !inner) so rows without user_id are returned
-    let query = supabase
-        .from("fingerprints")
-        .select(
-            "*, profiles(id, full_name, username, avatar_url)",
-            { count: "exact" }
-        );
+    let data: any[] | null = null;
+    let count: number | null = null;
+    let queryError: any = null;
 
-    // Apply search filter on name or profiles.full_name
-    if (search && search.trim()) {
-        const term = search.trim();
-        // Supabase or filter across name and profile
-        query = query.or(`name.ilike.%${term}%,finger_picu.ilike.%${term}%,finger_vk.ilike.%${term}%,finger_neo1.ilike.%${term}%,finger_neo2.ilike.%${term}%,finger_absensi.ilike.%${term}%`);
-    }
+    // 1. Try modern query with name search if search term provided
+    try {
+        let query = supabase
+            .from("fingerprints")
+            .select(
+                "*, profiles(id, full_name, username, avatar_url)",
+                { count: "exact" }
+            );
 
-    // Apply pagination
-    query = query.range(from, to).order("created_at", { ascending: false });
-
-    const { data, error, count } = await query;
-
-    if (error) {
-        console.error("Error fetching fingerprints:", error);
-        // Fallback search if 'name' column isn't yet migrated in Supabase
-        if (error.message?.includes("column fingerprints.name does not exist")) {
-            const fallbackQuery = supabase
-                .from("fingerprints")
-                .select("*, profiles(id, full_name, username, avatar_url)", { count: "exact" })
-                .range(from, to)
-                .order("created_at", { ascending: false });
-            const fbResult = await fallbackQuery;
-            if (fbResult.error) throw fbResult.error;
-
-            const transformed = (fbResult.data || []).map((row: any) => {
-                const entries: Record<string, string> = {
-                    picu: row.finger_picu || "",
-                    vk: row.finger_vk || "",
-                    neo1: row.finger_neo1 || "",
-                    neo2: row.finger_neo2 || "",
-                    absensi: row.finger_absensi || "",
-                };
-                return {
-                    ...row,
-                    name: row.name || row.profiles?.full_name || "Tanpa Nama",
-                    entries,
-                } as Fingerprint;
-            });
-
-            return {
-                data: transformed,
-                totalItems: fbResult.count || 0,
-                totalPages: Math.ceil((fbResult.count || 0) / limit),
-            };
+        if (search && search.trim()) {
+            const term = search.trim();
+            // Try searching name, profiles full_name, and finger ID columns
+            query = query.or(
+                `name.ilike.%${term}%,finger_picu.ilike.%${term}%,finger_vk.ilike.%${term}%,finger_neo1.ilike.%${term}%,finger_neo2.ilike.%${term}%,finger_absensi.ilike.%${term}%`
+            );
         }
-        throw error;
+
+        query = query.range(from, to).order("created_at", { ascending: false });
+        const res = await query;
+        if (res.error) {
+            queryError = res.error;
+        } else {
+            data = res.data;
+            count = res.count;
+        }
+    } catch (err) {
+        queryError = err;
     }
 
-    // Fetch relational machine entries if available
+    // 2. Fallback query if error occurred (e.g. column 'name' does not exist yet)
+    if (queryError || data === null) {
+        console.warn("Using fallback fingerprint query:", queryError?.message || queryError);
+        let fallbackQuery = supabase
+            .from("fingerprints")
+            .select(
+                "*, profiles(id, full_name, username, avatar_url)",
+                { count: "exact" }
+            );
+
+        if (search && search.trim()) {
+            const term = search.trim();
+            fallbackQuery = fallbackQuery.or(
+                `finger_picu.ilike.%${term}%,finger_vk.ilike.%${term}%,finger_neo1.ilike.%${term}%,finger_neo2.ilike.%${term}%,finger_absensi.ilike.%${term}%`
+            );
+        }
+
+        fallbackQuery = fallbackQuery.range(from, to).order("created_at", { ascending: false });
+        const fbRes = await fallbackQuery;
+        if (fbRes.error) {
+            console.error("Fallback query also failed:", fbRes.error);
+            throw fbRes.error;
+        }
+        data = fbRes.data;
+        count = fbRes.count;
+    }
+
+    // 3. Try to fetch relational machine entries if table exists
     const fingerprintIds = (data || []).map((d: any) => d.id);
     let machineEntriesMap: Record<string, Record<string, string>> = {};
 
@@ -105,25 +109,27 @@ async function fetchFingerprints({
                 });
             }
         } catch {
-            // Table might not exist yet, fallback to column values
+            // Relational table might not exist yet, safe to ignore
         }
     }
 
-    // Transform data to ensure name and entries are consistently populated
+    // 4. Transform data: ensure old columns (finger_picu, etc.) are prioritized and preserved
     const transformedData = (data || []).map((row: any) => {
         const relationalEntries = machineEntriesMap[row.id] || {};
         const entries: Record<string, string> = {
-            picu: relationalEntries["picu"] || row.finger_picu || "",
-            vk: relationalEntries["vk"] || row.finger_vk || "",
-            neo1: relationalEntries["neo1"] || row.finger_neo1 || "",
-            neo2: relationalEntries["neo2"] || row.finger_neo2 || "",
-            absensi: relationalEntries["absensi"] || row.finger_absensi || "",
+            picu: row.finger_picu || relationalEntries["picu"] || "",
+            vk: row.finger_vk || relationalEntries["vk"] || "",
+            neo1: row.finger_neo1 || relationalEntries["neo1"] || "",
+            neo2: row.finger_neo2 || relationalEntries["neo2"] || "",
+            absensi: row.finger_absensi || relationalEntries["absensi"] || "",
             ...relationalEntries,
         };
 
+        const resolvedName = row.name || row.profiles?.full_name || "Tanpa Nama";
+
         return {
             ...row,
-            name: row.name || row.profiles?.full_name || "Tanpa Nama",
+            name: resolvedName,
             entries,
         } as Fingerprint;
     });

@@ -80,7 +80,7 @@ import {
     updateFingerprintMachine,
     deleteFingerprintMachine,
 } from "../machines-actions";
-import type { FingerprintMachine } from "@/types/fingerprint";
+import { DEFAULT_MACHINES, type FingerprintMachine } from "@/types/fingerprint";
 
 function getInitials(name: string): string {
     return name
@@ -140,9 +140,11 @@ export default function FingerprintsClient() {
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [addMessage, setAddMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-    // Active machines list
+    // Active machines list (falls back to DEFAULT_MACHINES if empty)
     const activeMachines = useMemo(() => {
-        return machines.filter((m) => m.is_active !== false);
+        if (!machines || machines.length === 0) return DEFAULT_MACHINES;
+        const filtered = machines.filter((m) => m.is_active !== false);
+        return filtered.length > 0 ? filtered : DEFAULT_MACHINES;
     }, [machines]);
 
     // Available users for linking (exclude those already linked to other fingerprints)
@@ -228,8 +230,16 @@ export default function FingerprintsClient() {
 
         // Populate machine entries
         const initialEntries: Record<string, string> = {};
-        machines.forEach((m) => {
-            const val = fp.entries?.[m.code] || (fp as any)[`finger_${m.code}`] || "";
+        activeMachines.forEach((m) => {
+            const val =
+                fp.entries?.[m.code] ||
+                (fp as any)[`finger_${m.code}`] ||
+                (m.code === "picu" ? fp.finger_picu : null) ||
+                (m.code === "vk" ? fp.finger_vk : null) ||
+                (m.code === "neo1" ? fp.finger_neo1 : null) ||
+                (m.code === "neo2" ? fp.finger_neo2 : null) ||
+                (m.code === "absensi" ? fp.finger_absensi : null) ||
+                "";
             initialEntries[m.code] = val;
         });
         setEditMachineEntries(initialEntries);
@@ -535,7 +545,14 @@ export default function FingerprintsClient() {
             key: `machine_${machine.code}`,
             header: machine.name.replace("Mesin Finger ", "").replace("Mesin ", ""),
             cell: (row: Fingerprint) => {
-                const val = row.entries?.[machine.code] || (row as any)[`finger_${machine.code}`];
+                const val =
+                    row.entries?.[machine.code] ||
+                    (row as any)[`finger_${machine.code}`] ||
+                    (machine.code === "picu" ? row.finger_picu : null) ||
+                    (machine.code === "vk" ? row.finger_vk : null) ||
+                    (machine.code === "neo1" ? row.finger_neo1 : null) ||
+                    (machine.code === "neo2" ? row.finger_neo2 : null) ||
+                    (machine.code === "absensi" ? row.finger_absensi : null);
                 if (!val) return <span className="text-muted-foreground/40 font-mono text-sm">-</span>;
                 return (
                     <span className="font-mono text-sm font-semibold bg-muted/60 px-2 py-0.5 rounded border border-border/50 text-foreground">
