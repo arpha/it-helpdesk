@@ -54,34 +54,38 @@ export function useSidebarPendingCounts() {
         queryFn: async () => {
             try {
                 const [
-                    { count: pendingAtkRequests },
+                    { count: activeAtkRequests },
                     { count: pendingBorrowings },
                     { count: pendingDistributions },
-                    { count: openTickets },
+                    { count: activeTickets },
                 ] = await Promise.all([
+                    // ATK Requests: belum completed (pending approval atau approved menunggu serah terima)
                     supabase
                         .from("atk_requests")
                         .select("*", { count: "exact", head: true })
-                        .eq("status", "pending"),
+                        .in("status", ["pending", "approved"]),
+                    // Asset Borrowings: belum selesai / belum dikembalikan
                     supabase
                         .from("asset_borrowings")
                         .select("*", { count: "exact", head: true })
-                        .eq("status", "pending"),
+                        .in("status", ["pending", "approved", "borrowed"]),
+                    // Asset Distributions: belum completed
                     supabase
                         .from("asset_distributions")
                         .select("*", { count: "exact", head: true })
-                        .eq("status", "pending"),
+                        .in("status", ["draft", "pending"]),
+                    // Helpdesk Tickets: belum selesai (open / in progress)
                     supabase
                         .from("tickets")
                         .select("*", { count: "exact", head: true })
-                        .eq("status", "open"),
+                        .in("status", ["open", "in_progress"]),
                 ]);
 
                 return {
-                    "/atk/requests": pendingAtkRequests || 0,
+                    "/atk/requests": activeAtkRequests || 0,
                     "/assets/borrowing": pendingBorrowings || 0,
                     "/assets/distribution": pendingDistributions || 0,
-                    "/tickets": openTickets || 0,
+                    "/tickets": activeTickets || 0,
                 };
             } catch (err) {
                 console.error("Error fetching sidebar pending counts:", err);

@@ -421,6 +421,7 @@ export default function RequestsClient() {
                 setMessage({ type: "success", text: "Request completed!" });
                 queryClient.invalidateQueries({ queryKey: ["atk-requests"] });
                 queryClient.invalidateQueries({ queryKey: ["atk-items"] });
+                queryClient.invalidateQueries({ queryKey: ["sidebar-pending-counts"] });
                 setTimeout(() => setIsCompleteOpen(false), 1000);
             } else {
                 setMessage({ type: "error", text: result.error || "Failed" });

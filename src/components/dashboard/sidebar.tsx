@@ -415,7 +415,7 @@ export function Sidebar() {
                                 <span className="flex-1 text-left text-xs uppercase tracking-wider font-semibold truncate">{group.title}</span>
                                 {groupPendingCount > 0 && (
                                     <span
-                                        title={`${groupPendingCount} menunggu persetujuan / pending`}
+                                        title={`${groupPendingCount} belum selesai / pending`}
                                         className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 shadow-2xs mr-1 shrink-0"
                                     >
                                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -461,7 +461,7 @@ export function Sidebar() {
 
                                             {pendingCount > 0 ? (
                                                 <span
-                                                    title={`${pendingCount} perlu persetujuan / pending`}
+                                                    title={`${pendingCount} belum selesai / pending`}
                                                     className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 shadow-2xs shrink-0"
                                                 >
                                                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
