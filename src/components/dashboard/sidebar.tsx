@@ -53,6 +53,7 @@ import {
 import { useEffect, useState } from "react";
 import { UserMenu } from "./user-menu";
 import { useAuthStore } from "@/stores/auth-store";
+import { useSidebarPendingCounts } from "@/hooks/api/use-sidebar-pending-counts";
 
 type MenuItem = {
     title: string;
@@ -212,6 +213,7 @@ export function Sidebar() {
     const { isOpen, toggle } = useSidebarStore();
     const [isMobile, setIsMobile] = useState(false);
     const [openGroups, setOpenGroups] = useState<string[]>([]);
+    const { data: pendingCounts = {} } = useSidebarPendingCounts();
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -279,6 +281,7 @@ export function Sidebar() {
             {filteredMenuItems.map((item) => {
                 const isActive =
                     pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const pendingCount = pendingCounts[item.href] || 0;
                 return (
                     <TooltipProvider key={item.href} delayDuration={0}>
                         <Tooltip>
@@ -286,22 +289,50 @@ export function Sidebar() {
                                 <Link
                                     href={item.href}
                                     className={cn(
-                                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group",
+                                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group relative",
                                         isActive
                                             ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-foreground font-semibold shadow-2xs border-l-2 border-primary"
                                             : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                     )}
                                 >
-                                    <item.icon className={cn(
-                                        "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
-                                        isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                                    )} />
-                                    {(isOpen || isMobile) && <span className="truncate">{item.title}</span>}
+                                    <div className="relative">
+                                        <item.icon className={cn(
+                                            "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
+                                            isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                                        )} />
+                                        {!isOpen && !isMobile && pendingCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                            </span>
+                                        )}
+                                    </div>
+                                    {(isOpen || isMobile) && (
+                                        <>
+                                            <span className="truncate flex-1">{item.title}</span>
+                                            {pendingCount > 0 && (
+                                                <span
+                                                    title={`${pendingCount} perlu persetujuan / pending`}
+                                                    className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 shadow-2xs shrink-0"
+                                                >
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                    {pendingCount > 99 ? "99+" : pendingCount}
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
                                 </Link>
                             </TooltipTrigger>
                             {!isOpen && !isMobile && (
                                 <TooltipContent side="right">
-                                    <p>{item.title}</p>
+                                    <div className="flex items-center gap-1.5">
+                                        <span>{item.title}</span>
+                                        {pendingCount > 0 && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-500">
+                                                {pendingCount} pending
+                                            </span>
+                                        )}
+                                    </div>
                                 </TooltipContent>
                             )}
                         </Tooltip>
@@ -315,6 +346,10 @@ export function Sidebar() {
                 const hasActiveItem = group.items.some(
                     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
                 );
+                const groupPendingCount = group.items.reduce(
+                    (sum, item) => sum + (pendingCounts[item.href] || 0),
+                    0
+                );
 
                 if (!isOpen && !isMobile) {
                     // Collapsed state - show tooltip with group items
@@ -325,17 +360,30 @@ export function Sidebar() {
                                     <button
                                         onClick={() => toggle()}
                                         className={cn(
-                                            "flex items-center justify-center rounded-xl p-2.5 text-sm font-medium transition-all w-full cursor-pointer",
+                                            "relative flex items-center justify-center rounded-xl p-2.5 text-sm font-medium transition-all w-full cursor-pointer",
                                             hasActiveItem
                                                 ? "bg-primary/10 text-primary dark:bg-primary/20"
                                                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                         )}
                                     >
                                         <group.icon className="h-5 w-5 shrink-0" />
+                                        {groupPendingCount > 0 && (
+                                            <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                            </span>
+                                        )}
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent side="right">
-                                    <p className="font-semibold">{group.title}</p>
+                                    <div className="flex items-center gap-1.5">
+                                        <p className="font-semibold">{group.title}</p>
+                                        {groupPendingCount > 0 && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-500">
+                                                {groupPendingCount} pending
+                                            </span>
+                                        )}
+                                    </div>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
@@ -359,12 +407,21 @@ export function Sidebar() {
                                 )}
                             >
                                 <div className={cn(
-                                    "p-1 rounded-lg transition-colors",
+                                    "p-1 rounded-lg transition-colors relative",
                                     hasActiveItem ? "bg-primary/10 text-primary" : "text-muted-foreground group-hover:text-foreground"
                                 )}>
                                     <group.icon className="h-4 w-4 shrink-0" />
                                 </div>
-                                <span className="flex-1 text-left text-xs uppercase tracking-wider font-semibold">{group.title}</span>
+                                <span className="flex-1 text-left text-xs uppercase tracking-wider font-semibold truncate">{group.title}</span>
+                                {groupPendingCount > 0 && (
+                                    <span
+                                        title={`${groupPendingCount} menunggu persetujuan / pending`}
+                                        className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 shadow-2xs mr-1 shrink-0"
+                                    >
+                                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                        {groupPendingCount > 99 ? "99+" : groupPendingCount}
+                                    </span>
+                                )}
                                 <ChevronDown
                                     className={cn(
                                         "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
@@ -383,6 +440,8 @@ export function Sidebar() {
                                             (pathname === sibling.href || pathname.startsWith(`${sibling.href}/`))
                                     );
                                     const isActive = isExactMatch || (isChildMatch && !hasSiblingMatch);
+                                    const pendingCount = pendingCounts[item.href] || 0;
+
                                     return (
                                         <Link
                                             key={item.href}
@@ -398,10 +457,19 @@ export function Sidebar() {
                                                 "h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-110",
                                                 isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                                             )} />
-                                            <span className="truncate">{item.title}</span>
-                                            {isActive && (
+                                            <span className="truncate flex-1">{item.title}</span>
+
+                                            {pendingCount > 0 ? (
+                                                <span
+                                                    title={`${pendingCount} perlu persetujuan / pending`}
+                                                    className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 shadow-2xs shrink-0"
+                                                >
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                    {pendingCount > 99 ? "99+" : pendingCount}
+                                                </span>
+                                            ) : isActive ? (
                                                 <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
-                                            )}
+                                            ) : null}
                                         </Link>
                                     );
                                 })}

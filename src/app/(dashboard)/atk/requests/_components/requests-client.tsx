@@ -350,6 +350,7 @@ export default function RequestsClient() {
             if (result.success) {
                 setMessage({ type: "success", text: "Request berhasil dibuat!" });
                 queryClient.invalidateQueries({ queryKey: ["atk-requests"] });
+                queryClient.invalidateQueries({ queryKey: ["sidebar-pending-counts"] });
                 setTimeout(() => setIsCreateOpen(false), 1000);
             } else {
                 setMessage({ type: "error", text: result.error || "Gagal membuat request" });
@@ -373,6 +374,7 @@ export default function RequestsClient() {
             if (result.success) {
                 setMessage({ type: "success", text: "Request approved!" });
                 queryClient.invalidateQueries({ queryKey: ["atk-requests"] });
+                queryClient.invalidateQueries({ queryKey: ["sidebar-pending-counts"] });
                 setTimeout(() => setIsApproveOpen(false), 1000);
             } else {
                 setMessage({ type: "error", text: result.error || "Failed" });
@@ -386,6 +388,7 @@ export default function RequestsClient() {
             const result = await rejectRequest(selectedRequest.id, rejectReason);
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ["atk-requests"] });
+                queryClient.invalidateQueries({ queryKey: ["sidebar-pending-counts"] });
                 setIsRejectOpen(false);
             }
         });
