@@ -171,7 +171,7 @@ export default function FingerprintsClient() {
                 const targetUrl = `${origin}/public/fingerprint/${m.code}`;
                 try {
                     const dataUrl = await QRCode.toDataURL(targetUrl, {
-                        width: 400,
+                        width: 500,
                         margin: 2,
                         errorCorrectionLevel: "H",
                         color: {
@@ -415,21 +415,29 @@ export default function FingerprintsClient() {
                         margin: 0;
                         padding: 0;
                     }
+                    html, body {
+                        width: 100%;
+                        margin: 0;
+                        padding: 0;
+                    }
                     body {
                         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                         display: flex;
-                        justify-content: center;
+                        justify-content: flex-end;
                         align-items: flex-start;
-                        padding: 10mm 0;
-                        margin: 0;
+                        padding: 10mm;
                         background: #fff;
                         color: #0f172a;
                         -webkit-print-color-adjust: exact;
                         print-color-adjust: exact;
                     }
                     .card {
-                        width: 50mm;
-                        padding: 3mm 4mm 4mm 4mm;
+                        width: 70mm;
+                        height: 70mm;
+                        max-width: 70mm;
+                        max-height: 70mm;
+                        box-sizing: border-box;
+                        padding: 3mm 4mm;
                         border: 1.5px dashed #0f172a;
                         border-radius: 3mm;
                         text-align: center;
@@ -437,34 +445,39 @@ export default function FingerprintsClient() {
                         display: flex;
                         flex-direction: column;
                         align-items: center;
+                        justify-content: space-between;
+                        margin-left: auto;
+                        margin-right: 0;
+                    }
+                    .header {
+                        width: 100%;
                     }
                     .title {
                         font-size: 13px;
                         font-weight: 800;
                         color: #0f172a;
                         line-height: 1.2;
-                        margin-bottom: 2px;
+                        margin-bottom: 1.5px;
                     }
                     .location {
-                        font-size: 9px;
+                        font-size: 9.5px;
                         font-weight: 500;
                         color: #475569;
-                        margin-bottom: 2px;
                         line-height: 1.2;
                     }
                     .qr-container {
-                        width: 4cm;
-                        height: 4cm;
-                        margin: 2mm 0;
+                        width: 48mm;
+                        height: 48mm;
+                        margin: 1mm 0;
                         display: flex;
                         align-items: center;
                         justify-content: center;
                     }
                     .qr-container img {
-                        width: 4cm !important;
-                        height: 4cm !important;
-                        max-width: 4cm !important;
-                        max-height: 4cm !important;
+                        width: 48mm !important;
+                        height: 48mm !important;
+                        max-width: 48mm !important;
+                        max-height: 48mm !important;
                         display: block;
                         object-fit: contain;
                     }
@@ -475,21 +488,28 @@ export default function FingerprintsClient() {
                         text-transform: uppercase;
                         letter-spacing: 0.3px;
                         line-height: 1.2;
-                        margin-top: 2px;
                     }
                     @media print {
                         body {
-                            padding: 0;
+                            padding: 0 !important;
+                            display: flex !important;
+                            justify-content: flex-end !important;
+                        }
+                        .card {
+                            margin-left: auto !important;
+                            margin-right: 0 !important;
                         }
                     }
                 </style>
             </head>
             <body>
                 <div class="card">
-                    <div class="title">${machine.name}</div>
-                    ${machine.location ? `<div class="location">${machine.location}</div>` : ""}
+                    <div class="header">
+                        <div class="title">${machine.name}</div>
+                        ${machine.location ? `<div class="location">${machine.location}</div>` : ""}
+                    </div>
                     <div class="qr-container">
-                        <img src="${qrUrl}" alt="QR Code 4x4cm" />
+                        <img src="${qrUrl}" alt="QR Code 7x7cm" />
                     </div>
                     <div class="instruction">SCAN UNTUK DAFTAR FINGER</div>
                 </div>
@@ -1129,10 +1149,10 @@ export default function FingerprintsClient() {
                                                 onClick={() => printSingleQR(machine)}
                                                 disabled={!qrData}
                                                 className="flex-1 text-xs h-8"
-                                                title="Cetak Label QR (Ukuran Barcode 4x4cm)"
+                                                title="Cetak Label QR (Ukuran Barcode 7x7cm)"
                                             >
                                                 <Printer className="h-3.5 w-3.5 mr-1" />
-                                                Cetak (4x4cm)
+                                                Cetak (7x7cm)
                                             </Button>
 
                                             {qrData && (
@@ -1143,7 +1163,7 @@ export default function FingerprintsClient() {
                                                     className="h-8 w-8 shrink-0"
                                                     title="Unduh Gambar QR Barcode"
                                                 >
-                                                    <a href={qrData} download={`qr-${machine.code}-4x4cm.png`}>
+                                                    <a href={qrData} download={`qr-${machine.code}-7x7cm.png`}>
                                                         <Download className="h-3.5 w-3.5 text-muted-foreground" />
                                                     </a>
                                                 </Button>
