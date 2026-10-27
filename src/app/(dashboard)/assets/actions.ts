@@ -403,3 +403,102 @@ export async function getAllAssetIds(filters: {
 
     return data?.map(asset => asset.id) || [];
 }
+
+export async function getAllAssetsForExport(filters: {
+    search?: string;
+    status?: string;
+    categoryId?: string;
+    barcodeStatus?: string;
+}): Promise<any[]> {
+    const supabase = createAdminClient();
+    const { search, status, categoryId, barcodeStatus } = filters;
+
+    // Cache location IDs matching search terms to avoid re-querying in pagination loop
+    const searchTerms = search?.trim() ? search.trim().split(/\s+/) : [];
+    const termLocationMap: Record<string, string[]> = {};
+
+    if (searchTerms.length > 0) {
+        for (const term of searchTerms) {
+            const { data: locations } = await supabase
+                .from("locations")
+                .select("id")
+                .ilike("name", `%${term}%`);
+
+            termLocationMap[term] = locations?.map(l => l.id) || [];
+        }
+    }
+
+    const selectFields = `
+        id,
+        asset_code,
+        name,
+        serial_number,
+        purchase_date,
+        useful_life_years,
+        status,
+        ownership_status,
+        barcode_status,
+        asset_categories(name),
+        locations(name),
+        profiles:assigned_to(id, full_name, username)
+    `;
+
+    let allAssets: any[] = [];
+    const pageSize = 1000;
+    let page = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+        let query = supabase
+            .from("assets")
+            .select(selectFields);
+
+        if (searchTerms.length > 0) {
+            for (const term of searchTerms) {
+                const locIds = termLocationMap[term] || [];
+                let orQuery = `name.ilike.%${term}%,asset_code.ilike.%${term}%,serial_number.ilike.%${term}%`;
+                if (locIds.length > 0) {
+                    orQuery += `,location_id.in.(${locIds.join(",")})`;
+                }
+                query = query.or(orQuery);
+            }
+        }
+
+        if (status && status !== "all") {
+            query = query.eq("status", status);
+        }
+
+        if (categoryId && categoryId !== "all") {
+            query = query.eq("category_id", categoryId);
+        }
+
+        if (barcodeStatus && barcodeStatus !== "all") {
+            query = query.eq("barcode_status", barcodeStatus);
+        }
+
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
+        const { data, error } = await query
+            .order("created_at", { ascending: false })
+            .range(from, to);
+
+        if (error) {
+            console.error("Error fetching assets for export:", error);
+            throw new Error(error.message);
+        }
+
+        if (data && data.length > 0) {
+            allAssets = allAssets.concat(data);
+            if (data.length < pageSize) {
+                hasMore = false;
+            } else {
+                page++;
+            }
+        } else {
+            hasMore = false;
+        }
+    }
+
+    return allAssets;
+}

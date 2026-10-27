@@ -66,7 +66,8 @@ import {
     Printer,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { createAsset, updateAsset, deleteAsset, uploadAssetImage, generateAssetCode, updateBarcodeStatus, getAssetsByIds, getAllAssetIds } from "../actions";
+import { toast } from "sonner";
+import { createAsset, updateAsset, deleteAsset, uploadAssetImage, generateAssetCode, updateBarcodeStatus, getAssetsByIds, getAllAssetIds, getAllAssetsForExport } from "../actions";
 
 const statusLabels: Record<string, string> = {
     active: "Active",
@@ -153,6 +154,7 @@ export default function AssetsClient() {
     // Bulk select for print
     const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
     const [isBulkLoading, setIsBulkLoading] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     // Form states
     const [formAssetCode, setFormAssetCode] = useState("");
@@ -381,34 +383,72 @@ export default function AssetsClient() {
         });
     };
 
-    const handleExportExcel = () => {
-        if (!assetsData?.data || assetsData.data.length === 0) return;
+    const handleExportExcel = async () => {
+        setIsExporting(true);
+        try {
+            const allAssets = await getAllAssetsForExport({
+                search,
+                status: statusFilter,
+                categoryId: categoryFilter,
+                barcodeStatus: barcodeFilter,
+            });
 
-        const data = assetsData.data.map((asset, index) => {
-            const { yearsRemaining, percentRemaining } = calculateRefreshCycle(
-                asset.purchase_date,
-                asset.useful_life_years
-            );
-            return {
-                No: index + 1,
-                "Asset Code": asset.asset_code,
-                Name: asset.name,
-                Category: asset.asset_categories?.name || "-",
-                "Serial Number": asset.serial_number || "-",
-                Status: statusLabels[asset.status],
-                Location: asset.locations?.name || "-",
-                "Assigned To": asset.profiles?.full_name || "-",
-                "Purchase Date": asset.purchase_date || "-",
-                "Refresh Cycle Years": asset.useful_life_years,
-                "Years Remaining": yearsRemaining.toFixed(1),
-                "Cycle Remaining %": Math.round(percentRemaining),
-            };
-        });
+            if (!allAssets || allAssets.length === 0) {
+                toast.info("Tidak ada data aset untuk diekspor");
+                return;
+            }
 
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Assets");
-        XLSX.writeFile(workbook, `Assets_${new Date().toISOString().split("T")[0]}.xlsx`);
+            const data = allAssets.map((asset, index) => {
+                const { yearsRemaining, percentRemaining } = calculateRefreshCycle(
+                    asset.purchase_date,
+                    asset.useful_life_years
+                );
+                return {
+                    No: index + 1,
+                    "Asset Code": asset.asset_code || "-",
+                    Name: asset.name || "-",
+                    Category: asset.asset_categories?.name || "-",
+                    "Serial Number": asset.serial_number || "-",
+                    Status: statusLabels[asset.status] || asset.status || "-",
+                    "Barcode Status": barcodeStatusLabels[asset.barcode_status] || asset.barcode_status || "-",
+                    Location: asset.locations?.name || "-",
+                    "Assigned To": asset.profiles?.full_name || "-",
+                    "Purchase Date": asset.purchase_date || "-",
+                    "Refresh Cycle Years": asset.useful_life_years ?? 5,
+                    "Years Remaining": yearsRemaining.toFixed(1),
+                    "Cycle Remaining %": Math.round(percentRemaining),
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Assets");
+
+            // Set column widths
+            worksheet["!cols"] = [
+                { wch: 6 },  // No
+                { wch: 18 }, // Asset Code
+                { wch: 35 }, // Name
+                { wch: 20 }, // Category
+                { wch: 20 }, // Serial Number
+                { wch: 14 }, // Status
+                { wch: 16 }, // Barcode Status
+                { wch: 25 }, // Location
+                { wch: 25 }, // Assigned To
+                { wch: 15 }, // Purchase Date
+                { wch: 20 }, // Refresh Cycle Years
+                { wch: 18 }, // Years Remaining
+                { wch: 18 }, // Cycle Remaining %
+            ];
+
+            XLSX.writeFile(workbook, `Assets_${new Date().toISOString().split("T")[0]}.xlsx`);
+            toast.success(`Berhasil mengekspor ${data.length} aset`);
+        } catch (error) {
+            console.error("Export failed:", error);
+            toast.error("Gagal mengekspor data aset");
+        } finally {
+            setIsExporting(false);
+        }
     };
 
 
@@ -803,11 +843,32 @@ export default function AssetsClient() {
                                 Print QR ({selectedAssetIds.size})
                             </Button>
                         )}
-                        <Button variant="outline" onClick={handleExportExcel} size="sm" className="hidden sm:flex">
-                            <FileSpreadsheet className="mr-2 h-4 w-4" />Export Excel
+                        <Button
+                            variant="outline"
+                            onClick={handleExportExcel}
+                            size="sm"
+                            className="hidden sm:flex"
+                            disabled={isExporting}
+                        >
+                            {isExporting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                            )}
+                            {isExporting ? "Mengekspor..." : "Export Excel"}
                         </Button>
-                        <Button variant="outline" onClick={handleExportExcel} size="icon" className="sm:hidden">
-                            <FileSpreadsheet className="h-4 w-4" />
+                        <Button
+                            variant="outline"
+                            onClick={handleExportExcel}
+                            size="icon"
+                            className="sm:hidden"
+                            disabled={isExporting}
+                        >
+                            {isExporting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileSpreadsheet className="h-4 w-4" />
+                            )}
                         </Button>
                         <Button onClick={handleOpenAdd} size="sm" className="hidden sm:flex">
                             <Plus className="mr-2 h-4 w-4" />Add Asset
