@@ -42,6 +42,13 @@ export function useSidebarPendingCounts() {
                     queryClient.invalidateQueries({ queryKey: ["sidebar-pending-counts"] });
                 }
             )
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "reports" },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ["sidebar-pending-counts"] });
+                }
+            )
             .subscribe();
 
         return () => {
@@ -53,11 +60,18 @@ export function useSidebarPendingCounts() {
         queryKey: ["sidebar-pending-counts"],
         queryFn: async () => {
             try {
+                const dueThreshold = new Date();
+                dueThreshold.setDate(dueThreshold.getDate() + 7);
+                const dueThresholdStr = `${dueThreshold.getFullYear()}-${String(
+                    dueThreshold.getMonth() + 1
+                ).padStart(2, "0")}-${String(dueThreshold.getDate()).padStart(2, "0")}`;
+
                 const [
                     { count: activeAtkRequests },
                     { count: pendingBorrowings },
                     { count: pendingDistributions },
                     { count: activeTickets },
+                    { count: urgentReports },
                 ] = await Promise.all([
                     // ATK Requests: belum completed (pending approval atau approved menunggu serah terima)
                     supabase
@@ -79,6 +93,12 @@ export function useSidebarPendingCounts() {
                         .from("tickets")
                         .select("*", { count: "exact", head: true })
                         .in("status", ["open", "in_progress"]),
+                    // Inventaris Laporan: belum selesai & mendekati/melewati deadline (<= 7 hari)
+                    supabase
+                        .from("reports")
+                        .select("*", { count: "exact", head: true })
+                        .in("status", ["pending", "draft", "revision", "overdue"])
+                        .lte("deadline", dueThresholdStr),
                 ]);
 
                 return {
@@ -86,6 +106,7 @@ export function useSidebarPendingCounts() {
                     "/assets/borrowing": pendingBorrowings || 0,
                     "/assets/distribution": pendingDistributions || 0,
                     "/tickets": activeTickets || 0,
+                    "/reports": urgentReports || 0,
                 };
             } catch (err) {
                 console.error("Error fetching sidebar pending counts:", err);
@@ -94,6 +115,7 @@ export function useSidebarPendingCounts() {
                     "/assets/borrowing": 0,
                     "/assets/distribution": 0,
                     "/tickets": 0,
+                    "/reports": 0,
                 };
             }
         },

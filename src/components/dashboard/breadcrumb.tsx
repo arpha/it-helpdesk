@@ -22,6 +22,8 @@ const routeLabels: Record<string, string> = {
     convert: "Konversi OCR",
     sop: "Dokumen SOP",
     "knowledge-base": "Knowledge Base",
+    reports: "Inventaris Laporan",
+    calendar: "Kalender Deadline",
 };
 
 export function Breadcrumb() {

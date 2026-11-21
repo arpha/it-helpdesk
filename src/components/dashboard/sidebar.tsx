@@ -26,6 +26,8 @@ import {
     Fingerprint,
     BookOpen,
     ShieldCheck,
+    FileStack,
+    CalendarClock,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -110,6 +112,22 @@ const menuGroups: MenuGroup[] = [
                 title: "Knowledge Base",
                 href: "/knowledge-base",
                 icon: BookOpen,
+            },
+        ],
+    },
+    {
+        title: "Inventaris Laporan",
+        icon: FileStack,
+        items: [
+            {
+                title: "Semua Laporan",
+                href: "/reports",
+                icon: FileText,
+            },
+            {
+                title: "Kalender Deadline",
+                href: "/reports/calendar",
+                icon: CalendarClock,
             },
         ],
     },
@@ -266,7 +284,7 @@ export function Sidebar() {
                     items: group.items.filter(item => item.href === "/qr-generator")
                 };
             }
-            if (group.title === "SOP & Pedoman") {
+            if (group.title === "SOP & Pedoman" || group.title === "Inventaris Laporan") {
                 return group;
             }
             return null; // Hide other groups
