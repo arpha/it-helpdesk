@@ -298,3 +298,74 @@ export async function deletePurchaseRequest(purchaseId: string): Promise<ActionR
         };
     }
 }
+
+export type PurchaseExportItemStats = Record<
+    string,
+    {
+        currentStock: number;
+        usage30d: number;
+    }
+>;
+
+export async function getPurchaseExportItemStats(
+    itemIds: string[]
+): Promise<{ success: boolean; data: PurchaseExportItemStats; error?: string }> {
+    try {
+        const uniqueIds = Array.from(new Set(itemIds.filter(Boolean)));
+        if (uniqueIds.length === 0) {
+            return { success: true, data: {} };
+        }
+
+        const supabase = createAdminClient();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const [{ data: items, error: itemsError }, { data: history, error: historyError }] =
+            await Promise.all([
+                supabase
+                    .from("atk_items")
+                    .select("id, stock_quantity")
+                    .in("id", uniqueIds),
+                supabase
+                    .from("atk_stock_history")
+                    .select("item_id, quantity")
+                    .in("item_id", uniqueIds)
+                    .eq("type", "out")
+                    .gte("created_at", thirtyDaysAgo.toISOString()),
+            ]);
+
+        if (itemsError) {
+            return { success: false, data: {}, error: itemsError.message };
+        }
+        if (historyError) {
+            return { success: false, data: {}, error: historyError.message };
+        }
+
+        const stats: PurchaseExportItemStats = {};
+        for (const id of uniqueIds) {
+            stats[id] = { currentStock: 0, usage30d: 0 };
+        }
+
+        for (const item of items || []) {
+            if (!stats[item.id]) {
+                stats[item.id] = { currentStock: 0, usage30d: 0 };
+            }
+            stats[item.id].currentStock = Number(item.stock_quantity || 0);
+        }
+
+        for (const record of history || []) {
+            if (!stats[record.item_id]) {
+                stats[record.item_id] = { currentStock: 0, usage30d: 0 };
+            }
+            stats[record.item_id].usage30d += Math.abs(Number(record.quantity || 0));
+        }
+
+        return { success: true, data: stats };
+    } catch (error) {
+        return {
+            success: false,
+            data: {},
+            error: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
+}

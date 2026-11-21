@@ -68,12 +68,14 @@ import {
     Check,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { toast } from "sonner";
 import {
     createPurchaseRequest,
     updatePurchaseRequest,
     submitPurchaseRequest,
     markPurchaseSuccess,
     deletePurchaseRequest,
+    getPurchaseExportItemStats,
 } from "../actions";
 
 const statusColors: Record<string, string> = {
@@ -315,44 +317,77 @@ export default function PurchaseClient() {
         });
     };
 
-    const handleExportExcel = (purchase: ATKPurchaseRequest) => {
-        const data = purchase.atk_purchase_items.map((item, index) => ({
-            No: index + 1,
-            "Nama Barang": item.atk_items?.name || "",
-            Tipe: item.atk_items?.type?.toUpperCase() || "",
-            Satuan: item.atk_items?.unit || "",
-            Jumlah: item.quantity,
-            "Harga Satuan": item.price,
-            "Total Harga": item.subtotal,
-        }));
+    const handleExportExcel = async (purchase: ATKPurchaseRequest) => {
+        const toastId = toast.loading("Menyiapkan data stok & pemakaian 30 hari terakhir...");
+        try {
+            const itemIds = purchase.atk_purchase_items.map((item) => item.item_id);
+            const statsResult = await getPurchaseExportItemStats(itemIds);
 
-        // Add total row
-        data.push({
-            No: "",
-            "Nama Barang": "",
-            Tipe: "",
-            Satuan: "",
-            Jumlah: "",
-            "Harga Satuan": "TOTAL",
-            "Total Harga": purchase.total_amount,
-        } as any);
+            if (!statsResult.success) {
+                toast.error(statsResult.error || "Gagal mengambil data stok & pemakaian", { id: toastId });
+                return;
+            }
 
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Purchase Request");
+            const statsMap = statsResult.data;
 
-        // Set column widths
-        worksheet["!cols"] = [
-            { wch: 5 },
-            { wch: 30 },
-            { wch: 12 },
-            { wch: 10 },
-            { wch: 10 },
-            { wch: 15 },
-            { wch: 15 },
-        ];
+            const data = purchase.atk_purchase_items.map((item, index) => {
+                const itemStat = statsMap[item.item_id];
+                const currentStock =
+                    itemStat?.currentStock ?? item.atk_items?.stock_quantity ?? 0;
+                const usage30d = itemStat?.usage30d ?? 0;
 
-        XLSX.writeFile(workbook, `Pengajuan_${purchase.title.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.xlsx`);
+                return {
+                    No: index + 1,
+                    "Nama Barang": item.atk_items?.name || "",
+                    Tipe: item.atk_items?.type?.toUpperCase() || "",
+                    Satuan: item.atk_items?.unit || "",
+                    "Stok Tersedia Saat Ini": currentStock,
+                    "Pemakaian 30 Hari Terakhir": usage30d,
+                    "Jumlah Pengajuan": item.quantity,
+                    "Harga Satuan": item.price,
+                    "Total Harga": item.subtotal,
+                };
+            });
+
+            // Add total row
+            data.push({
+                No: "",
+                "Nama Barang": "",
+                Tipe: "",
+                Satuan: "",
+                "Stok Tersedia Saat Ini": "",
+                "Pemakaian 30 Hari Terakhir": "",
+                "Jumlah Pengajuan": "",
+                "Harga Satuan": "TOTAL",
+                "Total Harga": purchase.total_amount,
+            } as any);
+
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Purchase Request");
+
+            // Set column widths
+            worksheet["!cols"] = [
+                { wch: 5 },
+                { wch: 30 },
+                { wch: 12 },
+                { wch: 10 },
+                { wch: 22 },
+                { wch: 26 },
+                { wch: 18 },
+                { wch: 15 },
+                { wch: 15 },
+            ];
+
+            XLSX.writeFile(
+                workbook,
+                `Pengajuan_${purchase.title.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.xlsx`
+            );
+            toast.success("File Excel berhasil diunduh", { id: toastId });
+        } catch (err) {
+            console.error("Export excel error:", err);
+            toast.error("Gagal mengekspor Excel", { id: toastId });
+        }
     };
 
     const handlePrintDocument = (purchase: ATKPurchaseRequest) => {

@@ -13,6 +13,7 @@ export type ATKPurchaseItem = {
         name: string;
         unit: string;
         type: string;
+        stock_quantity?: number;
     };
 };
 
@@ -68,7 +69,7 @@ async function fetchPurchaseRequests(params: UsePurchaseRequestsParams): Promise
         quantity,
         price,
         subtotal,
-        atk_items(name, unit, type)
+        atk_items(name, unit, type, stock_quantity)
       )
     `,
             { count: "exact" }
