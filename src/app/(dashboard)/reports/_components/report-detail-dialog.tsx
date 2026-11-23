@@ -13,10 +13,11 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useReportDetail } from "@/hooks/api/use-reports";
-import { submitReport } from "../actions";
+import { sendManualReportReminder, submitReport } from "../actions";
 import { toast } from "sonner";
 import {
     ArrowRight,
+    BellRing,
     Calendar,
     CheckCircle2,
     Clock,
@@ -94,9 +95,27 @@ export function ReportDetailDialog({
 }: ReportDetailDialogProps) {
     const { data, isLoading, refetch } = useReportDetail(open ? reportId : null);
     const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+    const [isSendingWa, setIsSendingWa] = useState(false);
 
     const report = data?.report;
     const logs = data?.logs || [];
+
+    const handleSendWaReminder = async () => {
+        if (!report) return;
+        setIsSendingWa(true);
+        try {
+            const res = await sendManualReportReminder(report.id);
+            if (res.success) {
+                toast.success(
+                    `Pengingat WA berhasil dikirim ke ${"picName" in res && res.picName ? res.picName : "PIC"}.`
+                );
+            } else {
+                toast.error(res.error || "Gagal mengirim pengingat WA.");
+            }
+        } finally {
+            setIsSendingWa(false);
+        }
+    };
 
     const handleQuickSubmit = async () => {
         if (!report) return;
@@ -453,6 +472,24 @@ export function ReportDetailDialog({
 
                         {/* Action Bar */}
                         <div className="flex flex-wrap items-center justify-end gap-2">
+                            {canReview &&
+                                report.assigned_to &&
+                                !["approved", "rejected"].includes(effectiveStatus) && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleSendWaReminder}
+                                        disabled={isSendingWa}
+                                        className="text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400"
+                                    >
+                                        {isSendingWa ? (
+                                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                                        ) : (
+                                            <BellRing className="h-4 w-4 mr-1.5" />
+                                        )}
+                                        Ingatkan PIC (WA)
+                                    </Button>
+                                )}
+
                             {canQuickSubmit && (
                                 <Button
                                     variant="secondary"

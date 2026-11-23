@@ -3,6 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import {
+    processReportDeadlineReminders,
+    sendSingleReportReminder,
+} from "@/lib/reports/deadline-reminder";
 import type {
     Report,
     ReportCategory,
@@ -818,4 +822,36 @@ export async function getReportsByDeadline(year: number, month: number) {
     }
 
     return { success: true, data: (data || []) as Report[] };
+}
+
+/**
+ * Trigger manual pengecekan & pengiriman WA reminder (H-7, H-3, Overdue) — hanya admin & manager_it
+ */
+export async function triggerReportDeadlineReminders() {
+    const { user, role } = await getCurrentUserWithRole();
+    if (!user) return { success: false, error: "Unauthorized" };
+    if (!["admin", "manager_it"].includes(role || "")) {
+        return {
+            success: false,
+            error: "Hanya Admin atau Manager IT yang dapat mengirim pengingat WA massal.",
+        };
+    }
+
+    return await processReportDeadlineReminders();
+}
+
+/**
+ * Kirim pengingat WA langsung ke PIC untuk 1 laporan tertentu — hanya admin & manager_it
+ */
+export async function sendManualReportReminder(reportId: string) {
+    const { user, role } = await getCurrentUserWithRole();
+    if (!user) return { success: false, error: "Unauthorized" };
+    if (!["admin", "manager_it"].includes(role || "")) {
+        return {
+            success: false,
+            error: "Hanya Admin atau Manager IT yang dapat mengirim pengingat WA.",
+        };
+    }
+
+    return await sendSingleReportReminder(reportId);
 }

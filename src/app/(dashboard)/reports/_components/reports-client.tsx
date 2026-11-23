@@ -33,6 +33,7 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+    BellRing,
     CalendarClock,
     CheckCircle2,
     ChevronLeft,
@@ -42,6 +43,7 @@ import {
     Eye,
     FileStack,
     FileText,
+    Loader2,
     Plus,
     RefreshCw,
     RotateCcw,
@@ -55,7 +57,7 @@ import {
     useReports,
     useReportStats,
 } from "@/hooks/api/use-reports";
-import { deleteReport } from "../actions";
+import { deleteReport, triggerReportDeadlineReminders } from "../actions";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
 import { ReportStatsCards } from "./report-stats-cards";
@@ -108,6 +110,7 @@ export function ReportsClient() {
     const [reviewOpen, setReviewOpen] = useState(false);
     const [reportToReview, setReportToReview] = useState<Report | null>(null);
     const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+    const [isSendingReminders, setIsSendingReminders] = useState(false);
 
     // Debounce search
     useEffect(() => {
@@ -192,6 +195,45 @@ export function ReportsClient() {
         setPage(1);
     };
 
+    const handleTriggerReminders = async () => {
+        setIsSendingReminders(true);
+        const toastId = toast.loading("Mengecek deadline (H-7, H-3, Terlambat) & mengirim WA...");
+        try {
+            const res = await triggerReportDeadlineReminders();
+            if (!res.success) {
+                toast.error(res.error || "Gagal memproses pengingat WA.", { id: toastId });
+                return;
+            }
+            if (!("eligible" in res)) {
+                toast.success("Pengingat WA diproses.", { id: toastId });
+                return;
+            }
+
+            if (res.eligible === 0) {
+                toast.info("Tidak ada laporan yang memenuhi kriteria H-7, H-3, atau Terlambat hari ini.", {
+                    id: toastId,
+                });
+            } else {
+                const parts: string[] = [];
+                if (res.sent > 0) parts.push(`${res.sent} terkirim`);
+                if (res.skippedAlreadySent > 0) parts.push(`${res.skippedAlreadySent} sudah dikirim sebelumnya`);
+                if (res.skippedNoPhone > 0) parts.push(`${res.skippedNoPhone} PIC tanpa No. WA`);
+                if (res.failed > 0) parts.push(`${res.failed} gagal`);
+
+                if (res.failed > 0 && res.sent === 0) {
+                    toast.error(`Pengingat WA: ${parts.join(", ")}`, { id: toastId });
+                } else {
+                    toast.success(`Pengingat WA selesai: ${parts.join(", ")}`, { id: toastId });
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Terjadi kesalahan saat mengirim pengingat WA.", { id: toastId });
+        } finally {
+            setIsSendingReminders(false);
+        }
+    };
+
     return (
         <div className="container mx-auto py-6 space-y-6 max-w-7xl">
             {/* Header */}
@@ -216,14 +258,30 @@ export function ReportsClient() {
                     </Button>
 
                     {isAdminOrManager && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCategoryDialogOpen(true)}
-                        >
-                            <Tag className="h-4 w-4 mr-1.5" />
-                            Kelola Kategori
-                        </Button>
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleTriggerReminders}
+                                disabled={isSendingReminders}
+                                title="Cek & kirim pengingat WA untuk laporan H-7, H-3, dan Terlambat"
+                            >
+                                {isSendingReminders ? (
+                                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                                ) : (
+                                    <BellRing className="h-4 w-4 mr-1.5" />
+                                )}
+                                Pengingat WA
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCategoryDialogOpen(true)}
+                            >
+                                <Tag className="h-4 w-4 mr-1.5" />
+                                Kelola Kategori
+                            </Button>
+                        </>
                     )}
 
                     <Button onClick={handleCreate} size="sm">
