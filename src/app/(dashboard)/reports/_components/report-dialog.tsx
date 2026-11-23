@@ -47,7 +47,9 @@ import {
     REPORT_PERIOD_LABELS,
     REPORT_PRIORITY_CONFIG,
     formatFileSize,
+    getReportAttachments,
     type Report,
+    type ReportAttachment,
     type ReportCategory,
     type ReportPeriodType,
     type ReportPriority,
@@ -89,7 +91,8 @@ export function ReportDialog({
     const [assignedTo, setAssignedTo] = useState<string>("");
     const [description, setDescription] = useState("");
     const [editReason, setEditReason] = useState("");
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [existingAttachments, setExistingAttachments] = useState<ReportAttachment[]>([]);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [isDragging, setIsDragging] = useState(false);
     const [picOpen, setPicOpen] = useState(false);
 
@@ -116,7 +119,8 @@ export function ReportDialog({
             setAssignedTo(reportToEdit.assigned_to || "");
             setDescription(reportToEdit.description || "");
             setEditReason("");
-            setSelectedFile(null);
+            setExistingAttachments(getReportAttachments(reportToEdit));
+            setSelectedFiles([]);
         } else {
             const today = new Date();
             const defaultDl =
@@ -137,18 +141,40 @@ export function ReportDialog({
             setAssignedTo(user?.id || "");
             setDescription("");
             setEditReason("");
-            setSelectedFile(null);
+            setExistingAttachments([]);
+            setSelectedFiles([]);
         }
     }, [reportToEdit, defaultDeadline, open, categories, user?.id]);
 
-    const handleFileValidation = (file: File | undefined | null) => {
-        if (!file) return;
-        const maxBytes = 10 * 1024 * 1024; // 10 MB
-        if (file.size > maxBytes) {
-            toast.error("Ukuran file maksimal 10 MB.");
-            return;
+    const handleFilesValidation = (fileList: FileList | File[] | null | undefined) => {
+        if (!fileList || fileList.length === 0) return;
+        const maxBytes = 10 * 1024 * 1024; // 10 MB per file
+        const incoming = Array.from(fileList);
+        const valid: File[] = [];
+
+        for (const file of incoming) {
+            if (file.size > maxBytes) {
+                toast.error(`File "${file.name}" melebihi batas maksimal 10 MB.`);
+                continue;
+            }
+            valid.push(file);
         }
-        setSelectedFile(file);
+
+        if (valid.length > 0) {
+            setSelectedFiles((prev) => {
+                const existingKeys = new Set(prev.map((f) => `${f.name}_${f.size}`));
+                const deduped = valid.filter((f) => !existingKeys.has(`${f.name}_${f.size}`));
+                return [...prev, ...deduped];
+            });
+        }
+    };
+
+    const removeNewFile = (index: number) => {
+        setSelectedFiles((prev) => prev.filter((_, idx) => idx !== index));
+    };
+
+    const removeExistingAttachment = (url: string) => {
+        setExistingAttachments((prev) => prev.filter((a) => a.url !== url));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -172,6 +198,7 @@ export function ReportDialog({
             const formData = new FormData();
             if (reportToEdit) {
                 formData.append("id", reportToEdit.id);
+                formData.append("kept_attachments", JSON.stringify(existingAttachments));
             }
             formData.append("title", title.trim());
             formData.append("report_number", reportNumber.trim());
@@ -187,8 +214,8 @@ export function ReportDialog({
             if (editReason.trim()) {
                 formData.append("edit_reason", editReason.trim());
             }
-            if (selectedFile) {
-                formData.append("file", selectedFile);
+            for (const file of selectedFiles) {
+                formData.append("files", file);
             }
 
             const res = await saveReport(formData);
@@ -521,9 +548,11 @@ export function ReportDialog({
                         />
                     </div>
 
-                    {/* File Upload Drag & Drop */}
-                    <div className="space-y-1.5">
-                        <Label>Upload File Laporan (Opsional, maks. 10 MB)</Label>
+                    {/* File Upload Multi-File Drag & Drop */}
+                    <div className="space-y-2">
+                        <Label>
+                            Upload File Laporan (Bisa lebih dari 1 file, maks. 10 MB/file)
+                        </Label>
                         <div
                             onDragOver={(e) => {
                                 e.preventDefault();
@@ -533,7 +562,7 @@ export function ReportDialog({
                             onDrop={(e) => {
                                 e.preventDefault();
                                 setIsDragging(false);
-                                handleFileValidation(e.dataTransfer.files?.[0]);
+                                handleFilesValidation(e.dataTransfer.files);
                             }}
                             className={`relative rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
                                 isDragging
@@ -541,62 +570,107 @@ export function ReportDialog({
                                     : "border-border hover:border-primary/50"
                             }`}
                         >
-                            {selectedFile ? (
-                                <div className="flex items-center justify-between gap-3 text-left">
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                        <FileText className="h-5 w-5 text-primary shrink-0" />
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-medium truncate">
-                                                {selectedFile.name}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {formatFileSize(selectedFile.size)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7 shrink-0"
-                                        onClick={() => setSelectedFile(null)}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            ) : (
-                                <label
-                                    htmlFor="report-file-input"
-                                    className="flex flex-col items-center gap-1.5 cursor-pointer"
-                                >
-                                    <Upload className="h-6 w-6 text-muted-foreground" />
-                                    <span className="text-sm font-medium">
-                                        Drag & drop atau klik untuk pilih file
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                        PDF, Word, Excel, PowerPoint, CSV, atau Gambar
-                                    </span>
-                                    <input
-                                        id="report-file-input"
-                                        type="file"
-                                        accept={ACCEPTED_EXTENSIONS}
-                                        className="hidden"
-                                        onChange={(e) =>
-                                            handleFileValidation(e.target.files?.[0])
-                                        }
-                                    />
-                                </label>
-                            )}
+                            <label
+                                htmlFor="report-file-input"
+                                className="flex flex-col items-center gap-1.5 cursor-pointer"
+                            >
+                                <Upload className="h-6 w-6 text-muted-foreground" />
+                                <span className="text-sm font-medium">
+                                    Drag & drop atau klik untuk pilih satu / beberapa file
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                    PDF, Word, Excel, PowerPoint, CSV, atau Gambar
+                                </span>
+                                <input
+                                    id="report-file-input"
+                                    type="file"
+                                    multiple
+                                    accept={ACCEPTED_EXTENSIONS}
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        handleFilesValidation(e.target.files);
+                                        e.target.value = "";
+                                    }}
+                                />
+                            </label>
                         </div>
-                        {isEditing && reportToEdit?.file_name && !selectedFile && (
-                            <p className="text-xs text-muted-foreground truncate">
-                                File saat ini:{" "}
-                                <span className="font-medium text-foreground">
-                                    {reportToEdit.file_name}
-                                </span>{" "}
-                                ({formatFileSize(reportToEdit.file_size)}) — biarkan kosong jika
-                                tidak diganti.
-                            </p>
+
+                        {/* Daftar File Tersimpan (saat edit) */}
+                        {isEditing && existingAttachments.length > 0 && (
+                            <div className="space-y-1.5">
+                                <p className="text-xs font-medium text-muted-foreground">
+                                    File tersimpan ({existingAttachments.length}):
+                                </p>
+                                <div className="space-y-1.5">
+                                    {existingAttachments.map((att) => (
+                                        <div
+                                            key={att.url}
+                                            className="flex items-center justify-between gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-left"
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <FileText className="h-4 w-4 text-primary shrink-0" />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-medium truncate">
+                                                        {att.name}
+                                                    </p>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        {formatFileSize(att.size)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                                                title="Hapus file ini dari laporan"
+                                                onClick={() => removeExistingAttachment(att.url)}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Daftar File Baru yang Akan Diunggah */}
+                        {selectedFiles.length > 0 && (
+                            <div className="space-y-1.5">
+                                <p className="text-xs font-medium text-primary">
+                                    File baru yang akan diunggah ({selectedFiles.length}):
+                                </p>
+                                <div className="space-y-1.5">
+                                    {selectedFiles.map((file, idx) => (
+                                        <div
+                                            key={`${file.name}-${file.size}-${idx}`}
+                                            className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-left"
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <FileText className="h-4 w-4 text-primary shrink-0" />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-medium truncate">
+                                                        {file.name}
+                                                    </p>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        {formatFileSize(file.size)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                                                title="Batalkan file ini"
+                                                onClick={() => removeNewFile(idx)}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                     </div>
 

@@ -7,14 +7,16 @@ import {
     processReportDeadlineReminders,
     sendSingleReportReminder,
 } from "@/lib/reports/deadline-reminder";
-import type {
-    Report,
-    ReportCategory,
-    ReportFilterParams,
-    ReportLog,
-    ReportLogAction,
-    ReportLogChange,
-    ReportStats,
+import {
+    getReportAttachments,
+    type Report,
+    type ReportAttachment,
+    type ReportCategory,
+    type ReportFilterParams,
+    type ReportLog,
+    type ReportLogAction,
+    type ReportLogChange,
+    type ReportStats,
 } from "@/types/report";
 
 const REPORT_SELECT = `
@@ -345,20 +347,45 @@ export async function saveReport(formData: FormData) {
         existingReport = oldData as Report;
     }
 
-    let file_url = existingReport?.file_url || null;
-    let file_name = existingReport?.file_name || null;
-    let file_size = existingReport?.file_size || 0;
-    let file_type = existingReport?.file_type || null;
+    const existingAttachments = getReportAttachments(existingReport);
 
-    const file = formData.get("file") as File | null;
-    let fileChanged: "uploaded" | "replaced" | null = null;
-
-    if (file && file.size > 0) {
-        const maxBytes = 10 * 1024 * 1024; // 10 MB
-        if (file.size > maxBytes) {
-            return { success: false, error: "Ukuran file terlalu besar. Batas maksimal 10 MB." };
+    // Parse lampiran lama yang dipertahankan oleh user saat edit
+    let keptAttachments: ReportAttachment[] = existingAttachments;
+    const keptAttachmentsRaw = formData.get("kept_attachments") as string | null;
+    if (id && keptAttachmentsRaw !== null) {
+        try {
+            const parsed = JSON.parse(keptAttachmentsRaw);
+            if (Array.isArray(parsed)) {
+                keptAttachments = parsed.filter(
+                    (a): a is ReportAttachment =>
+                        !!a && typeof a.url === "string" && typeof a.name === "string"
+                );
+            }
+        } catch {
+            keptAttachments = existingAttachments;
         }
+    }
 
+    // Kumpulkan semua file baru (mendukung multi-file "files" dan legacy single "file")
+    const rawFiles = [
+        ...formData.getAll("files"),
+        ...formData.getAll("file"),
+    ].filter((f): f is File => f instanceof File && f.size > 0);
+
+    const maxBytes = 10 * 1024 * 1024; // 10 MB per file
+    for (const f of rawFiles) {
+        if (f.size > maxBytes) {
+            return {
+                success: false,
+                error: `Ukuran file "${f.name}" terlalu besar. Batas maksimal 10 MB per file.`,
+            };
+        }
+    }
+
+    const nowIso = new Date().toISOString();
+    const newlyUploaded: ReportAttachment[] = [];
+
+    for (const file of rawFiles) {
         const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
         const safeFileName = `report_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
         const filePath = `attachments/${safeFileName}`;
@@ -371,7 +398,7 @@ export async function saveReport(formData: FormData) {
             console.error("Error uploading report file:", uploadError);
             return {
                 success: false,
-                error: "Gagal mengunggah file laporan: " + uploadError.message,
+                error: `Gagal mengunggah file "${file.name}": ${uploadError.message}`,
             };
         }
 
@@ -379,14 +406,42 @@ export async function saveReport(formData: FormData) {
             .from("reports")
             .getPublicUrl(filePath);
 
-        fileChanged = existingReport?.file_url ? "replaced" : "uploaded";
-        file_url = publicUrlData.publicUrl;
-        file_name = file.name;
-        file_size = file.size;
-        file_type = file.type || null;
+        newlyUploaded.push({
+            url: publicUrlData.publicUrl,
+            name: file.name,
+            size: file.size,
+            type: file.type || null,
+            uploaded_at: nowIso,
+        });
     }
 
-    const nowIso = new Date().toISOString();
+    const finalAttachments: ReportAttachment[] = [...keptAttachments, ...newlyUploaded];
+    const primaryAttachment = finalAttachments[0] || null;
+
+    // Hapus file fisik di storage jika ada lampiran lama yang dibuang saat edit
+    if (id && existingAttachments.length > 0) {
+        const keptUrls = new Set(keptAttachments.map((a) => a.url));
+        const removedAttachments = existingAttachments.filter((a) => !keptUrls.has(a.url));
+        if (removedAttachments.length > 0) {
+            const marker = "/storage/v1/object/public/reports/";
+            const pathsToRemove = removedAttachments
+                .map((a) => {
+                    const idx = a.url.indexOf(marker);
+                    return idx !== -1
+                        ? decodeURIComponent(a.url.substring(idx + marker.length))
+                        : null;
+                })
+                .filter((p): p is string => !!p);
+
+            if (pathsToRemove.length > 0) {
+                await supabase.storage.from("reports").remove(pathsToRemove);
+            }
+        }
+    }
+
+    const oldFileNames = existingAttachments.map((a) => a.name).join(", ");
+    const newFileNames = finalAttachments.map((a) => a.name).join(", ");
+    const attachmentsChanged = oldFileNames !== newFileNames;
 
     const payload: Record<string, unknown> = {
         title,
@@ -400,10 +455,11 @@ export async function saveReport(formData: FormData) {
         priority,
         status,
         assigned_to,
-        file_url,
-        file_name,
-        file_size,
-        file_type,
+        attachments: finalAttachments,
+        file_url: primaryAttachment?.url || null,
+        file_name: primaryAttachment?.name || null,
+        file_size: primaryAttachment?.size || 0,
+        file_type: primaryAttachment?.type || null,
         updated_at: nowIso,
     };
 
@@ -469,10 +525,10 @@ export async function saveReport(formData: FormData) {
                 new: newPicName || null,
             };
         }
-        if (fileChanged) {
-            changes.file_name = {
-                old: existingReport.file_name || null,
-                new: file_name,
+        if (attachmentsChanged) {
+            changes.attachments = {
+                old: oldFileNames || null,
+                new: newFileNames || null,
             };
         }
 
@@ -498,11 +554,11 @@ export async function saveReport(formData: FormData) {
         const combinedNotes = [auditPrefix, editReason].filter(Boolean).join(" ").trim() || null;
 
         const logAction: ReportLogAction =
-            fileChanged === "replaced" && Object.keys(changes).length === 1
-                ? "file_replaced"
-                : fileChanged === "uploaded" && Object.keys(changes).length === 1
-                  ? "file_uploaded"
-                  : "updated";
+            attachmentsChanged && Object.keys(changes).length === 1
+                ? existingAttachments.length > 0
+                    ? "file_replaced"
+                    : "file_uploaded"
+                : "updated";
 
         await logReportChange({
             reportId: id,
@@ -540,13 +596,14 @@ export async function saveReport(formData: FormData) {
             },
         });
 
-        if (fileChanged === "uploaded" && file_name) {
+        if (newlyUploaded.length > 0) {
+            const uploadedNames = newlyUploaded.map((a) => a.name).join(", ");
             await logReportChange({
                 reportId: created.id,
                 action: "file_uploaded",
                 performedBy: user.id,
-                notes: `Mengunggah file: ${file_name}`,
-                changes: { file_name: { old: null, new: file_name } },
+                notes: `Mengunggah ${newlyUploaded.length} file: ${uploadedNames}`,
+                changes: { attachments: { old: null, new: uploadedNames } },
             });
         }
 
@@ -706,19 +763,28 @@ export async function deleteReport(id: string) {
 
     const { data: existing } = await supabase
         .from("reports")
-        .select("id, file_url")
+        .select("id, file_url, attachments")
         .eq("id", id)
         .single();
 
-    // Hapus file lampiran di storage jika ada
+    // Hapus semua file lampiran di storage jika ada
+    const allAttachments = getReportAttachments(existing as Report | null);
+    const urlsToRemove = new Set<string>(allAttachments.map((a) => a.url));
     if (existing?.file_url) {
+        urlsToRemove.add(existing.file_url);
+    }
+
+    if (urlsToRemove.size > 0) {
         const marker = "/storage/v1/object/public/reports/";
-        const idx = existing.file_url.indexOf(marker);
-        if (idx !== -1) {
-            const storagePath = decodeURIComponent(
-                existing.file_url.substring(idx + marker.length)
-            );
-            await supabase.storage.from("reports").remove([storagePath]);
+        const storagePaths = Array.from(urlsToRemove)
+            .map((url) => {
+                const idx = url.indexOf(marker);
+                return idx !== -1 ? decodeURIComponent(url.substring(idx + marker.length)) : null;
+            })
+            .filter((p): p is string => !!p);
+
+        if (storagePaths.length > 0) {
+            await supabase.storage.from("reports").remove(storagePaths);
         }
     }
 

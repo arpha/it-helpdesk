@@ -44,6 +44,7 @@ import {
     FileStack,
     FileText,
     Loader2,
+    Paperclip,
     Plus,
     RefreshCw,
     RotateCcw,
@@ -72,6 +73,7 @@ import {
     REPORT_STATUS_CONFIG,
     getDeadlineInfo,
     getEffectiveStatus,
+    getReportAttachments,
     type Report,
     type ReportPeriodType,
     type ReportPriority,
@@ -471,6 +473,7 @@ export function ReportsClient() {
                                         report.deadline,
                                         effectiveStatus
                                     );
+                                    const attachments = getReportAttachments(report);
 
                                     return (
                                         <TableRow
@@ -502,6 +505,12 @@ export function ReportsClient() {
                                                             >
                                                                 {priorityCfg.label}
                                                             </Badge>
+                                                        )}
+                                                        {attachments.length > 0 && (
+                                                            <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                                                                <Paperclip className="h-3 w-3" />
+                                                                {attachments.length} file
+                                                            </span>
                                                         )}
                                                     </div>
                                                 </button>
@@ -588,26 +597,39 @@ export function ReportsClient() {
                                                         <Eye className="h-4 w-4" />
                                                     </Button>
 
-                                                    {report.file_url && (
+                                                    {attachments.length === 1 ? (
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
                                                             className="h-8 w-8"
-                                                            title="Unduh File Laporan"
+                                                            title={`Unduh ${attachments[0].name}`}
                                                             asChild
                                                         >
                                                             <a
-                                                                href={report.file_url}
+                                                                href={attachments[0].url}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 download={
-                                                                    report.file_name || undefined
+                                                                    attachments[0].name || undefined
                                                                 }
                                                             >
                                                                 <Download className="h-4 w-4" />
                                                             </a>
                                                         </Button>
-                                                    )}
+                                                    ) : attachments.length > 1 ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 relative"
+                                                            title={`Lihat & unduh ${attachments.length} file lampiran`}
+                                                            onClick={() => handleView(report)}
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                            <span className="absolute -top-0.5 -right-0.5 text-[9px] font-bold bg-primary text-primary-foreground rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
+                                                                {attachments.length}
+                                                            </span>
+                                                        </Button>
+                                                    ) : null}
 
                                                     <Button
                                                         variant="ghost"

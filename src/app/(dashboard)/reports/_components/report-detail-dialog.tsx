@@ -41,6 +41,7 @@ import {
     formatFileSize,
     getDeadlineInfo,
     getEffectiveStatus,
+    getReportAttachments,
     type Report,
     type ReportLog,
 } from "@/types/report";
@@ -323,41 +324,59 @@ export function ReportDetailDialog({
                                 )}
 
                                 {/* File Lampiran */}
-                                <div className="space-y-1.5">
-                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                        File Lampiran
-                                    </p>
-                                    {report.file_url ? (
-                                        <div className="flex items-center justify-between gap-3 rounded-xl border p-3 bg-muted/20">
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <FileText className="h-5 w-5 text-primary shrink-0" />
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-medium truncate">
-                                                        {report.file_name || "Lampiran Laporan"}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {formatFileSize(report.file_size)}
-                                                    </p>
+                                {(() => {
+                                    const attachments = getReportAttachments(report);
+                                    return (
+                                        <div className="space-y-1.5">
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                                File Lampiran ({attachments.length})
+                                            </p>
+                                            {attachments.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {attachments.map((att, idx) => (
+                                                        <div
+                                                            key={`${att.url}-${idx}`}
+                                                            className="flex items-center justify-between gap-3 rounded-xl border p-3 bg-muted/20"
+                                                        >
+                                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                                <FileText className="h-5 w-5 text-primary shrink-0" />
+                                                                <div className="min-w-0">
+                                                                    <p className="text-sm font-medium truncate">
+                                                                        {att.name ||
+                                                                            `Lampiran ${idx + 1}`}
+                                                                    </p>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {formatFileSize(att.size)}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                asChild
+                                                                className="shrink-0"
+                                                            >
+                                                                <a
+                                                                    href={att.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    download={att.name || undefined}
+                                                                >
+                                                                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                                                                    Unduh
+                                                                </a>
+                                                            </Button>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            </div>
-                                            <Button size="sm" variant="outline" asChild>
-                                                <a
-                                                    href={report.file_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    download={report.file_name || undefined}
-                                                >
-                                                    <Download className="h-3.5 w-3.5 mr-1.5" />
-                                                    Unduh
-                                                </a>
-                                            </Button>
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground italic rounded-lg border border-dashed p-3">
+                                                    Belum ada file lampiran yang diunggah.
+                                                </p>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground italic rounded-lg border border-dashed p-3">
-                                            Belum ada file lampiran yang diunggah.
-                                        </p>
-                                    )}
-                                </div>
+                                    );
+                                })()}
                             </TabsContent>
 
                             {/* TAB 2: AUDIT TRAIL */}

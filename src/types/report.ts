@@ -46,6 +46,14 @@ export interface ReportProfile {
     role?: string | null;
 }
 
+export interface ReportAttachment {
+    url: string;
+    name: string;
+    size: number;
+    type?: string | null;
+    uploaded_at?: string;
+}
+
 export interface Report {
     id: string;
     title: string;
@@ -73,6 +81,7 @@ export interface Report {
     file_name?: string | null;
     file_size?: number | null;
     file_type?: string | null;
+    attachments?: ReportAttachment[] | null;
 
     reviewer_notes?: string | null;
     revision_notes?: string | null;
@@ -225,6 +234,7 @@ export const REPORT_FIELD_LABELS: Record<string, string> = {
     priority: "Prioritas",
     assigned_to: "PIC",
     file_name: "File Lampiran",
+    attachments: "Daftar Lampiran",
     reviewer_notes: "Catatan Reviewer",
     revision_notes: "Catatan Revisi",
 };
@@ -421,4 +431,27 @@ export function formatFileSize(bytes?: number | null): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Ambil daftar lampiran laporan secara konsisten (mendukung multi-file & fallback legacy single file)
+ */
+export function getReportAttachments(
+    report?: Pick<Report, "attachments" | "file_url" | "file_name" | "file_size" | "file_type"> | null
+): ReportAttachment[] {
+    if (!report) return [];
+    if (Array.isArray(report.attachments) && report.attachments.length > 0) {
+        return report.attachments;
+    }
+    if (report.file_url) {
+        return [
+            {
+                url: report.file_url,
+                name: report.file_name || "Lampiran Laporan",
+                size: report.file_size || 0,
+                type: report.file_type || null,
+            },
+        ];
+    }
+    return [];
 }
