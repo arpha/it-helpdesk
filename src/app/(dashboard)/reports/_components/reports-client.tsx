@@ -363,24 +363,26 @@ export function ReportsClient() {
             )}
 
             {/* Reports Table */}
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden py-0 gap-0">
                 <div className="overflow-x-auto">
                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="min-w-[240px]">Judul Laporan</TableHead>
-                                <TableHead>Kategori</TableHead>
-                                <TableHead>Periode</TableHead>
-                                <TableHead>Deadline</TableHead>
-                                <TableHead>PIC</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Aksi</TableHead>
+                        <TableHeader className="bg-muted/30">
+                            <TableRow className="hover:bg-transparent">
+                                <TableHead className="min-w-[240px] py-3.5 pl-6 pr-4">
+                                    Judul Laporan
+                                </TableHead>
+                                <TableHead className="py-3.5 px-4">Kategori</TableHead>
+                                <TableHead className="py-3.5 px-4">Periode</TableHead>
+                                <TableHead className="py-3.5 px-4">Deadline</TableHead>
+                                <TableHead className="py-3.5 px-4">PIC</TableHead>
+                                <TableHead className="py-3.5 px-4">Status</TableHead>
+                                <TableHead className="py-3.5 pl-4 pr-6 text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-12">
+                                    <TableCell colSpan={7} className="text-center py-12 px-6">
                                         <RefreshCw className="h-6 w-6 animate-spin mx-auto text-primary mb-2" />
                                         Memuat daftar inventaris laporan...
                                     </TableCell>
@@ -389,7 +391,7 @@ export function ReportsClient() {
                                 <TableRow>
                                     <TableCell
                                         colSpan={7}
-                                        className="text-center py-12 text-muted-foreground"
+                                        className="text-center py-12 px-6 text-muted-foreground"
                                     >
                                         <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
                                         <p className="font-medium text-foreground">
@@ -417,7 +419,7 @@ export function ReportsClient() {
                                             key={report.id}
                                             className="group hover:bg-muted/40"
                                         >
-                                            <TableCell className="max-w-[300px]">
+                                            <TableCell className="max-w-[300px] py-3.5 pl-6 pr-4">
                                                 <button
                                                     type="button"
                                                     onClick={() => handleView(report)}
@@ -429,7 +431,7 @@ export function ReportsClient() {
                                                             {report.title}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                         {report.report_number && (
                                                             <span className="text-[11px] text-muted-foreground font-mono">
                                                                 {report.report_number}
@@ -447,7 +449,7 @@ export function ReportsClient() {
                                                 </button>
                                             </TableCell>
 
-                                            <TableCell>
+                                            <TableCell className="py-3.5 px-4">
                                                 {report.category ? (
                                                     <Badge
                                                         variant="outline"
@@ -466,11 +468,11 @@ export function ReportsClient() {
                                                 )}
                                             </TableCell>
 
-                                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                            <TableCell className="py-3.5 px-4 text-xs text-muted-foreground whitespace-nowrap">
                                                 {REPORT_PERIOD_LABELS[report.period_type]}
                                             </TableCell>
 
-                                            <TableCell className="whitespace-nowrap">
+                                            <TableCell className="py-3.5 px-4 whitespace-nowrap">
                                                 <div className="flex flex-col gap-0.5">
                                                     <span className="text-sm font-medium">
                                                         {formatShortDate(report.deadline)}
@@ -493,7 +495,7 @@ export function ReportsClient() {
                                                 </div>
                                             </TableCell>
 
-                                            <TableCell className="text-sm">
+                                            <TableCell className="py-3.5 px-4 text-sm">
                                                 <span className="truncate block max-w-[140px]">
                                                     {report.assigned_profile?.full_name ||
                                                         report.assigned_profile?.username || (
@@ -504,7 +506,7 @@ export function ReportsClient() {
                                                 </span>
                                             </TableCell>
 
-                                            <TableCell>
+                                            <TableCell className="py-3.5 px-4">
                                                 <Badge
                                                     variant="outline"
                                                     className={`whitespace-nowrap ${statusCfg.badgeClass}`}
@@ -516,7 +518,7 @@ export function ReportsClient() {
                                                 </Badge>
                                             </TableCell>
 
-                                            <TableCell className="text-right">
+                                            <TableCell className="py-3.5 pl-4 pr-6 text-right">
                                                 <div className="flex justify-end gap-1">
                                                     <Button
                                                         variant="ghost"
@@ -628,7 +630,7 @@ export function ReportsClient() {
 
                 {/* Pagination */}
                 {totalCount > 0 && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 border-t">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t">
                         <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2">
                             <span>
                                 Menampilkan {(page - 1) * 10 + 1}–
