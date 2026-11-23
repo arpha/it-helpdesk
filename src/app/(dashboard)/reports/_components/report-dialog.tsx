@@ -20,11 +20,22 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
 import { saveReport } from "../actions";
 import { useAllUsers } from "@/hooks/api/use-all-users";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
 import {
+    Check,
+    ChevronsUpDown,
     FileText,
     Loader2,
     Save,
@@ -80,6 +91,7 @@ export function ReportDialog({
     const [editReason, setEditReason] = useState("");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [picOpen, setPicOpen] = useState(false);
 
     const isEditing = !!reportToEdit;
     const isAdminOrManager = ["admin", "manager_it"].includes(user?.role || "");
@@ -378,22 +390,99 @@ export function ReportDialog({
 
                         <div className="space-y-1.5">
                             <Label>Ditugaskan ke (PIC)</Label>
-                            <Select
-                                value={assignedTo || "none"}
-                                onValueChange={(v) => setAssignedTo(v === "none" ? "" : v)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih PIC" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Belum ditentukan</SelectItem>
-                                    {users.map((u) => (
-                                        <SelectItem key={u.id} value={u.id}>
-                                            {u.full_name || u.username || u.id}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Popover open={picOpen} onOpenChange={setPicOpen} modal={true}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={picOpen}
+                                        className="w-full justify-between font-normal px-3"
+                                    >
+                                        <span className="truncate">
+                                            {assignedTo
+                                                ? (() => {
+                                                      const found = users.find(
+                                                          (u) => u.id === assignedTo
+                                                      );
+                                                      return (
+                                                          found?.full_name ||
+                                                          found?.username ||
+                                                          "Pilih PIC"
+                                                      );
+                                                  })()
+                                                : "Belum ditentukan"}
+                                        </span>
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                    className="w-[280px] p-0"
+                                    align="start"
+                                >
+                                    <Command>
+                                        <CommandInput placeholder="Cari nama pegawai..." />
+                                        <CommandList className="max-h-[240px] overflow-y-auto overscroll-contain">
+                                            <CommandEmpty>
+                                                Pegawai tidak ditemukan.
+                                            </CommandEmpty>
+                                            <CommandGroup>
+                                                <CommandItem
+                                                    value="__none__ belum ditentukan"
+                                                    onSelect={() => {
+                                                        setAssignedTo("");
+                                                        setPicOpen(false);
+                                                    }}
+                                                >
+                                                    <Check
+                                                        className={`mr-2 h-4 w-4 shrink-0 ${
+                                                            !assignedTo
+                                                                ? "opacity-100"
+                                                                : "opacity-0"
+                                                        }`}
+                                                    />
+                                                    <span className="text-muted-foreground">
+                                                        Belum ditentukan
+                                                    </span>
+                                                </CommandItem>
+                                                {users.map((u) => {
+                                                    const displayName =
+                                                        u.full_name || u.username || u.id;
+                                                    return (
+                                                        <CommandItem
+                                                            key={u.id}
+                                                            value={`${displayName} ${u.username || ""} ${u.id}`}
+                                                            onSelect={() => {
+                                                                setAssignedTo(u.id);
+                                                                setPicOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={`mr-2 h-4 w-4 shrink-0 ${
+                                                                    assignedTo === u.id
+                                                                        ? "opacity-100"
+                                                                        : "opacity-0"
+                                                                }`}
+                                                            />
+                                                            <div className="flex flex-col min-w-0">
+                                                                <span className="truncate">
+                                                                    {displayName}
+                                                                </span>
+                                                                {u.username &&
+                                                                    u.full_name && (
+                                                                        <span className="text-[11px] text-muted-foreground truncate">
+                                                                            @{u.username}
+                                                                        </span>
+                                                                    )}
+                                                            </div>
+                                                        </CommandItem>
+                                                    );
+                                                })}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </div>
 
                         <div className="space-y-1.5">
