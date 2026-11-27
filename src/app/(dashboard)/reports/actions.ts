@@ -383,37 +383,47 @@ export async function saveReport(formData: FormData) {
     }
 
     const nowIso = new Date().toISOString();
-    const newlyUploaded: ReportAttachment[] = [];
 
-    for (const file of rawFiles) {
-        const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
-        const safeFileName = `report_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-        const filePath = `attachments/${safeFileName}`;
+    // Upload semua file baru secara paralel agar jauh lebih cepat untuk multi-file
+    const uploadResults = await Promise.all(
+        rawFiles.map(async (file) => {
+            const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
+            const safeFileName = `report_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+            const filePath = `attachments/${safeFileName}`;
 
-        const { error: uploadError } = await supabase.storage
-            .from("reports")
-            .upload(filePath, file, { upsert: true });
+            const { error: uploadError } = await supabase.storage
+                .from("reports")
+                .upload(filePath, file, { upsert: true });
 
-        if (uploadError) {
-            console.error("Error uploading report file:", uploadError);
+            if (uploadError) {
+                return { error: `Gagal mengunggah file "${file.name}": ${uploadError.message}` };
+            }
+
+            const { data: publicUrlData } = supabase.storage
+                .from("reports")
+                .getPublicUrl(filePath);
+
             return {
-                success: false,
-                error: `Gagal mengunggah file "${file.name}": ${uploadError.message}`,
+                attachment: {
+                    url: publicUrlData.publicUrl,
+                    name: file.name,
+                    size: file.size,
+                    type: file.type || null,
+                    uploaded_at: nowIso,
+                } as ReportAttachment,
             };
-        }
+        })
+    );
 
-        const { data: publicUrlData } = supabase.storage
-            .from("reports")
-            .getPublicUrl(filePath);
-
-        newlyUploaded.push({
-            url: publicUrlData.publicUrl,
-            name: file.name,
-            size: file.size,
-            type: file.type || null,
-            uploaded_at: nowIso,
-        });
+    const firstUploadError = uploadResults.find((r) => "error" in r && r.error);
+    if (firstUploadError && "error" in firstUploadError) {
+        console.error("Error uploading report file:", firstUploadError.error);
+        return { success: false, error: firstUploadError.error };
     }
+
+    const newlyUploaded: ReportAttachment[] = uploadResults
+        .map((r) => ("attachment" in r ? r.attachment : null))
+        .filter((a): a is ReportAttachment => !!a);
 
     const finalAttachments: ReportAttachment[] = [...keptAttachments, ...newlyUploaded];
     const primaryAttachment = finalAttachments[0] || null;
@@ -479,26 +489,27 @@ export async function saveReport(formData: FormData) {
         // Hitung JSON diff before/after untuk audit trail keamanan
         const changes: Record<string, ReportLogChange> = {};
 
-        // Resolve nama kategori & PIC baru agar diff mudah dibaca
-        let newCategoryName: string | null = null;
-        if (category_id && category_id !== existingReport.category_id) {
-            const { data: catData } = await supabase
-                .from("report_categories")
-                .select("name")
-                .eq("id", category_id)
-                .single();
-            newCategoryName = catData?.name || category_id;
-        }
+        // Resolve nama kategori & PIC baru secara paralel agar diff mudah dibaca
+        const [catRes, picRes] = await Promise.all([
+            category_id && category_id !== existingReport.category_id
+                ? supabase
+                      .from("report_categories")
+                      .select("name")
+                      .eq("id", category_id)
+                      .single()
+                : Promise.resolve({ data: null }),
+            assigned_to && assigned_to !== existingReport.assigned_to
+                ? supabase
+                      .from("profiles")
+                      .select("full_name, username")
+                      .eq("id", assigned_to)
+                      .single()
+                : Promise.resolve({ data: null }),
+        ]);
 
-        let newPicName: string | null = null;
-        if (assigned_to && assigned_to !== existingReport.assigned_to) {
-            const { data: picData } = await supabase
-                .from("profiles")
-                .select("full_name, username")
-                .eq("id", assigned_to)
-                .single();
-            newPicName = picData?.full_name || picData?.username || assigned_to;
-        }
+        const newCategoryName = catRes.data?.name || (category_id || null);
+        const newPicName =
+            picRes.data?.full_name || picRes.data?.username || (assigned_to || null);
 
         const trackField = (field: string, oldVal: unknown, newVal: unknown) => {
             const normalizedOld = oldVal ?? null;
@@ -625,7 +636,10 @@ export async function saveReport(formData: FormData) {
  * Tandai laporan sebagai selesai / terarsip (dapat dilakukan oleh semua role & dicatat ke audit log)
  */
 export async function markReportCompleted(id: string, notes?: string) {
-    const { supabase, user } = await getCurrentUserWithRole();
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Unauthorized" };
 
     const { data: existing, error: fetchError } = await supabase

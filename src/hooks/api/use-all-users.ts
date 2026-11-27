@@ -30,6 +30,7 @@ export function useAllUsers() {
     return useQuery({
         queryKey: ["all-users"],
         queryFn: fetchAllUsers,
+        staleTime: 1000 * 60 * 10, // 10 menit agar combobox pegawai instan
     });
 }
 
