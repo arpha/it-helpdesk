@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useReportDetail } from "@/hooks/api/use-reports";
 import { sendManualReportReminder } from "../actions";
 import { ReportCompleteDialog } from "./report-complete-dialog";
+import { ReportFilePreviewDialog } from "./report-file-preview-dialog";
 import { toast } from "sonner";
 import {
     ArrowRight,
@@ -24,6 +25,7 @@ import {
     Clock,
     Download,
     Edit3,
+    Eye,
     FileText,
     History,
     Loader2,
@@ -93,6 +95,8 @@ export function ReportDetailDialog({
 }: ReportDetailDialogProps) {
     const { data, isLoading, refetch } = useReportDetail(open ? reportId : null);
     const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [previewIndex, setPreviewIndex] = useState(0);
     const [isSendingWa, setIsSendingWa] = useState(false);
 
     const report = data?.report;
@@ -299,22 +303,37 @@ export function ReportDetailDialog({
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                asChild
-                                                                className="shrink-0"
-                                                            >
-                                                                <a
-                                                                    href={att.url}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    download={att.name || undefined}
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant="secondary"
+                                                                    onClick={() => {
+                                                                        setPreviewIndex(idx);
+                                                                        setPreviewOpen(true);
+                                                                    }}
                                                                 >
-                                                                    <Download className="h-3.5 w-3.5 mr-1.5" />
-                                                                    Unduh
-                                                                </a>
-                                                            </Button>
+                                                                    <Eye className="h-3.5 w-3.5 mr-1.5" />
+                                                                    Lihat
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    asChild
+                                                                >
+                                                                    <a
+                                                                        href={att.url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        download={
+                                                                            att.name || undefined
+                                                                        }
+                                                                    >
+                                                                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                                                                        Unduh
+                                                                    </a>
+                                                                </Button>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -492,6 +511,13 @@ export function ReportDetailDialog({
                     await refetch();
                     onUpdated();
                 }}
+            />
+
+            <ReportFilePreviewDialog
+                open={previewOpen}
+                onOpenChange={setPreviewOpen}
+                attachments={getReportAttachments(report)}
+                initialIndex={previewIndex}
             />
         </Dialog>
     );

@@ -12,11 +12,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { markReportCompleted } from "../actions";
+import { ReportFilePreviewDialog } from "./report-file-preview-dialog";
 import { toast } from "sonner";
 import {
     AlertTriangle,
     CheckCircle2,
-    Download,
+    Eye,
     FileText,
     Loader2,
     Upload,
@@ -43,6 +44,8 @@ export function ReportCompleteDialog({
     onSuccess,
 }: ReportCompleteDialogProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [previewIndex, setPreviewIndex] = useState(0);
 
     if (!report) return null;
 
@@ -137,20 +140,17 @@ export function ReportCompleteDialog({
                                             </div>
                                         </div>
                                         <Button
+                                            type="button"
                                             size="sm"
                                             variant="ghost"
                                             className="h-7 px-2 text-xs shrink-0"
-                                            asChild
+                                            onClick={() => {
+                                                setPreviewIndex(idx);
+                                                setPreviewOpen(true);
+                                            }}
                                         >
-                                            <a
-                                                href={att.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                download={att.name || undefined}
-                                            >
-                                                <Download className="h-3.5 w-3.5 mr-1" />
-                                                Cek
-                                            </a>
+                                            <Eye className="h-3.5 w-3.5 mr-1" />
+                                            Lihat
                                         </Button>
                                     </div>
                                 ))}
@@ -229,6 +229,13 @@ export function ReportCompleteDialog({
                     )}
                 </DialogFooter>
             </DialogContent>
+
+            <ReportFilePreviewDialog
+                open={previewOpen}
+                onOpenChange={setPreviewOpen}
+                attachments={attachments}
+                initialIndex={previewIndex}
+            />
         </Dialog>
     );
 }

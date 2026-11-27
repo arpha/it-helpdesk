@@ -436,8 +436,8 @@ export function ScheduleDialog({
                             Pengaturan Jadwal & Deadline
                         </p>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-1.5 min-w-0">
                                 <Label>Frekuensi *</Label>
                                 <Select
                                     value={frequency}
@@ -445,7 +445,7 @@ export function ScheduleDialog({
                                         handleFrequencyChange(v as ReportScheduleFrequency)
                                     }
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="w-full min-w-0 overflow-hidden [&>span]:truncate">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -462,7 +462,7 @@ export function ScheduleDialog({
                                 </Select>
                             </div>
 
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5 min-w-0 sm:col-span-2">
                                 <Label>Aturan Deadline *</Label>
                                 <Select
                                     value={deadlineRule}
@@ -470,10 +470,10 @@ export function ScheduleDialog({
                                         setDeadlineRule(v as ReportDeadlineRule)
                                     }
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="w-full min-w-0 overflow-hidden [&>span]:truncate">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="max-w-[calc(100vw-3rem)]">
                                         {deadlineRuleOptions.map((opt) => (
                                             <SelectItem key={opt.value} value={opt.value}>
                                                 {opt.label}
@@ -486,13 +486,13 @@ export function ScheduleDialog({
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             {showMonthInput && (
-                                <div className="space-y-1.5">
+                                <div className="space-y-1.5 min-w-0">
                                     <Label>Bulan Deadline</Label>
                                     <Select
                                         value={String(deadlineMonth)}
                                         onValueChange={(v) => setDeadlineMonth(Number(v))}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="w-full min-w-0 overflow-hidden [&>span]:truncate">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
