@@ -418,6 +418,13 @@ export async function saveReport(formData: FormData) {
     const finalAttachments: ReportAttachment[] = [...keptAttachments, ...newlyUploaded];
     const primaryAttachment = finalAttachments[0] || null;
 
+    if (status === "approved" && finalAttachments.length === 0) {
+        return {
+            success: false,
+            error: "Minimal 1 file laporan harus diunggah sebelum menandai status Selesai.",
+        };
+    }
+
     // Hapus file fisik di storage jika ada lampiran lama yang dibuang saat edit
     if (id && existingAttachments.length > 0) {
         const keptUrls = new Set(keptAttachments.map((a) => a.url));
@@ -623,12 +630,20 @@ export async function markReportCompleted(id: string, notes?: string) {
 
     const { data: existing, error: fetchError } = await supabase
         .from("reports")
-        .select("id, status, title")
+        .select("id, status, title, file_url, file_name, file_size, file_type, attachments")
         .eq("id", id)
         .single();
 
     if (fetchError || !existing) {
         return { success: false, error: "Laporan tidak ditemukan." };
+    }
+
+    const attachments = getReportAttachments(existing as Report);
+    if (attachments.length === 0) {
+        return {
+            success: false,
+            error: "Tidak dapat menandai selesai: minimal 1 file laporan harus diunggah terlebih dahulu.",
+        };
     }
 
     const nowIso = new Date().toISOString();

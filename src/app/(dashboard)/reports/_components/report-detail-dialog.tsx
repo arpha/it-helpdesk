@@ -13,7 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useReportDetail } from "@/hooks/api/use-reports";
-import { markReportCompleted, sendManualReportReminder } from "../actions";
+import { sendManualReportReminder } from "../actions";
+import { ReportCompleteDialog } from "./report-complete-dialog";
 import { toast } from "sonner";
 import {
     ArrowRight,
@@ -91,7 +92,7 @@ export function ReportDetailDialog({
     onUpdated,
 }: ReportDetailDialogProps) {
     const { data, isLoading, refetch } = useReportDetail(open ? reportId : null);
-    const [isCompleting, setIsCompleting] = useState(false);
+    const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
     const [isSendingWa, setIsSendingWa] = useState(false);
 
     const report = data?.report;
@@ -111,23 +112,6 @@ export function ReportDetailDialog({
             }
         } finally {
             setIsSendingWa(false);
-        }
-    };
-
-    const handleMarkCompleted = async () => {
-        if (!report) return;
-        setIsCompleting(true);
-        try {
-            const res = await markReportCompleted(report.id);
-            if (res.success) {
-                toast.success("Laporan berhasil ditandai selesai & terarsip.");
-                await refetch();
-                onUpdated();
-            } else {
-                toast.error(res.error || "Gagal menandai laporan selesai.");
-            }
-        } finally {
-            setIsCompleting(false);
         }
     };
 
@@ -486,15 +470,8 @@ export function ReportDetailDialog({
                             </Button>
 
                             {canMarkCompleted && (
-                                <Button
-                                    onClick={handleMarkCompleted}
-                                    disabled={isCompleting}
-                                >
-                                    {isCompleting ? (
-                                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                                    ) : (
-                                        <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                                    )}
+                                <Button onClick={() => setCompleteDialogOpen(true)}>
+                                    <CheckCircle2 className="h-4 w-4 mr-1.5" />
                                     Tandai Selesai
                                 </Button>
                             )}
@@ -502,6 +479,20 @@ export function ReportDetailDialog({
                     </div>
                 )}
             </DialogContent>
+
+            <ReportCompleteDialog
+                open={completeDialogOpen}
+                onOpenChange={setCompleteDialogOpen}
+                report={report || null}
+                onUploadNow={(rep) => {
+                    onOpenChange(false);
+                    onEdit(rep);
+                }}
+                onSuccess={async () => {
+                    await refetch();
+                    onUpdated();
+                }}
+            />
         </Dialog>
     );
 }

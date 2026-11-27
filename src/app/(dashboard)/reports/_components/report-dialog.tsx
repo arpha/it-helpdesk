@@ -193,6 +193,16 @@ export function ReportDialog({
             toast.error("Mohon isi alasan perubahan untuk audit keamanan.");
             return;
         }
+        if (
+            status === "approved" &&
+            existingAttachments.length === 0 &&
+            selectedFiles.length === 0
+        ) {
+            toast.error(
+                "Minimal 1 file laporan harus diunggah sebelum menandai status Selesai."
+            );
+            return;
+        }
 
         setIsSubmitting(true);
         try {

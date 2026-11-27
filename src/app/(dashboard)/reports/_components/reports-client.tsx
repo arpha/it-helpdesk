@@ -61,7 +61,6 @@ import {
 } from "@/hooks/api/use-reports";
 import {
     deleteReport,
-    markReportCompleted,
     triggerReportDeadlineReminders,
 } from "../actions";
 import { useAuthStore } from "@/stores/auth-store";
@@ -69,6 +68,7 @@ import { toast } from "sonner";
 import { ReportStatsCards } from "./report-stats-cards";
 import { ReportDialog } from "./report-dialog";
 import { ReportDetailDialog } from "./report-detail-dialog";
+import { ReportCompleteDialog } from "./report-complete-dialog";
 import { CategoryManagerDialog } from "./category-manager-dialog";
 import {
     CATEGORY_COLOR_CLASSES,
@@ -113,7 +113,8 @@ export function ReportsClient() {
     const [reportToEdit, setReportToEdit] = useState<Report | null>(null);
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-    const [completingId, setCompletingId] = useState<string | null>(null);
+    const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+    const [reportToComplete, setReportToComplete] = useState<Report | null>(null);
     const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
     const [isSendingReminders, setIsSendingReminders] = useState(false);
 
@@ -180,19 +181,9 @@ export function ReportsClient() {
         setDetailOpen(true);
     };
 
-    const handleMarkCompleted = async (report: Report) => {
-        setCompletingId(report.id);
-        try {
-            const res = await markReportCompleted(report.id);
-            if (res.success) {
-                toast.success(`"${report.title}" ditandai selesai.`);
-                invalidateReports();
-            } else {
-                toast.error(res.error || "Gagal menandai laporan selesai.");
-            }
-        } finally {
-            setCompletingId(null);
-        }
+    const handleOpenComplete = (report: Report) => {
+        setReportToComplete(report);
+        setCompleteDialogOpen(true);
     };
 
     const handleDelete = async (id: string) => {
@@ -664,17 +655,12 @@ export function ReportsClient() {
                                                             variant="ghost"
                                                             size="icon"
                                                             className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
-                                                            title="Tandai Selesai"
-                                                            disabled={completingId === report.id}
+                                                            title="Cek File & Tandai Selesai"
                                                             onClick={() =>
-                                                                handleMarkCompleted(report)
+                                                                handleOpenComplete(report)
                                                             }
                                                         >
-                                                            {completingId === report.id ? (
-                                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                            ) : (
-                                                                <CheckCircle2 className="h-4 w-4" />
-                                                            )}
+                                                            <CheckCircle2 className="h-4 w-4" />
                                                         </Button>
                                                     )}
 
@@ -790,6 +776,14 @@ export function ReportsClient() {
                 canSendWa={isAdminOrManager}
                 onEdit={handleEdit}
                 onUpdated={invalidateReports}
+            />
+
+            <ReportCompleteDialog
+                open={completeDialogOpen}
+                onOpenChange={setCompleteDialogOpen}
+                report={reportToComplete}
+                onUploadNow={handleEdit}
+                onSuccess={invalidateReports}
             />
 
             {isAdminOrManager && (
