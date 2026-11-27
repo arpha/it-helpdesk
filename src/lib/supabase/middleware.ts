@@ -61,7 +61,7 @@ export async function updateSession(request: NextRequest) {
 
     if (role === "user") {
       // List of restricted parent paths for "user" role
-      const restrictedPaths = ["/master", "/atk", "/assets"];
+      const restrictedPaths = ["/master", "/atk", "/assets", "/sop", "/knowledge-base"];
 
       // Specifically for tickets: /tickets (all tickets) is restricted
       // but we might want to keep the tool accessible if it's under /tools

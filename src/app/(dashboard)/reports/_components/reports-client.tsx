@@ -441,7 +441,6 @@ export function ReportsClient() {
                                     Judul Laporan
                                 </TableHead>
                                 <TableHead className="py-3.5 px-4">Kategori</TableHead>
-                                <TableHead className="py-3.5 px-4">Periode</TableHead>
                                 <TableHead className="py-3.5 px-4">Deadline</TableHead>
                                 <TableHead className="py-3.5 px-4">PIC</TableHead>
                                 <TableHead className="py-3.5 px-4">Status</TableHead>
@@ -451,7 +450,7 @@ export function ReportsClient() {
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-12 px-6">
+                                    <TableCell colSpan={6} className="text-center py-12 px-6">
                                         <RefreshCw className="h-6 w-6 animate-spin mx-auto text-primary mb-2" />
                                         Memuat daftar inventaris laporan...
                                     </TableCell>
@@ -459,7 +458,7 @@ export function ReportsClient() {
                             ) : reports.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={7}
+                                        colSpan={6}
                                         className="text-center py-12 px-6 text-muted-foreground"
                                     >
                                         <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
@@ -542,10 +541,6 @@ export function ReportsClient() {
                                                         -
                                                     </span>
                                                 )}
-                                            </TableCell>
-
-                                            <TableCell className="py-3.5 px-4 text-xs text-muted-foreground whitespace-nowrap">
-                                                {REPORT_PERIOD_LABELS[report.period_type]}
                                             </TableCell>
 
                                             <TableCell className="py-3.5 px-4 whitespace-nowrap">

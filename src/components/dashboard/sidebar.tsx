@@ -290,7 +290,7 @@ export function Sidebar() {
                     items: group.items.filter(item => item.href === "/qr-generator")
                 };
             }
-            if (group.title === "SOP & Pedoman" || group.title === "Inventaris Laporan") {
+            if (group.title === "Inventaris Laporan") {
                 return group;
             }
             return null; // Hide other groups
