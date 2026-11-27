@@ -98,11 +98,20 @@ export function ReportFilePreviewDialog({
     }, [open, initialIndex, attachments.length]);
 
     const current = attachments[activeIndex] || null;
+    const isGoogleDriveFile = Boolean(
+        current && (current.provider === "gdrive" || current.drive_file_id)
+    );
     const kind = current ? detectPreviewKind(current) : "other";
 
-    // Parse Excel / CSV secara lokal agar cepat dan tidak bergantung viewer eksternal
+    // Parse Excel / CSV secara lokal (khusus file non-Google Drive)
     useEffect(() => {
-        if (!open || !current || kind !== "spreadsheet" || useOfficeForExcel) {
+        if (
+            !open ||
+            !current ||
+            isGoogleDriveFile ||
+            kind !== "spreadsheet" ||
+            useOfficeForExcel
+        ) {
             return;
         }
 
@@ -155,9 +164,21 @@ export function ReportFilePreviewDialog({
         return () => {
             cancelled = true;
         };
-    }, [open, current?.url, kind, useOfficeForExcel]);
+    }, [open, current?.url, isGoogleDriveFile, kind, useOfficeForExcel]);
 
     if (!current) return null;
+
+    const gdrivePreviewUrl = isGoogleDriveFile
+        ? current.preview_url ||
+          (current.drive_file_id
+              ? `https://drive.google.com/file/d/${current.drive_file_id}/preview`
+              : current.url)
+        : null;
+
+    const openInNewTabUrl =
+        isGoogleDriveFile && current.drive_file_id
+            ? `https://drive.google.com/file/d/${current.drive_file_id}/view`
+            : current.url;
 
     const officeViewerUrl =
         officeEngine === "microsoft"
@@ -233,7 +254,7 @@ export function ReportFilePreviewDialog({
                             </div>
                         )}
 
-                        {kind === "image" && (
+                        {!isGoogleDriveFile && kind === "image" && (
                             <div className="flex items-center gap-1 mr-1">
                                 <Button
                                     type="button"
@@ -268,7 +289,7 @@ export function ReportFilePreviewDialog({
                             </div>
                         )}
 
-                        {kind === "office" && (
+                        {!isGoogleDriveFile && kind === "office" && (
                             <Button
                                 type="button"
                                 variant="outline"
@@ -285,7 +306,9 @@ export function ReportFilePreviewDialog({
                             </Button>
                         )}
 
-                        {kind === "spreadsheet" && !current.name.toLowerCase().endsWith(".csv") && (
+                        {!isGoogleDriveFile &&
+                            kind === "spreadsheet" &&
+                            !current.name.toLowerCase().endsWith(".csv") && (
                             <Button
                                 type="button"
                                 variant="outline"
@@ -298,7 +321,7 @@ export function ReportFilePreviewDialog({
                         )}
 
                         <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
-                            <a href={current.url} target="_blank" rel="noopener noreferrer">
+                            <a href={openInNewTabUrl} target="_blank" rel="noopener noreferrer">
                                 <ExternalLink className="h-3.5 w-3.5 mr-1" />
                                 Tab Baru
                             </a>
@@ -320,6 +343,16 @@ export function ReportFilePreviewDialog({
 
                 {/* Preview Body */}
                 <div className="flex-1 w-full min-h-0 bg-muted/30 rounded-xl border overflow-hidden flex flex-col">
+                    {isGoogleDriveFile && gdrivePreviewUrl ? (
+                        <iframe
+                            key={gdrivePreviewUrl}
+                            src={gdrivePreviewUrl}
+                            className="w-full h-full border-0 bg-white"
+                            allow="autoplay"
+                            title={current.name}
+                        />
+                    ) : (
+                        <>
                     {kind === "pdf" && (
                         <iframe
                             src={`${current.url}#toolbar=1`}
@@ -465,6 +498,8 @@ export function ReportFilePreviewDialog({
                                 </a>
                             </Button>
                         </div>
+                    )}
+                        </>
                     )}
                 </div>
             </DialogContent>

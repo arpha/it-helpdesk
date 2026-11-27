@@ -84,6 +84,9 @@ export interface ReportAttachment {
     size: number;
     type?: string | null;
     uploaded_at?: string;
+    provider?: "supabase" | "gdrive";
+    drive_file_id?: string | null;
+    preview_url?: string | null;
 }
 
 export interface Report {

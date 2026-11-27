@@ -150,13 +150,13 @@ export function ReportDialog({
 
     const handleFilesValidation = (fileList: FileList | File[] | null | undefined) => {
         if (!fileList || fileList.length === 0) return;
-        const maxBytes = 25 * 1024 * 1024; // 25 MB per file (upload langsung ke Supabase Storage)
+        const maxBytes = 50 * 1024 * 1024; // 50 MB per file (Google Drive / Direct Storage)
         const incoming = Array.from(fileList);
         const valid: File[] = [];
 
         for (const file of incoming) {
             if (file.size > maxBytes) {
-                toast.error(`File "${file.name}" melebihi batas maksimal 25 MB.`);
+                toast.error(`File "${file.name}" melebihi batas maksimal 50 MB.`);
                 continue;
             }
             valid.push(file);
@@ -207,58 +207,156 @@ export function ReportDialog({
 
         setIsSubmitting(true);
         try {
-            // Upload file baru LANGSUNG dari browser ke Supabase Storage
-            // (menghindari batas payload 4.5 MB Vercel Serverless Function & lebih cepat)
+            // Upload file baru LANGSUNG dari browser ke Google Drive (utama)
+            // dengan fallback otomatis ke Supabase Storage jika env Google Drive belum dikonfigurasi
             const uploadedNewAttachments: ReportAttachment[] = [];
             if (selectedFiles.length > 0) {
                 const supabase = createClient();
                 const nowIso = new Date().toISOString();
+                const yearFolder = (deadline || nowIso).slice(0, 4);
+                const categoryName =
+                    categories.find((c) => c.id === categoryId)?.name || "Tanpa Kategori";
 
-                const uploadResults = await Promise.all(
-                    selectedFiles.map(async (file) => {
-                        const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
-                        const safeFileName = `report_${Date.now()}_${Math.random()
-                            .toString(36)
-                            .substring(2, 8)}.${fileExt}`;
-                        const filePath = `attachments/${safeFileName}`;
+                const uploadSingleFile = async (
+                    file: File
+                ): Promise<{ attachment?: ReportAttachment; error?: string }> => {
+                    // 1. Coba buat sesi Resumable Upload ke Google Drive
+                    const sessionRes = await fetch("/api/reports/drive/upload-session", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            fileName: file.name,
+                            mimeType: file.type || "application/octet-stream",
+                            fileSize: file.size,
+                            year: yearFolder,
+                            categoryName,
+                        }),
+                    });
 
-                        const { error: uploadError } = await supabase.storage
-                            .from("reports")
-                            .upload(filePath, file, {
-                                upsert: true,
-                                contentType: file.type || undefined,
-                            });
+                    const sessionData = (await sessionRes.json()) as {
+                        configured?: boolean;
+                        uploadUrl?: string;
+                        error?: string;
+                    };
 
-                        if (uploadError) {
+                    if (!sessionRes.ok) {
+                        return {
+                            error:
+                                sessionData.error ||
+                                `Gagal menyiapkan upload Google Drive untuk "${file.name}".`,
+                        };
+                    }
+
+                    // 2A. Jika Google Drive aktif -> PUT file langsung ke Google Drive
+                    if (sessionData.configured && sessionData.uploadUrl) {
+                        const putRes = await fetch(sessionData.uploadUrl, {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type": file.type || "application/octet-stream",
+                            },
+                            body: file,
+                        });
+
+                        if (!putRes.ok) {
+                            const errText = await putRes.text();
                             return {
-                                error: `Gagal mengunggah "${file.name}": ${uploadError.message}`,
+                                error: `Gagal mengunggah "${file.name}" ke Google Drive: ${errText || putRes.statusText}`,
                             };
                         }
 
-                        const { data: publicUrlData } = supabase.storage
-                            .from("reports")
-                            .getPublicUrl(filePath);
+                        const driveFile = (await putRes.json()) as { id?: string };
+                        if (!driveFile.id) {
+                            return {
+                                error: `Google Drive tidak mengembalikan ID file untuk "${file.name}".`,
+                            };
+                        }
+
+                        const finalizeRes = await fetch("/api/reports/drive/finalize", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ fileId: driveFile.id }),
+                        });
+
+                        const finalizeData = (await finalizeRes.json()) as {
+                            downloadUrl?: string;
+                            previewUrl?: string;
+                            error?: string;
+                        };
+
+                        if (!finalizeRes.ok) {
+                            return {
+                                error:
+                                    finalizeData.error ||
+                                    `Gagal mengaktifkan akses file "${file.name}".`,
+                            };
+                        }
 
                         return {
                             attachment: {
-                                url: publicUrlData.publicUrl,
+                                url:
+                                    finalizeData.downloadUrl ||
+                                    `https://drive.google.com/uc?export=download&id=${driveFile.id}`,
+                                preview_url:
+                                    finalizeData.previewUrl ||
+                                    `https://drive.google.com/file/d/${driveFile.id}/preview`,
+                                drive_file_id: driveFile.id,
+                                provider: "gdrive",
                                 name: file.name,
                                 size: file.size,
                                 type: file.type || null,
                                 uploaded_at: nowIso,
-                            } as ReportAttachment,
+                            },
                         };
-                    })
+                    }
+
+                    // 2B. Fallback: upload langsung ke Supabase Storage bucket 'reports'
+                    const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
+                    const safeFileName = `report_${Date.now()}_${Math.random()
+                        .toString(36)
+                        .substring(2, 8)}.${fileExt}`;
+                    const filePath = `attachments/${safeFileName}`;
+
+                    const { error: uploadError } = await supabase.storage
+                        .from("reports")
+                        .upload(filePath, file, {
+                            upsert: true,
+                            contentType: file.type || undefined,
+                        });
+
+                    if (uploadError) {
+                        return {
+                            error: `Gagal mengunggah "${file.name}": ${uploadError.message}`,
+                        };
+                    }
+
+                    const { data: publicUrlData } = supabase.storage
+                        .from("reports")
+                        .getPublicUrl(filePath);
+
+                    return {
+                        attachment: {
+                            url: publicUrlData.publicUrl,
+                            provider: "supabase",
+                            name: file.name,
+                            size: file.size,
+                            type: file.type || null,
+                            uploaded_at: nowIso,
+                        },
+                    };
+                };
+
+                const uploadResults = await Promise.all(
+                    selectedFiles.map((file) => uploadSingleFile(file))
                 );
 
-                const firstErr = uploadResults.find((r) => "error" in r && r.error);
-                if (firstErr && "error" in firstErr) {
-                    toast.error(firstErr.error || "Gagal mengunggah file laporan.");
+                const firstErr = uploadResults.find((r) => r.error);
+                if (firstErr?.error) {
+                    toast.error(firstErr.error);
                     return;
                 }
 
                 for (const r of uploadResults) {
-                    if ("attachment" in r && r.attachment) {
+                    if (r.attachment) {
                         uploadedNewAttachments.push(r.attachment);
                     }
                 }
@@ -609,7 +707,7 @@ export function ReportDialog({
                     {/* File Upload Multi-File Drag & Drop */}
                     <div className="space-y-2">
                         <Label>
-                            Upload File Laporan (Bisa lebih dari 1 file, maks. 25 MB/file)
+                            Upload File Laporan (Bisa lebih dari 1 file, maks. 50 MB/file)
                         </Label>
                         <div
                             onDragOver={(e) => {

@@ -7,6 +7,7 @@ import {
     processReportDeadlineReminders,
     sendSingleReportReminder,
 } from "@/lib/reports/deadline-reminder";
+import { deleteDriveFile } from "@/lib/google-drive/client";
 import {
     getReportAttachments,
     type Report,
@@ -455,13 +456,18 @@ export async function saveReport(formData: FormData) {
         };
     }
 
-    // Hapus file fisik di storage jika ada lampiran lama yang dibuang saat edit
+    // Hapus file fisik di storage (Google Drive atau Supabase Storage) jika ada lampiran lama yang dibuang saat edit
     if (id && existingAttachments.length > 0) {
         const keptUrls = new Set(keptAttachments.map((a) => a.url));
         const removedAttachments = existingAttachments.filter((a) => !keptUrls.has(a.url));
         if (removedAttachments.length > 0) {
+            const driveDeletes = removedAttachments
+                .filter((a) => a.provider === "gdrive" && a.drive_file_id)
+                .map((a) => deleteDriveFile(a.drive_file_id!));
+
             const marker = "/storage/v1/object/public/reports/";
-            const pathsToRemove = removedAttachments
+            const supabasePaths = removedAttachments
+                .filter((a) => a.provider !== "gdrive")
                 .map((a) => {
                     const idx = a.url.indexOf(marker);
                     return idx !== -1
@@ -470,9 +476,12 @@ export async function saveReport(formData: FormData) {
                 })
                 .filter((p): p is string => !!p);
 
-            if (pathsToRemove.length > 0) {
-                await supabase.storage.from("reports").remove(pathsToRemove);
-            }
+            await Promise.all([
+                ...driveDeletes,
+                supabasePaths.length > 0
+                    ? supabase.storage.from("reports").remove(supabasePaths)
+                    : Promise.resolve(),
+            ]);
         }
     }
 
@@ -732,26 +741,33 @@ export async function deleteReport(id: string) {
         .eq("id", id)
         .single();
 
-    // Hapus semua file lampiran di storage jika ada
+    // Hapus semua file lampiran di storage (Google Drive & Supabase Storage) jika ada
     const allAttachments = getReportAttachments(existing as Report | null);
-    const urlsToRemove = new Set<string>(allAttachments.map((a) => a.url));
-    if (existing?.file_url) {
+    const driveDeletes = allAttachments
+        .filter((a) => a.provider === "gdrive" && a.drive_file_id)
+        .map((a) => deleteDriveFile(a.drive_file_id!));
+
+    const urlsToRemove = new Set<string>(
+        allAttachments.filter((a) => a.provider !== "gdrive").map((a) => a.url)
+    );
+    if (existing?.file_url && existing.file_url.includes("/storage/v1/object/public/reports/")) {
         urlsToRemove.add(existing.file_url);
     }
 
-    if (urlsToRemove.size > 0) {
-        const marker = "/storage/v1/object/public/reports/";
-        const storagePaths = Array.from(urlsToRemove)
-            .map((url) => {
-                const idx = url.indexOf(marker);
-                return idx !== -1 ? decodeURIComponent(url.substring(idx + marker.length)) : null;
-            })
-            .filter((p): p is string => !!p);
+    const marker = "/storage/v1/object/public/reports/";
+    const storagePaths = Array.from(urlsToRemove)
+        .map((url) => {
+            const idx = url.indexOf(marker);
+            return idx !== -1 ? decodeURIComponent(url.substring(idx + marker.length)) : null;
+        })
+        .filter((p): p is string => !!p);
 
-        if (storagePaths.length > 0) {
-            await supabase.storage.from("reports").remove(storagePaths);
-        }
-    }
+    await Promise.all([
+        ...driveDeletes,
+        storagePaths.length > 0
+            ? supabase.storage.from("reports").remove(storagePaths)
+            : Promise.resolve(),
+    ]);
 
     const { error } = await supabase.from("reports").delete().eq("id", id);
 
