@@ -104,6 +104,38 @@ function buildOccurrenceForQuarterly(
     return { periodKey, periodLabel, title, periodStart, periodEnd, deadline, generateOnDate };
 }
 
+function buildOccurrenceForSemiannual(
+    schedule: Pick<
+        ReportSchedule,
+        "title_template" | "deadline_rule" | "deadline_day" | "generate_days_before"
+    >,
+    year: number,
+    semester: 1 | 2
+): ScheduleOccurrence {
+    const startMonth = semester === 1 ? 1 : 7;
+    const endMonth = semester === 1 ? 6 : 12;
+    const periodKey = `${year}-S${semester}`;
+    const periodLabel = `Semester ${semester} ${year}`;
+    const periodStart = formatYmd(year, startMonth, 1);
+    const periodEnd = formatYmd(year, endMonth, daysInMonth(year, endMonth));
+
+    let deadline: string;
+    if (schedule.deadline_rule === "next_month_day") {
+        const nextMonth = endMonth === 12 ? 1 : endMonth + 1;
+        const nextYear = endMonth === 12 ? year + 1 : year;
+        deadline = formatYmd(nextYear, nextMonth, schedule.deadline_day);
+    } else if (schedule.deadline_rule === "fixed_day") {
+        deadline = formatYmd(year, endMonth, schedule.deadline_day);
+    } else {
+        deadline = periodEnd;
+    }
+
+    const generateOnDate = addDaysYmd(deadline, -Math.max(0, schedule.generate_days_before));
+    const title = `${schedule.title_template} — ${periodLabel}`;
+
+    return { periodKey, periodLabel, title, periodStart, periodEnd, deadline, generateOnDate };
+}
+
 function buildOccurrenceForYearly(
     schedule: Pick<
         ReportSchedule,
@@ -178,6 +210,20 @@ export function getCandidateOccurrences(
         ];
     }
 
+    if (schedule.frequency === "semiannual") {
+        const currentSemester = (month <= 6 ? 1 : 2) as 1 | 2;
+        const prevSemester = (currentSemester === 1 ? 2 : 1) as 1 | 2;
+        const prevYear = currentSemester === 1 ? year - 1 : year;
+        const nextSemester = (currentSemester === 2 ? 1 : 2) as 1 | 2;
+        const nextYear = currentSemester === 2 ? year + 1 : year;
+
+        return [
+            buildOccurrenceForSemiannual(schedule, prevYear, prevSemester),
+            buildOccurrenceForSemiannual(schedule, year, currentSemester),
+            buildOccurrenceForSemiannual(schedule, nextYear, nextSemester),
+        ];
+    }
+
     return [
         buildOccurrenceForYearly(schedule, year - 1),
         buildOccurrenceForYearly(schedule, year),
@@ -225,6 +271,16 @@ export function describeDeadlineRule(params: {
             return `Tgl ${deadline_day} bulan akhir triwulan`;
         }
         return "Akhir triwulan (31 Mar, 30 Jun, 30 Sep, 31 Des)";
+    }
+
+    if (frequency === "semiannual") {
+        if (deadline_rule === "next_month_day") {
+            return `Tgl ${deadline_day} bulan setelah semester (Jul & Jan)`;
+        }
+        if (deadline_rule === "fixed_day") {
+            return `Tgl ${deadline_day} bulan akhir semester (Jun & Des)`;
+        }
+        return "Akhir semester (30 Jun & 31 Des)";
     }
 
     if (deadline_rule === "end_of_period") return "Setiap 31 Desember";

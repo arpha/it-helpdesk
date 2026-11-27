@@ -191,8 +191,8 @@ export function SchedulesClient() {
                         Jadwal Laporan Rutin
                     </h1>
                     <p className="text-muted-foreground mt-1 text-sm">
-                        Daftarkan laporan Bulanan, Triwulanan, atau Tahunan sekali saja — sistem
-                        akan membuat laporan baru secara otomatis di tiap periode.
+                        Daftarkan laporan Bulanan, Triwulanan, Semesteran, atau Tahunan sekali saja
+                        — sistem akan membuat laporan baru secara otomatis di tiap periode.
                     </p>
                 </div>
 
@@ -267,7 +267,8 @@ export function SchedulesClient() {
                                         </p>
                                         <p className="text-xs mt-1">
                                             Klik &ldquo;Buat Jadwal Rutin&rdquo; untuk mendaftarkan
-                                            laporan Bulanan, Triwulanan, atau Tahunan otomatis.
+                                            laporan Bulanan, Triwulanan, Semesteran, atau Tahunan
+                                            otomatis.
                                         </p>
                                     </TableCell>
                                 </TableRow>

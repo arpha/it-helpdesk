@@ -3,11 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { generateScheduledReports } from "@/lib/reports/schedule-generator";
-import type {
-    ReportDeadlineRule,
-    ReportPriority,
-    ReportSchedule,
-    ReportScheduleFrequency,
+import {
+    DEFAULT_GENERATE_DAYS_BEFORE,
+    type ReportDeadlineRule,
+    type ReportPriority,
+    type ReportSchedule,
+    type ReportScheduleFrequency,
 } from "@/types/report";
 
 const SCHEDULE_SELECT = `
@@ -87,8 +88,13 @@ export async function saveReportSchedule(input: SaveReportScheduleInput) {
             ? Math.min(12, Math.max(1, Number(input.deadline_month) || 12))
             : null;
     const generate_days_before = Math.min(
-        90,
-        Math.max(0, Number(input.generate_days_before) || 14)
+        365,
+        Math.max(
+            0,
+            Number.isFinite(Number(input.generate_days_before))
+                ? Number(input.generate_days_before)
+                : DEFAULT_GENERATE_DAYS_BEFORE[input.frequency]
+        )
     );
 
     const nowIso = new Date().toISOString();

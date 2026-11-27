@@ -15,10 +15,11 @@ export type ReportPeriodType =
     | "weekly"
     | "monthly"
     | "quarterly"
+    | "semiannual"
     | "yearly"
     | "incidental";
 
-export type ReportScheduleFrequency = "monthly" | "quarterly" | "yearly";
+export type ReportScheduleFrequency = "monthly" | "quarterly" | "semiannual" | "yearly";
 
 export type ReportDeadlineRule = "fixed_day" | "end_of_period" | "next_month_day";
 
@@ -251,6 +252,7 @@ export const REPORT_PERIOD_LABELS: Record<ReportPeriodType, string> = {
     weekly: "Mingguan",
     monthly: "Bulanan",
     quarterly: "Triwulanan",
+    semiannual: "Semesteran",
     yearly: "Tahunan",
     incidental: "Insidental",
 };
@@ -258,13 +260,15 @@ export const REPORT_PERIOD_LABELS: Record<ReportPeriodType, string> = {
 export const SCHEDULE_FREQUENCY_LABELS: Record<ReportScheduleFrequency, string> = {
     monthly: "Bulanan",
     quarterly: "Triwulanan",
+    semiannual: "Semesteran",
     yearly: "Tahunan",
 };
 
 export const DEFAULT_GENERATE_DAYS_BEFORE: Record<ReportScheduleFrequency, number> = {
-    monthly: 14,
-    quarterly: 21,
-    yearly: 30,
+    monthly: 28,
+    quarterly: 84,
+    semiannual: 168,
+    yearly: 336,
 };
 
 export const INDONESIAN_MONTHS = [

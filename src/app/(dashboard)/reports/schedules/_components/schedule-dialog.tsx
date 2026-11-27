@@ -92,7 +92,9 @@ export function ScheduleDialog({
     const [deadlineRule, setDeadlineRule] = useState<ReportDeadlineRule>("fixed_day");
     const [deadlineDay, setDeadlineDay] = useState<number>(25);
     const [deadlineMonth, setDeadlineMonth] = useState<number>(12);
-    const [generateDaysBefore, setGenerateDaysBefore] = useState<number>(14);
+    const [generateDaysBefore, setGenerateDaysBefore] = useState<number>(
+        DEFAULT_GENERATE_DAYS_BEFORE.monthly
+    );
     const [isActive, setIsActive] = useState<boolean>(true);
     const [description, setDescription] = useState("");
     const [picOpen, setPicOpen] = useState(false);
@@ -137,7 +139,7 @@ export function ScheduleDialog({
     const handleFrequencyChange = (nextFreq: ReportScheduleFrequency) => {
         setFrequency(nextFreq);
         setGenerateDaysBefore(DEFAULT_GENERATE_DAYS_BEFORE[nextFreq]);
-        if (nextFreq === "quarterly") {
+        if (nextFreq === "quarterly" || nextFreq === "semiannual") {
             setDeadlineRule("end_of_period");
             setDeadlineDay(10);
         } else if (nextFreq === "yearly") {
@@ -224,14 +226,29 @@ export function ScheduleDialog({
                         label: "Tgl tetap di bulan akhir triwulan (Mar, Jun, Sep, Des)",
                     },
                 ]
-              : [
-                    { value: "fixed_day", label: "Bulan & tanggal tetap di tahun berjalan" },
-                    { value: "end_of_period", label: "Setiap 31 Desember" },
-                    {
-                        value: "next_month_day",
-                        label: "Bulan & tanggal tetap di tahun berikutnya (mis. 15 Jan)",
-                    },
-                ];
+              : frequency === "semiannual"
+                ? [
+                      {
+                          value: "end_of_period",
+                          label: "Akhir semester (30 Jun & 31 Des)",
+                      },
+                      {
+                          value: "next_month_day",
+                          label: "Tgl tetap di bulan setelah semester (Jul & Jan)",
+                      },
+                      {
+                          value: "fixed_day",
+                          label: "Tgl tetap di bulan akhir semester (Jun & Des)",
+                      },
+                  ]
+                : [
+                      { value: "fixed_day", label: "Bulan & tanggal tetap di tahun berjalan" },
+                      { value: "end_of_period", label: "Setiap 31 Desember" },
+                      {
+                          value: "next_month_day",
+                          label: "Bulan & tanggal tetap di tahun berikutnya (mis. 15 Jan)",
+                      },
+                  ];
 
     const showDayInput = deadlineRule !== "end_of_period";
     const showMonthInput = frequency === "yearly" && deadlineRule !== "end_of_period";
@@ -245,8 +262,8 @@ export function ScheduleDialog({
                         {isEditing ? "Edit Jadwal Laporan Rutin" : "Buat Jadwal Laporan Rutin"}
                     </DialogTitle>
                     <DialogDescription>
-                        Laporan akan dibuat otomatis di tiap periode (Bulanan, Triwulanan, atau
-                        Tahunan) beserta pengingat WA H-7, H-3, dan Overdue.
+                        Laporan akan dibuat otomatis di tiap periode (Bulanan, Triwulanan,
+                        Semesteran, atau Tahunan) beserta pengingat WA H-7, H-3, dan Overdue.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -515,11 +532,11 @@ export function ScheduleDialog({
                                     id="sched-before"
                                     type="number"
                                     min={0}
-                                    max={90}
+                                    max={365}
                                     value={generateDaysBefore}
                                     onChange={(e) =>
                                         setGenerateDaysBefore(
-                                            Math.min(90, Math.max(0, Number(e.target.value) || 0))
+                                            Math.min(365, Math.max(0, Number(e.target.value) || 0))
                                         )
                                     }
                                 />
