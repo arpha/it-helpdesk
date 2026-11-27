@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processReportDeadlineReminders } from "@/lib/reports/deadline-reminder";
+import { generateScheduledReports } from "@/lib/reports/schedule-generator";
 
 export const dynamic = "force-dynamic";
 
@@ -12,24 +13,38 @@ function isAuthorized(request: NextRequest): boolean {
     return authHeader === `Bearer ${cronSecret}`;
 }
 
-export async function GET(request: NextRequest) {
+async function runDailyJobs(request: NextRequest) {
     if (!isAuthorized(request)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const dryRun = request.nextUrl.searchParams.get("dryRun") === "true";
-    const result = await processReportDeadlineReminders({ dryRun });
 
-    return NextResponse.json(result, { status: result.success ? 200 : 500 });
+    // 1. Auto-generate laporan rutin (Bulanan, Triwulanan, Tahunan) yang masuk jendela H-N
+    const scheduleGeneration = dryRun
+        ? null
+        : await generateScheduledReports();
+
+    // 2. Kirim notifikasi WA pengingat deadline (H-7, H-3, dan 1x Overdue)
+    const reminders = await processReportDeadlineReminders({ dryRun });
+
+    const overallSuccess =
+        reminders.success && (scheduleGeneration ? scheduleGeneration.success : true);
+
+    return NextResponse.json(
+        {
+            success: overallSuccess,
+            scheduleGeneration,
+            reminders,
+        },
+        { status: overallSuccess ? 200 : 500 }
+    );
+}
+
+export async function GET(request: NextRequest) {
+    return runDailyJobs(request);
 }
 
 export async function POST(request: NextRequest) {
-    if (!isAuthorized(request)) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const dryRun = request.nextUrl.searchParams.get("dryRun") === "true";
-    const result = await processReportDeadlineReminders({ dryRun });
-
-    return NextResponse.json(result, { status: result.success ? 200 : 500 });
+    return runDailyJobs(request);
 }

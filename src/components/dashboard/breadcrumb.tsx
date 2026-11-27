@@ -23,6 +23,7 @@ const routeLabels: Record<string, string> = {
     sop: "Dokumen SOP",
     "knowledge-base": "Knowledge Base",
     reports: "Inventaris Laporan",
+    schedules: "Jadwal Rutin",
     calendar: "Kalender Deadline",
 };
 

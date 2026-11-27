@@ -47,6 +47,7 @@ import {
     Paperclip,
     Plus,
     RefreshCw,
+    Repeat,
     RotateCcw,
     Search,
     Tag,
@@ -252,6 +253,13 @@ export function ReportsClient() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href="/reports/schedules">
+                            <Repeat className="h-4 w-4 mr-1.5" />
+                            Jadwal Rutin
+                        </Link>
+                    </Button>
+
                     <Button variant="outline" size="sm" asChild>
                         <Link href="/reports/calendar">
                             <CalendarClock className="h-4 w-4 mr-1.5" />

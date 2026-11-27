@@ -28,6 +28,7 @@ import {
     ShieldCheck,
     FileStack,
     CalendarClock,
+    Repeat,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -123,6 +124,11 @@ const menuGroups: MenuGroup[] = [
                 title: "Semua Laporan",
                 href: "/reports",
                 icon: FileText,
+            },
+            {
+                title: "Jadwal Rutin",
+                href: "/reports/schedules",
+                icon: Repeat,
             },
             {
                 title: "Kalender Deadline",

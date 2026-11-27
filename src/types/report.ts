@@ -18,6 +18,37 @@ export type ReportPeriodType =
     | "yearly"
     | "incidental";
 
+export type ReportScheduleFrequency = "monthly" | "quarterly" | "yearly";
+
+export type ReportDeadlineRule = "fixed_day" | "end_of_period" | "next_month_day";
+
+export interface ReportSchedule {
+    id: string;
+    title_template: string;
+    report_number_prefix?: string | null;
+    category_id?: string | null;
+    description?: string | null;
+    priority: ReportPriority;
+    assigned_to?: string | null;
+    frequency: ReportScheduleFrequency;
+    deadline_rule: ReportDeadlineRule;
+    deadline_day: number;
+    deadline_month?: number | null;
+    generate_days_before: number;
+    is_active: boolean;
+    last_generated_period?: string | null;
+    last_generated_at?: string | null;
+    created_by?: string | null;
+    updated_by?: string | null;
+    created_at: string;
+    updated_at: string;
+
+    // Joined relations
+    category?: ReportCategory | null;
+    assigned_profile?: ReportProfile | null;
+    created_profile?: ReportProfile | null;
+}
+
 export type ReportLogAction =
     | "created"
     | "updated"
@@ -210,6 +241,33 @@ export const REPORT_PERIOD_LABELS: Record<ReportPeriodType, string> = {
     yearly: "Tahunan",
     incidental: "Insidental",
 };
+
+export const SCHEDULE_FREQUENCY_LABELS: Record<ReportScheduleFrequency, string> = {
+    monthly: "Bulanan",
+    quarterly: "Triwulanan",
+    yearly: "Tahunan",
+};
+
+export const DEFAULT_GENERATE_DAYS_BEFORE: Record<ReportScheduleFrequency, number> = {
+    monthly: 14,
+    quarterly: 21,
+    yearly: 30,
+};
+
+export const INDONESIAN_MONTHS = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+] as const;
 
 export const CATEGORY_COLOR_CLASSES: Record<string, string> = {
     blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",

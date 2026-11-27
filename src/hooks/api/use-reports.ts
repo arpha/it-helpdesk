@@ -8,6 +8,7 @@ import {
     getReportCategories,
     getReportsByDeadline,
 } from "@/app/(dashboard)/reports/actions";
+import { getReportSchedules } from "@/app/(dashboard)/reports/schedules/actions";
 import type { ReportFilterParams } from "@/types/report";
 
 export const reportKeys = {
@@ -17,6 +18,7 @@ export const reportKeys = {
     stats: () => ["reports", "stats"] as const,
     categories: () => ["reports", "categories"] as const,
     calendar: (year: number, month: number) => ["reports", "calendar", year, month] as const,
+    schedules: () => ["reports", "schedules"] as const,
 };
 
 export function useReports(params?: ReportFilterParams) {
@@ -100,6 +102,20 @@ export function useReportsByDeadline(year: number, month: number) {
             const res = await getReportsByDeadline(year, month);
             if (!res.success) {
                 throw new Error(res.error || "Gagal memuat kalender deadline");
+            }
+            return res.data || [];
+        },
+        staleTime: 1000 * 30,
+    });
+}
+
+export function useReportSchedules() {
+    return useQuery({
+        queryKey: reportKeys.schedules(),
+        queryFn: async () => {
+            const res = await getReportSchedules();
+            if (!res.success) {
+                throw new Error(res.error || "Gagal memuat jadwal laporan rutin");
             }
             return res.data || [];
         },
