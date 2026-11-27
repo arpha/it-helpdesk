@@ -366,25 +366,42 @@ export async function saveReport(formData: FormData) {
         }
     }
 
-    // Kumpulkan semua file baru (mendukung multi-file "files" dan legacy single "file")
+    // Kumpulkan lampiran baru yang sudah diunggah langsung dari client ke Supabase Storage
+    let preUploadedAttachments: ReportAttachment[] = [];
+    const uploadedAttachmentsRaw = formData.get("uploaded_attachments") as string | null;
+    if (uploadedAttachmentsRaw) {
+        try {
+            const parsed = JSON.parse(uploadedAttachmentsRaw);
+            if (Array.isArray(parsed)) {
+                preUploadedAttachments = parsed.filter(
+                    (a): a is ReportAttachment =>
+                        !!a && typeof a.url === "string" && typeof a.name === "string"
+                );
+            }
+        } catch {
+            preUploadedAttachments = [];
+        }
+    }
+
+    // Kumpulkan file baru bila dikirim via FormData (fallback)
     const rawFiles = [
         ...formData.getAll("files"),
         ...formData.getAll("file"),
     ].filter((f): f is File => f instanceof File && f.size > 0);
 
-    const maxBytes = 10 * 1024 * 1024; // 10 MB per file
+    const maxBytes = 25 * 1024 * 1024; // 25 MB per file
     for (const f of rawFiles) {
         if (f.size > maxBytes) {
             return {
                 success: false,
-                error: `Ukuran file "${f.name}" terlalu besar. Batas maksimal 10 MB per file.`,
+                error: `Ukuran file "${f.name}" terlalu besar. Batas maksimal 25 MB per file.`,
             };
         }
     }
 
     const nowIso = new Date().toISOString();
 
-    // Upload semua file baru secara paralel agar jauh lebih cepat untuk multi-file
+    // Upload file fallback (jika ada) secara paralel
     const uploadResults = await Promise.all(
         rawFiles.map(async (file) => {
             const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
@@ -421,9 +438,12 @@ export async function saveReport(formData: FormData) {
         return { success: false, error: firstUploadError.error };
     }
 
-    const newlyUploaded: ReportAttachment[] = uploadResults
-        .map((r) => ("attachment" in r ? r.attachment : null))
-        .filter((a): a is ReportAttachment => !!a);
+    const newlyUploaded: ReportAttachment[] = [
+        ...preUploadedAttachments,
+        ...uploadResults
+            .map((r) => ("attachment" in r ? r.attachment : null))
+            .filter((a): a is ReportAttachment => !!a),
+    ];
 
     const finalAttachments: ReportAttachment[] = [...keptAttachments, ...newlyUploaded];
     const primaryAttachment = finalAttachments[0] || null;

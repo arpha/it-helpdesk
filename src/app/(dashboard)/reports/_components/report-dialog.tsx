@@ -30,6 +30,7 @@ import {
     CommandList,
 } from "@/components/ui/command";
 import { saveReport } from "../actions";
+import { createClient } from "@/lib/supabase/client";
 import { useAllUsers } from "@/hooks/api/use-all-users";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
@@ -149,13 +150,13 @@ export function ReportDialog({
 
     const handleFilesValidation = (fileList: FileList | File[] | null | undefined) => {
         if (!fileList || fileList.length === 0) return;
-        const maxBytes = 10 * 1024 * 1024; // 10 MB per file
+        const maxBytes = 25 * 1024 * 1024; // 25 MB per file (upload langsung ke Supabase Storage)
         const incoming = Array.from(fileList);
         const valid: File[] = [];
 
         for (const file of incoming) {
             if (file.size > maxBytes) {
-                toast.error(`File "${file.name}" melebihi batas maksimal 10 MB.`);
+                toast.error(`File "${file.name}" melebihi batas maksimal 25 MB.`);
                 continue;
             }
             valid.push(file);
@@ -206,10 +207,73 @@ export function ReportDialog({
 
         setIsSubmitting(true);
         try {
+            // Upload file baru LANGSUNG dari browser ke Supabase Storage
+            // (menghindari batas payload 4.5 MB Vercel Serverless Function & lebih cepat)
+            const uploadedNewAttachments: ReportAttachment[] = [];
+            if (selectedFiles.length > 0) {
+                const supabase = createClient();
+                const nowIso = new Date().toISOString();
+
+                const uploadResults = await Promise.all(
+                    selectedFiles.map(async (file) => {
+                        const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
+                        const safeFileName = `report_${Date.now()}_${Math.random()
+                            .toString(36)
+                            .substring(2, 8)}.${fileExt}`;
+                        const filePath = `attachments/${safeFileName}`;
+
+                        const { error: uploadError } = await supabase.storage
+                            .from("reports")
+                            .upload(filePath, file, {
+                                upsert: true,
+                                contentType: file.type || undefined,
+                            });
+
+                        if (uploadError) {
+                            return {
+                                error: `Gagal mengunggah "${file.name}": ${uploadError.message}`,
+                            };
+                        }
+
+                        const { data: publicUrlData } = supabase.storage
+                            .from("reports")
+                            .getPublicUrl(filePath);
+
+                        return {
+                            attachment: {
+                                url: publicUrlData.publicUrl,
+                                name: file.name,
+                                size: file.size,
+                                type: file.type || null,
+                                uploaded_at: nowIso,
+                            } as ReportAttachment,
+                        };
+                    })
+                );
+
+                const firstErr = uploadResults.find((r) => "error" in r && r.error);
+                if (firstErr && "error" in firstErr) {
+                    toast.error(firstErr.error || "Gagal mengunggah file laporan.");
+                    return;
+                }
+
+                for (const r of uploadResults) {
+                    if ("attachment" in r && r.attachment) {
+                        uploadedNewAttachments.push(r.attachment);
+                    }
+                }
+            }
+
             const formData = new FormData();
             if (reportToEdit) {
                 formData.append("id", reportToEdit.id);
                 formData.append("kept_attachments", JSON.stringify(existingAttachments));
+            }
+            if (uploadedNewAttachments.length > 0) {
+                formData.append(
+                    "uploaded_attachments",
+                    JSON.stringify(uploadedNewAttachments)
+                );
             }
             formData.append("title", title.trim());
             formData.append("report_number", reportNumber.trim());
@@ -224,9 +288,6 @@ export function ReportDialog({
             formData.append("description", description.trim());
             if (editReason.trim()) {
                 formData.append("edit_reason", editReason.trim());
-            }
-            for (const file of selectedFiles) {
-                formData.append("files", file);
             }
 
             const res = await saveReport(formData);
@@ -548,7 +609,7 @@ export function ReportDialog({
                     {/* File Upload Multi-File Drag & Drop */}
                     <div className="space-y-2">
                         <Label>
-                            Upload File Laporan (Bisa lebih dari 1 file, maks. 10 MB/file)
+                            Upload File Laporan (Bisa lebih dari 1 file, maks. 25 MB/file)
                         </Label>
                         <div
                             onDragOver={(e) => {
