@@ -59,26 +59,29 @@ import {
     useReports,
     useReportStats,
 } from "@/hooks/api/use-reports";
-import { deleteReport, triggerReportDeadlineReminders } from "../actions";
+import {
+    deleteReport,
+    markReportCompleted,
+    triggerReportDeadlineReminders,
+} from "../actions";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
 import { ReportStatsCards } from "./report-stats-cards";
 import { ReportDialog } from "./report-dialog";
 import { ReportDetailDialog } from "./report-detail-dialog";
-import { ReportReviewDialog } from "./report-review-dialog";
 import { CategoryManagerDialog } from "./category-manager-dialog";
 import {
     CATEGORY_COLOR_CLASSES,
     REPORT_PERIOD_LABELS,
     REPORT_PRIORITY_CONFIG,
     REPORT_STATUS_CONFIG,
+    SIMPLE_REPORT_STATUSES,
     getDeadlineInfo,
     getEffectiveStatus,
     getReportAttachments,
     type Report,
     type ReportPeriodType,
     type ReportPriority,
-    type ReportStatus,
 } from "@/types/report";
 
 function formatShortDate(dateStr: string) {
@@ -110,8 +113,7 @@ export function ReportsClient() {
     const [reportToEdit, setReportToEdit] = useState<Report | null>(null);
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-    const [reviewOpen, setReviewOpen] = useState(false);
-    const [reportToReview, setReportToReview] = useState<Report | null>(null);
+    const [completingId, setCompletingId] = useState<string | null>(null);
     const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
     const [isSendingReminders, setIsSendingReminders] = useState(false);
 
@@ -178,9 +180,19 @@ export function ReportsClient() {
         setDetailOpen(true);
     };
 
-    const handleReview = (report: Report) => {
-        setReportToReview(report);
-        setReviewOpen(true);
+    const handleMarkCompleted = async (report: Report) => {
+        setCompletingId(report.id);
+        try {
+            const res = await markReportCompleted(report.id);
+            if (res.success) {
+                toast.success(`"${report.title}" ditandai selesai.`);
+                invalidateReports();
+            } else {
+                toast.error(res.error || "Gagal menandai laporan selesai.");
+            }
+        } finally {
+            setCompletingId(null);
+        }
     };
 
     const handleDelete = async (id: string) => {
@@ -354,13 +366,11 @@ export function ReportsClient() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Status</SelectItem>
-                                {(Object.keys(REPORT_STATUS_CONFIG) as ReportStatus[]).map(
-                                    (st) => (
-                                        <SelectItem key={st} value={st}>
-                                            {REPORT_STATUS_CONFIG[st].label}
-                                        </SelectItem>
-                                    )
-                                )}
+                                {SIMPLE_REPORT_STATUSES.map((st) => (
+                                    <SelectItem key={st} value={st}>
+                                        {REPORT_STATUS_CONFIG[st].label}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
 
@@ -649,19 +659,27 @@ export function ReportsClient() {
                                                         <Edit3 className="h-4 w-4" />
                                                     </Button>
 
-                                                    {isAdminOrManager && (
-                                                        <>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
-                                                                title="Review / Approve"
-                                                                onClick={() => handleReview(report)}
-                                                            >
+                                                    {effectiveStatus !== "approved" && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                                                            title="Tandai Selesai"
+                                                            disabled={completingId === report.id}
+                                                            onClick={() =>
+                                                                handleMarkCompleted(report)
+                                                            }
+                                                        >
+                                                            {completingId === report.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
                                                                 <CheckCircle2 className="h-4 w-4" />
-                                                            </Button>
+                                                            )}
+                                                        </Button>
+                                                    )}
 
-                                                            <AlertDialog>
+                                                    {isAdminOrManager && (
+                                                        <AlertDialog>
                                                                 <AlertDialogTrigger asChild>
                                                                     <Button
                                                                         variant="ghost"
@@ -704,7 +722,6 @@ export function ReportsClient() {
                                                                     </AlertDialogFooter>
                                                                 </AlertDialogContent>
                                                             </AlertDialog>
-                                                        </>
                                                     )}
                                                 </div>
                                             </TableCell>
@@ -770,28 +787,18 @@ export function ReportsClient() {
                 open={detailOpen}
                 onOpenChange={setDetailOpen}
                 reportId={selectedReportId}
-                canReview={isAdminOrManager}
+                canSendWa={isAdminOrManager}
                 onEdit={handleEdit}
-                onReview={handleReview}
                 onUpdated={invalidateReports}
             />
 
             {isAdminOrManager && (
-                <>
-                    <ReportReviewDialog
-                        open={reviewOpen}
-                        onOpenChange={setReviewOpen}
-                        report={reportToReview}
-                        onSuccess={invalidateReports}
-                    />
-
-                    <CategoryManagerDialog
-                        open={categoryDialogOpen}
-                        onOpenChange={setCategoryDialogOpen}
-                        categories={categories}
-                        onSuccess={invalidateReports}
-                    />
-                </>
+                <CategoryManagerDialog
+                    open={categoryDialogOpen}
+                    onOpenChange={setCategoryDialogOpen}
+                    categories={categories}
+                    onSuccess={invalidateReports}
+                />
             )}
         </div>
     );

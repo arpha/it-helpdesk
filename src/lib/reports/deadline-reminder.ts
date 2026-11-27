@@ -97,22 +97,22 @@ function buildReminderMessage(params: {
 
     if (reminderType === "h_minus_7") {
         header = "⏰ *PENGINGAT DEADLINE LAPORAN (H-7)*";
-        urgencyLine = "Batas waktu penyerahan tinggal *7 hari lagi*.";
+        urgencyLine = "Batas waktu pengumpulan laporan tinggal *7 hari lagi*.";
     } else if (reminderType === "h_minus_3") {
         header = "⚠️ *PENGINGAT MENDESAK LAPORAN (H-3)*";
-        urgencyLine = "Batas waktu penyerahan tinggal *3 hari lagi*. Mohon segera disiapkan dan disubmit.";
+        urgencyLine = "Batas waktu pengumpulan laporan tinggal *3 hari lagi*. Mohon segera diunggah dan ditandai selesai.";
     } else if (reminderType === "overdue") {
         const overdueDays = Math.abs(daysLeft);
         header = "🚨 *LAPORAN MELEWATI DEADLINE*";
-        urgencyLine = `Laporan ini sudah *terlambat ${overdueDays} hari* dari batas waktu. Mohon segera diselesaikan.`;
+        urgencyLine = `Laporan ini sudah *terlambat ${overdueDays} hari* dari batas waktu. Mohon segera diunggah dan ditandai selesai.`;
     } else {
         header = "📢 *PENGINGAT DEADLINE LAPORAN*";
         if (daysLeft < 0) {
             urgencyLine = `Laporan ini sudah *terlambat ${Math.abs(daysLeft)} hari* dari batas waktu.`;
         } else if (daysLeft === 0) {
-            urgencyLine = "Batas waktu penyerahan laporan adalah *HARI INI*.";
+            urgencyLine = "Batas waktu pengumpulan laporan adalah *HARI INI*.";
         } else {
-            urgencyLine = `Batas waktu penyerahan tinggal *${daysLeft} hari lagi*.`;
+            urgencyLine = `Batas waktu pengumpulan laporan tinggal *${daysLeft} hari lagi*.`;
         }
     }
 

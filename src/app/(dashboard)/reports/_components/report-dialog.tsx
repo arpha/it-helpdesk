@@ -44,6 +44,7 @@ import {
     X,
 } from "lucide-react";
 import {
+    FORM_REPORT_STATUSES,
     REPORT_PERIOD_LABELS,
     REPORT_PRIORITY_CONFIG,
     formatFileSize,
@@ -238,22 +239,8 @@ export function ReportDialog({
         }
     };
 
-    // Opsi status yang bisa dipilih user biasa vs admin/manager
-    const selectableStatuses: { value: ReportStatus; label: string }[] = isAdminOrManager
-        ? [
-              { value: "pending", label: "Pending" },
-              { value: "draft", label: "Draft (Sedang Dikerjakan)" },
-              { value: "submitted", label: "Submitted (Siap Review)" },
-              { value: "review", label: "Direview" },
-              { value: "revision", label: "Perlu Revisi" },
-              { value: "approved", label: "Disetujui" },
-              { value: "rejected", label: "Ditolak" },
-          ]
-        : [
-              { value: "pending", label: "Pending" },
-              { value: "draft", label: "Draft (Sedang Dikerjakan)" },
-              { value: "submitted", label: "Submitted (Siap Review)" },
-          ];
+    // Opsi status sederhana untuk semua role (Inventaris Laporan)
+    const selectableStatuses = FORM_REPORT_STATUSES;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>

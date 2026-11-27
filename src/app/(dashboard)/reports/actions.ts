@@ -463,8 +463,9 @@ export async function saveReport(formData: FormData) {
         updated_at: nowIso,
     };
 
-    if (status === "submitted" && (!existingReport || existingReport.status !== "submitted")) {
-        payload.submitted_at = nowIso;
+    if (status === "approved" && (!existingReport || existingReport.status !== "approved")) {
+        payload.approved_at = nowIso;
+        payload.approved_by = user.id;
     }
 
     if (id && existingReport) {
@@ -614,9 +615,9 @@ export async function saveReport(formData: FormData) {
 }
 
 /**
- * Submit laporan (ubah status menjadi 'submitted')
+ * Tandai laporan sebagai selesai / terarsip (dapat dilakukan oleh semua role & dicatat ke audit log)
  */
-export async function submitReport(id: string, notes?: string) {
+export async function markReportCompleted(id: string, notes?: string) {
     const { supabase, user } = await getCurrentUserWithRole();
     if (!user) return { success: false, error: "Unauthorized" };
 
@@ -634,8 +635,9 @@ export async function submitReport(id: string, notes?: string) {
     const { data, error } = await supabase
         .from("reports")
         .update({
-            status: "submitted",
-            submitted_at: nowIso,
+            status: "approved",
+            approved_by: user.id,
+            approved_at: nowIso,
             updated_at: nowIso,
         })
         .eq("id", id)
@@ -643,103 +645,17 @@ export async function submitReport(id: string, notes?: string) {
         .single();
 
     if (error) {
-        console.error("Error submitting report:", error);
+        console.error("Error completing report:", error);
         return { success: false, error: error.message };
     }
 
     await logReportChange({
         reportId: id,
-        action: "submitted",
+        action: "approved",
         performedBy: user.id,
-        notes: notes?.trim() || "Laporan disubmit untuk direview.",
+        notes: notes?.trim() || "Laporan ditandai selesai & terarsip.",
         changes: {
-            status: { old: existing.status, new: "submitted" },
-        },
-    });
-
-    revalidatePath("/reports");
-    revalidatePath("/reports/calendar");
-    return { success: true, data: data as Report };
-}
-
-/**
- * Review / Approve / Request Revision / Reject laporan (hanya admin & manager_it)
- */
-export async function reviewReport(params: {
-    id: string;
-    action: "review" | "approved" | "revision" | "rejected";
-    notes?: string;
-}) {
-    const { supabase, user, role } = await getCurrentUserWithRole();
-    if (!user) return { success: false, error: "Unauthorized" };
-    if (!["admin", "manager_it"].includes(role || "")) {
-        return {
-            success: false,
-            error: "Hanya Admin atau Manager IT yang dapat mereview atau menyetujui laporan.",
-        };
-    }
-
-    const { data: existing, error: fetchError } = await supabase
-        .from("reports")
-        .select("id, status, reviewer_notes, revision_notes")
-        .eq("id", params.id)
-        .single();
-
-    if (fetchError || !existing) {
-        return { success: false, error: "Laporan tidak ditemukan." };
-    }
-
-    const nowIso = new Date().toISOString();
-    const notesText = params.notes?.trim() || null;
-
-    const updatePayload: Record<string, unknown> = {
-        status: params.action,
-        updated_at: nowIso,
-    };
-
-    let logAction: ReportLogAction = "reviewed";
-
-    if (params.action === "review") {
-        updatePayload.reviewed_by = user.id;
-        updatePayload.reviewed_at = nowIso;
-        if (notesText) updatePayload.reviewer_notes = notesText;
-        logAction = "reviewed";
-    } else if (params.action === "approved") {
-        updatePayload.approved_by = user.id;
-        updatePayload.approved_at = nowIso;
-        if (notesText) updatePayload.reviewer_notes = notesText;
-        logAction = "approved";
-    } else if (params.action === "revision") {
-        updatePayload.reviewed_by = user.id;
-        updatePayload.reviewed_at = nowIso;
-        updatePayload.revision_notes = notesText;
-        logAction = "revision_requested";
-    } else if (params.action === "rejected") {
-        updatePayload.reviewed_by = user.id;
-        updatePayload.reviewed_at = nowIso;
-        updatePayload.reviewer_notes = notesText;
-        logAction = "rejected";
-    }
-
-    const { data, error } = await supabase
-        .from("reports")
-        .update(updatePayload)
-        .eq("id", params.id)
-        .select(REPORT_SELECT)
-        .single();
-
-    if (error) {
-        console.error("Error reviewing report:", error);
-        return { success: false, error: error.message };
-    }
-
-    await logReportChange({
-        reportId: params.id,
-        action: logAction,
-        performedBy: user.id,
-        notes: notesText,
-        changes: {
-            status: { old: existing.status, new: params.action },
+            status: { old: existing.status, new: "approved" },
         },
     });
 

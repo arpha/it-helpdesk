@@ -28,12 +28,12 @@ export function ReportStatsCards({
         },
         {
             key: "pending" as const,
-            title: "Dalam Proses",
+            title: "Belum Selesai",
             value: stats?.pending ?? 0,
             subtitle:
                 stats && stats.dueSoon > 0
                     ? `${stats.dueSoon} mendekati deadline (≤7 hari)`
-                    : "Pending, draft, submit & review",
+                    : "Belum selesai & sedang dikerjakan",
             icon: Clock,
             iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
             borderHover: "hover:border-amber-500/40",
@@ -53,9 +53,9 @@ export function ReportStatsCards({
         },
         {
             key: "approved" as const,
-            title: "Selesai / Disetujui",
+            title: "Selesai / Terarsip",
             value: stats?.approved ?? 0,
-            subtitle: "Laporan sudah di-approve",
+            subtitle: "Laporan sudah selesai & terarsip",
             icon: CheckCircle2,
             iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
             borderHover: "hover:border-emerald-500/40",

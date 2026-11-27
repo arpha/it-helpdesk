@@ -23,7 +23,6 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import { ReportDialog } from "../../_components/report-dialog";
 import { ReportDetailDialog } from "../../_components/report-detail-dialog";
-import { ReportReviewDialog } from "../../_components/report-review-dialog";
 import {
     REPORT_STATUS_CONFIG,
     getDeadlineInfo,
@@ -82,8 +81,6 @@ export function CalendarClient() {
     const [reportToEdit, setReportToEdit] = useState<Report | null>(null);
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-    const [reviewOpen, setReviewOpen] = useState(false);
-    const [reportToReview, setReportToReview] = useState<Report | null>(null);
 
     const invalidateReports = useInvalidateReports();
     const { data: categories = [] } = useReportCategories();
@@ -457,26 +454,13 @@ export function CalendarClient() {
                 open={detailOpen}
                 onOpenChange={setDetailOpen}
                 reportId={selectedReportId}
-                canReview={isAdminOrManager}
+                canSendWa={isAdminOrManager}
                 onEdit={(rep) => {
                     setReportToEdit(rep);
                     setFormOpen(true);
                 }}
-                onReview={(rep) => {
-                    setReportToReview(rep);
-                    setReviewOpen(true);
-                }}
                 onUpdated={invalidateReports}
             />
-
-            {isAdminOrManager && (
-                <ReportReviewDialog
-                    open={reviewOpen}
-                    onOpenChange={setReviewOpen}
-                    report={reportToReview}
-                    onSuccess={invalidateReports}
-                />
-            )}
         </div>
     );
 }

@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useReportDetail } from "@/hooks/api/use-reports";
-import { sendManualReportReminder, submitReport } from "../actions";
+import { markReportCompleted, sendManualReportReminder } from "../actions";
 import { toast } from "sonner";
 import {
     ArrowRight,
@@ -26,10 +26,8 @@ import {
     FileText,
     History,
     Loader2,
-    Send,
     ShieldCheck,
     User,
-    AlertCircle,
 } from "lucide-react";
 import {
     CATEGORY_COLOR_CLASSES,
@@ -50,9 +48,8 @@ interface ReportDetailDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     reportId: string | null;
-    canReview: boolean;
+    canSendWa: boolean;
     onEdit: (report: Report) => void;
-    onReview: (report: Report) => void;
     onUpdated: () => void;
 }
 
@@ -89,13 +86,12 @@ export function ReportDetailDialog({
     open,
     onOpenChange,
     reportId,
-    canReview,
+    canSendWa,
     onEdit,
-    onReview,
     onUpdated,
 }: ReportDetailDialogProps) {
     const { data, isLoading, refetch } = useReportDetail(open ? reportId : null);
-    const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+    const [isCompleting, setIsCompleting] = useState(false);
     const [isSendingWa, setIsSendingWa] = useState(false);
 
     const report = data?.report;
@@ -118,20 +114,20 @@ export function ReportDetailDialog({
         }
     };
 
-    const handleQuickSubmit = async () => {
+    const handleMarkCompleted = async () => {
         if (!report) return;
-        setIsSubmittingReport(true);
+        setIsCompleting(true);
         try {
-            const res = await submitReport(report.id);
+            const res = await markReportCompleted(report.id);
             if (res.success) {
-                toast.success("Laporan berhasil disubmit untuk direview.");
+                toast.success("Laporan berhasil ditandai selesai & terarsip.");
                 await refetch();
                 onUpdated();
             } else {
-                toast.error(res.error || "Gagal mensubmit laporan.");
+                toast.error(res.error || "Gagal menandai laporan selesai.");
             }
         } finally {
-            setIsSubmittingReport(false);
+            setIsCompleting(false);
         }
     };
 
@@ -142,9 +138,7 @@ export function ReportDetailDialog({
         ? getDeadlineInfo(report.deadline, effectiveStatus)
         : null;
 
-    const canQuickSubmit =
-        report &&
-        ["pending", "draft", "revision", "overdue"].includes(effectiveStatus);
+    const canMarkCompleted = report && effectiveStatus !== "approved";
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -273,14 +267,12 @@ export function ReportDetailDialog({
 
                                     <div className="space-y-0.5">
                                         <p className="text-xs text-muted-foreground">
-                                            Waktu Submit / Approve
+                                            Waktu Selesai
                                         </p>
                                         <p className="text-xs font-medium">
                                             {report.approved_at
-                                                ? `Disetujui: ${formatDateTimeID(report.approved_at)}`
-                                                : report.submitted_at
-                                                  ? `Disubmit: ${formatDateTimeID(report.submitted_at)}`
-                                                  : "Belum disubmit"}
+                                                ? formatDateTimeID(report.approved_at)
+                                                : "Belum selesai"}
                                         </p>
                                     </div>
                                 </div>
@@ -293,33 +285,6 @@ export function ReportDetailDialog({
                                         <p className="text-sm whitespace-pre-wrap rounded-lg border p-3 bg-background">
                                             {report.description}
                                         </p>
-                                    </div>
-                                )}
-
-                                {/* Catatan Revisi / Reviewer */}
-                                {(report.revision_notes || report.reviewer_notes) && (
-                                    <div className="space-y-2">
-                                        {report.revision_notes && (
-                                            <div className="rounded-lg border border-orange-500/40 bg-orange-500/10 p-3 text-sm">
-                                                <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 flex items-center gap-1.5 mb-1">
-                                                    <AlertCircle className="h-3.5 w-3.5" />
-                                                    Catatan Revisi
-                                                </p>
-                                                <p className="whitespace-pre-wrap text-xs">
-                                                    {report.revision_notes}
-                                                </p>
-                                            </div>
-                                        )}
-                                        {report.reviewer_notes && (
-                                            <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm">
-                                                <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-1">
-                                                    Catatan Reviewer / Approver
-                                                </p>
-                                                <p className="whitespace-pre-wrap text-xs">
-                                                    {report.reviewer_notes}
-                                                </p>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
 
@@ -491,9 +456,9 @@ export function ReportDetailDialog({
 
                         {/* Action Bar */}
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                            {canReview &&
+                            {canSendWa &&
                                 report.assigned_to &&
-                                !["approved", "rejected"].includes(effectiveStatus) && (
+                                effectiveStatus !== "approved" && (
                                     <Button
                                         variant="outline"
                                         onClick={handleSendWaReminder}
@@ -509,21 +474,6 @@ export function ReportDetailDialog({
                                     </Button>
                                 )}
 
-                            {canQuickSubmit && (
-                                <Button
-                                    variant="secondary"
-                                    onClick={handleQuickSubmit}
-                                    disabled={isSubmittingReport}
-                                >
-                                    {isSubmittingReport ? (
-                                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                                    ) : (
-                                        <Send className="h-4 w-4 mr-1.5" />
-                                    )}
-                                    Submit Laporan
-                                </Button>
-                            )}
-
                             <Button
                                 variant="outline"
                                 onClick={() => {
@@ -535,15 +485,17 @@ export function ReportDetailDialog({
                                 Edit
                             </Button>
 
-                            {canReview && (
+                            {canMarkCompleted && (
                                 <Button
-                                    onClick={() => {
-                                        onOpenChange(false);
-                                        onReview(report);
-                                    }}
+                                    onClick={handleMarkCompleted}
+                                    disabled={isCompleting}
                                 >
-                                    <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                                    Review / Approve
+                                    {isCompleting ? (
+                                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                                    ) : (
+                                        <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                                    )}
+                                    Tandai Selesai
                                 </Button>
                             )}
                         </div>

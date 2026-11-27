@@ -165,42 +165,55 @@ export interface ReportFilterParams {
     pageSize?: number;
 }
 
+export const SIMPLE_REPORT_STATUSES: ReportStatus[] = [
+    "pending",
+    "draft",
+    "approved",
+    "overdue",
+];
+
+export const FORM_REPORT_STATUSES: { value: ReportStatus; label: string }[] = [
+    { value: "pending", label: "Belum Selesai" },
+    { value: "draft", label: "Sedang Dikerjakan" },
+    { value: "approved", label: "Selesai (Terarsip)" },
+];
+
 export const REPORT_STATUS_CONFIG: Record<
     ReportStatus,
     { label: string; badgeClass: string; dotClass: string }
 > = {
     pending: {
-        label: "Pending",
+        label: "Belum Selesai",
         badgeClass: "bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/30",
         dotClass: "bg-slate-500",
     },
     draft: {
-        label: "Draft",
+        label: "Sedang Dikerjakan",
         badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
         dotClass: "bg-amber-500",
     },
     submitted: {
-        label: "Submitted",
+        label: "Terkumpul",
         badgeClass: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30",
         dotClass: "bg-sky-500",
     },
     review: {
-        label: "Direview",
+        label: "Diproses",
         badgeClass: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30",
         dotClass: "bg-indigo-500",
     },
     revision: {
-        label: "Perlu Revisi",
+        label: "Perlu Diperbarui",
         badgeClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30",
         dotClass: "bg-orange-500",
     },
     approved: {
-        label: "Disetujui",
+        label: "Selesai",
         badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
         dotClass: "bg-emerald-500",
     },
     rejected: {
-        label: "Ditolak",
+        label: "Dibatalkan",
         badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30",
         dotClass: "bg-rose-500",
     },
@@ -322,7 +335,7 @@ export const REPORT_LOG_ACTION_LABELS: Record<
         badgeClass: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
     },
     approved: {
-        label: "Disetujui",
+        label: "Ditandai Selesai",
         dotClass: "bg-emerald-600",
         badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
     },
